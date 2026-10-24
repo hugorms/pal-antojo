@@ -122,7 +122,9 @@ legend { font-weight: 800; margin-bottom: 6px; padding: 0; }
   padding: 14px; cursor: pointer; text-align: center; text-decoration: none; display: block;
 }
 .ghost { border: 1.5px solid var(--fg); background: transparent; color: var(--fg); border-radius: 12px; padding: 10px; font: 700 .95rem var(--body); cursor: pointer; }
-.loc { justify-self: start; padding: 8px 14px; font-size: .9rem; }
+.locField { margin: 18px 0 22px; padding: 14px; border: 1.5px dashed var(--muted); border-radius: 14px; }
+.locLabel { font-weight: 700; font-size: .9rem; }
+.loc { width: 100%; padding: 12px 14px; font-size: .95rem; }
 .loc[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
 pre.msg { white-space: pre-wrap; background: var(--chip); padding: 12px; border-radius: 10px; font: 600 .85rem var(--body); margin: 0; }
 
@@ -185,8 +187,9 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
       <legend>Tus datos</legend>
       <div class="field"><label for="nombre">Nombre</label><input type="text" id="nombre" autocomplete="name" placeholder="Ej. María Pérez"></div>
       <div class="field"><label for="telefono">Teléfono</label><input type="tel" id="telefono" autocomplete="tel" placeholder="Ej. 0414 123 4567"></div>
-      <div class="field" id="dirField"><label for="direccion">Dirección o punto de referencia</label><textarea id="direccion" rows="2" placeholder="Ej. Las Manzanas, calle 3, casa 12, frente a la bodega"></textarea>
-        <button type="button" class="ghost loc" id="loc">Usar mi ubicación actual</button>
+      <div class="field" id="dirField"><label for="direccion">Dirección o punto de referencia</label><textarea id="direccion" rows="2" placeholder="Ej. Las Manzanas, calle 3, casa 12, frente a la bodega"></textarea></div>
+      <div class="field locField" id="locField"><span class="locLabel">Tu ubicación en el mapa (recomendado)</span>
+        <button type="button" class="ghost loc" id="loc">📍 Usar mi ubicación actual</button>
         <p class="notice" id="locMsg" hidden></p></div>
       <div class="field"><label for="nota">Nota (opcional)</label><input type="text" id="nota" placeholder="Ej. sin cebolla, poca azúcar"></div>
     </fieldset>
@@ -468,11 +471,11 @@ function bindSeg(id, set) {
   }));
 }
 bindSeg("entregaSeg", v => {
-  entrega = v; $("#dirField").hidden = v !== "Delivery"; $("#deliveryNote").hidden = v !== "Delivery";
+  entrega = v; $("#dirField").hidden = v !== "Delivery"; $("#locField").hidden = v !== "Delivery"; $("#deliveryNote").hidden = v !== "Delivery";
   // Si lo va a buscar, se borra la ubicación para que no viaje en el pedido
   if (v !== "Delivery" && ubicacion) {
     ubicacion = ""; $("#locMsg").hidden = true;
-    $("#loc").setAttribute("aria-pressed", "false"); $("#loc").textContent = "Usar mi ubicación actual";
+    $("#loc").setAttribute("aria-pressed", "false"); $("#loc").textContent = "📍 Usar mi ubicación actual";
   }
 });
 bindSeg("pagoSeg", v => pago = v);
@@ -486,7 +489,7 @@ $("#loc").addEventListener("click", () => {
       const { latitude: la, longitude: lo } = pos.coords;
       ubicacion = `https://maps.google.com/?q=${la.toFixed(6)},${lo.toFixed(6)}`;
       msg.textContent = "Ubicación agregada al pedido. Si quieres, agrega un punto de referencia arriba.";
-      $("#loc").setAttribute("aria-pressed", "true"); $("#loc").textContent = "Ubicación agregada";
+      $("#loc").setAttribute("aria-pressed", "true"); $("#loc").textContent = "✓ Ubicación agregada";
       updateSend();
     }, fail, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   } catch (_) { fail(); }
