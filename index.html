@@ -102,13 +102,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 #pedido { margin-top: 34px; background: var(--surface); border: 2px solid var(--fg); border-radius: 18px; padding: 16px; display: grid; gap: 14px; }
 #pedido h2 { margin: 0; }
 .empty { color: var(--muted); margin: 0; }
-.line { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding-block: 8px; border-bottom: 1px dashed var(--line); }
+.line { display: grid; grid-template-columns: 56px 1fr auto; gap: 4px 12px; align-items: center; padding-block: 8px; border-bottom: 1px dashed var(--line); }
 .line .nm { font-weight: 800; min-width: 0; }
-.line .sub { color: var(--muted); font-size: .85rem; grid-column: 1; }
+.line .sub { color: var(--muted); font-size: .85rem; grid-column: 2; }
+.line .nm { grid-column: 2; }
+.line .qty { grid-column: 3; grid-row: 1 / span 2; }
+.th { grid-column: 1; grid-row: 1 / span 3; align-self: start; width: 56px; height: 56px; border-radius: 12px; background: var(--brand); display: grid; place-items: center; font-size: 1.7rem; overflow: hidden; position: relative; }
+.th img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .line .off { color: var(--danger); font-weight: 700; }
 .qty { display: inline-flex; align-items: center; gap: 8px; grid-row: span 2; }
 .qty button { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--fg); background: transparent; color: var(--fg); font: 700 1.1rem var(--body); cursor: pointer; }
 .qty span { min-width: 1.4em; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dline { display: flex; justify-content: space-between; color: var(--muted); font-size: .95rem; margin: 2px 0 6px; }
 .total { display: flex; justify-content: space-between; font-family: var(--display); font-size: 1.3rem; font-weight: 700; }
 fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
 legend { font-weight: 800; margin-bottom: 6px; padding: 0; }
@@ -170,6 +175,8 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
   <section id="pedido" aria-labelledby="pedidoTitle">
     <h2 id="pedidoTitle">Tu pedido</h2>
     <div id="lines"></div>
+    <div class="dline" id="subLine" hidden><span>Productos</span><span id="subtotal"></span></div>
+    <div class="dline" id="delivLine" hidden><span id="delivTxt">Delivery</span><span id="delivAmt"></span></div>
     <div class="total"><span>Total</span><span id="total">0,00 $</span></div>
 
     <fieldset>
@@ -180,7 +187,7 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
           <button type="button" data-v="Retiro en el local" aria-pressed="false">Lo busco</button>
         </div>
       </div>
-      <p class="notice" id="deliveryNote">El costo del delivery depende de la zona. Te lo confirmamos por WhatsApp.</p>
+      <p class="notice" id="deliveryNote">Delivery: 1 $ hasta 3 km, y 0,25 $ más por cada km después. Toca 📍 abajo y te lo calculamos.</p>
     </fieldset>
 
     <fieldset>
@@ -219,6 +226,9 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
 <script>
 // Número de WhatsApp del local, con código de país y sin "+" (ej. 584141234567). Vacío = el cliente escoge el chat.
 const WHATSAPP = "584168150286";
+// Delivery: ubicación del local (lat, lng). Mientras esté en null, el delivery sale "por confirmar".
+const LOCAL = null;
+const DELIVERY = { base: 1, kmBase: 3, porKm: 0.25, kmMax: 10, calles: 1.3 };
 
 const JUGOS_A = ["Parchita","Mango","Patilla","Melón","Piña","Lechosa","Tamarindo","Guayaba","Limonada","Papelón con limón"];
 const JUGOS_B = ["Fresa","Mora","Guanábana","Naranja"];
@@ -309,6 +319,23 @@ let turno = "dia";
 let entrega = "Delivery";
 let pago = "Pago móvil";
 let ubicacion = "";
+let distKm = null;
+
+function kmHasta(la, lo) {
+  const r = x => x * Math.PI / 180, R = 6371;
+  const a = Math.sin(r(la - LOCAL.lat) / 2) ** 2 + Math.cos(r(LOCAL.lat)) * Math.cos(r(la)) * Math.sin(r(lo - LOCAL.lng) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a)) * DELIVERY.calles;
+}
+// Costo del delivery: null si no se puede calcular (sin ubicación o fuera de zona)
+function costoDelivery() {
+  if (entrega !== "Delivery" || distKm === null || distKm > DELIVERY.kmMax) return null;
+  return DELIVERY.base + Math.max(0, Math.ceil(distKm - DELIVERY.kmBase)) * DELIVERY.porKm;
+}
+function textoDelivery() {
+  if (distKm !== null && distKm > DELIVERY.kmMax) return "fuera de zona, te confirmamos por WhatsApp";
+  return "por confirmar";
+}
+const kmTxt = () => distKm.toFixed(1).replace(".", ",") + " km";
 
 function caracasNow() {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Caracas", weekday: "short", hour: "numeric", hour12: false }).formatToParts(new Date());
@@ -368,6 +395,9 @@ function itemHTML(it, disabled) {
     <button type="button" class="add" ${disabled ? "disabled" : ""}>Agregar</button>
   </article>`;
 }
+// Foto de cada producto: fotos/<id>.jpg. Mientras no exista, sale el dibujito de su categoría.
+const ICONO = { "Empanadas": "🥟", "Papas rellenas y pastelitos": "🥔", "Hamburguesas": "🍔", "Papas y tequeños": "🍟", "Ensaladas": "🥗", "Jugos y frapés": "🧃", "Café caliente": "☕", "Café frío": "🧋", "Postres": "🍰", "Bebidas": "🥤" };
+function catDe(it) { for (const t of ["dia","noche"]) for (const g of MENU[t]) if (g.items.includes(it)) return g.cat; return ""; }
 function grupoDe(it) { for (const t of ["dia","noche"]) for (const g of MENU[t]) if (g.items.includes(it)) return SIEMPRE.includes(g) ? null : t; return null; }
 function findItem(id) { for (const g of MENU[turno]) for (const it of g.items) if (it.id === id) return it; }
 function bindItem(el) {
@@ -391,7 +421,7 @@ function bindItem(el) {
     const key = it.id + "|" + parts.join("|");
     const unit = itemPrice(it, sel);
     const found = cart.find(l => l.key === key);
-    if (found) found.qty++; else cart.push({ key, name: nombre, detail: parts.join(" · "), unit, qty: 1, turno: grupoDe(it) });
+    if (found) found.qty++; else cart.push({ key, id: it.id, cat: catDe(it), name: nombre, detail: parts.join(" · "), unit, qty: 1, turno: grupoDe(it) });
     renderCart(true);
   });
 }
@@ -402,6 +432,7 @@ function renderCart(bump) {
   const fuera = cart.filter(l => l.turno && !puedePedir(l.turno));
   $("#lines").innerHTML = cart.length ? cart.map((l, i) => `
     <div class="line">
+      <span class="th" aria-hidden="true">${ICONO[l.cat] || "🍽️"}<img src="fotos/${l.id}.jpg" alt="" onerror="this.remove()"></span>
       <span class="nm">${l.name} · ${fmt(l.unit * l.qty)}</span>
       <span class="qty"><button type="button" aria-label="Quitar uno" data-i="${i}" data-d="-1">−</button><span>${l.qty}</span><button type="button" aria-label="Agregar uno" data-i="${i}" data-d="1">+</button></span>
       ${l.detail ? `<span class="sub">${l.detail}</span>` : ""}
@@ -414,9 +445,14 @@ function renderCart(bump) {
     if (l.qty <= 0) cart.splice(+b.dataset.i, 1);
     renderCart();
   }));
-  $("#total").textContent = fmt(total);
+  const dv = costoDelivery(), conDeliv = entrega === "Delivery" && cart.length > 0;
+  $("#subLine").hidden = $("#delivLine").hidden = !conDeliv;
+  $("#subtotal").textContent = fmt(total);
+  $("#delivTxt").textContent = dv !== null ? `Delivery (${kmTxt()})` : "Delivery";
+  $("#delivAmt").textContent = dv !== null ? fmt(dv) : textoDelivery();
+  $("#total").textContent = fmt(total + (dv || 0));
   $("#barCount").textContent = count;
-  $("#barTotal").textContent = fmt(total);
+  $("#barTotal").textContent = fmt(total + (dv || 0));
   $("#bar").hidden = count === 0;
   if (bump) { const b = $("#barTotal"); b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump"); }
   updateSend();
@@ -425,7 +461,11 @@ function renderCart(bump) {
 function buildMessage() {
   const total = cart.reduce((a, l) => a + l.qty * l.unit, 0);
   const lines = cart.map(l => `• ${l.qty} × ${l.name}${l.detail ? " (" + l.detail + ")" : ""} · ${fmt(l.unit * l.qty)}`);
-  const out = ["Hola, Pa'l Antojo. Quiero hacer este pedido:", "", ...lines, "", `Total: ${fmt(total)}`, `Entrega: ${entrega}`, `Nombre: ${$("#nombre").value.trim()}`, `Teléfono: ${$("#telefono").value.trim()}`];
+  const dv = costoDelivery();
+  const cuentas = entrega === "Delivery"
+    ? [`Productos: ${fmt(total)}`, dv !== null ? `Delivery (${kmTxt()}): ${fmt(dv)}` : `Delivery: ${textoDelivery()}`, `Total: ${fmt(total + (dv || 0))}${dv === null ? " + delivery" : ""}`]
+    : [`Total: ${fmt(total)}`];
+  const out = ["Hola, Pa'l Antojo. Quiero hacer este pedido:", "", ...lines, "", ...cuentas, `Entrega: ${entrega}`, `Nombre: ${$("#nombre").value.trim()}`, `Teléfono: ${$("#telefono").value.trim()}`];
   if (entrega === "Delivery") {
     const dir = $("#direccion").value.trim();
     if (dir) out.push(`Dirección: ${dir}`);
@@ -474,9 +514,10 @@ bindSeg("entregaSeg", v => {
   entrega = v; $("#dirField").hidden = v !== "Delivery"; $("#locField").hidden = v !== "Delivery"; $("#deliveryNote").hidden = v !== "Delivery";
   // Si lo va a buscar, se borra la ubicación para que no viaje en el pedido
   if (v !== "Delivery" && ubicacion) {
-    ubicacion = ""; $("#locMsg").hidden = true;
+    ubicacion = ""; distKm = null; $("#locMsg").hidden = true;
     $("#loc").setAttribute("aria-pressed", "false"); $("#loc").textContent = "📍 Usar mi ubicación actual";
   }
+  renderCart();
 });
 bindSeg("pagoSeg", v => pago = v);
 $("#loc").addEventListener("click", () => {
@@ -488,6 +529,8 @@ $("#loc").addEventListener("click", () => {
     navigator.geolocation.getCurrentPosition(pos => {
       const { latitude: la, longitude: lo } = pos.coords;
       ubicacion = `https://maps.google.com/?q=${la.toFixed(6)},${lo.toFixed(6)}`;
+      if (LOCAL) distKm = kmHasta(la, lo);
+      renderCart();
       msg.textContent = "Ubicación agregada al pedido. Si quieres, agrega un punto de referencia arriba.";
       $("#loc").setAttribute("aria-pressed", "true"); $("#loc").textContent = "✓ Ubicación agregada";
       updateSend();
