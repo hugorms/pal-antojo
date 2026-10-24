@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pa'l Antojo Pedidos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: una columna para teléfono, menú arriba, barra fija del pedido abajo */
+:root {
+  --brand: #F2B705;
+  --ink: #1A1A1A;
+  --bg: #FFFBEF;
+  --surface: #FFFFFF;
+  --fg: #1A1A1A;
+  --muted: #6B6B6B;
+  --line: #EDE3C4;
+  --chip: #FFF3C9;
+  --on-brand: #1A1A1A;
+  --danger: #B3261E;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141310; --surface: #1F1E1A; --fg: #F6F1E3; --muted: #B4AE9E;
+    --line: #34312A; --chip: #2C2918; --danger: #F2B8B5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141310; --surface: #1F1E1A; --fg: #F6F1E3; --muted: #B4AE9E;
+  --line: #34312A; --chip: #2C2918; --danger: #F2B8B5; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 140px;
+}
+.wrap { max-width: 640px; margin: 0 auto; }
+header.hero {
+  background: var(--brand); color: var(--on-brand);
+  margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  padding: 22px max(16px, env(safe-area-inset-left, 0px)) 18px;
+}
+.hero .wrap { display: flex; gap: 14px; align-items: center; }
+.logo { width: 58px; height: 58px; flex: none; }
+.hero h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; margin: 0; line-height: 1; }
+.hero p { margin: 4px 0 0; font-weight: 600; font-size: .95rem; }
+.status {
+  margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: .92rem;
+  background: var(--ink); color: var(--brand);
+}
+.tabs { display: flex; gap: 8px; margin: 18px 0 6px; position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); padding-block: 8px; z-index: 5; }
+.tab {
+  flex: 1; font: 600 1rem var(--display); padding: 10px 12px; border-radius: 999px; cursor: pointer;
+  border: 2px solid var(--fg); background: transparent; color: var(--fg);
+}
+.tab[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+.tab small { display: block; font: 600 .72rem var(--body); opacity: .8; }
+.notice { color: var(--muted); font-size: .9rem; margin: 6px 0 0; }
+.cats { display: flex; gap: 8px; overflow-x: auto; padding-block: 6px 2px; scrollbar-width: none; }
+.cats a {
+  flex: none; text-decoration: none; color: var(--fg); background: var(--chip); padding: 6px 12px;
+  border-radius: 999px; font-weight: 700; font-size: .85rem;
+}
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; margin: 26px 0 10px; text-wrap: balance; }
+.items { display: grid; gap: 10px; }
+.item {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  display: grid; gap: 8px;
+}
+.item-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.item h3 { margin: 0; font-size: 1.02rem; font-weight: 800; }
+.item .desc { margin: 2px 0 0; color: var(--muted); font-size: .88rem; }
+.price { font-family: var(--display); font-weight: 600; font-size: 1.1rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden; }
+.seg button {
+  border: 0; background: transparent; color: var(--fg); font: 700 .85rem var(--body); padding: 6px 12px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+select, input[type="text"], input[type="tel"], textarea {
+  font: 600 .95rem var(--body); color: var(--fg); background: var(--bg); border: 1.5px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; max-width: 100%;
+}
+label.check { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; font-size: .88rem; cursor: pointer; }
+.add {
+  justify-self: end; border: 0; border-radius: 999px; background: var(--ink); color: var(--brand);
+  font: 600 .95rem var(--display); padding: 8px 18px; cursor: pointer;
+}
+:root[data-theme="dark"] .add { background: var(--brand); color: var(--on-brand); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .add { background: var(--brand); color: var(--on-brand); } }
+.add:disabled { opacity: .4; cursor: not-allowed; }
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+/* Pedido */
+#pedido { margin-top: 34px; background: var(--surface); border: 2px solid var(--fg); border-radius: 18px; padding: 16px; display: grid; gap: 14px; }
+#pedido h2 { margin: 0; }
+.empty { color: var(--muted); margin: 0; }
+.line { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding-block: 8px; border-bottom: 1px dashed var(--line); }
+.line .nm { font-weight: 800; min-width: 0; }
+.line .sub { color: var(--muted); font-size: .85rem; grid-column: 1; }
+.line .off { color: var(--danger); font-weight: 700; }
+.qty { display: inline-flex; align-items: center; gap: 8px; grid-row: span 2; }
+.qty button { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--fg); background: transparent; color: var(--fg); font: 700 1.1rem var(--body); cursor: pointer; }
+.qty span { min-width: 1.4em; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+.total { display: flex; justify-content: space-between; font-family: var(--display); font-size: 1.3rem; font-weight: 700; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+legend { font-weight: 800; margin-bottom: 6px; padding: 0; }
+.field { display: grid; gap: 4px; }
+.field label { font-weight: 700; font-size: .88rem; }
+.field input, .field textarea { width: 100%; }
+.err { color: var(--danger); font-weight: 700; font-size: .9rem; margin: 0; }
+.send {
+  border: 0; border-radius: 14px; background: #25D366; color: #0B2E17; font: 700 1.1rem var(--display);
+  padding: 14px; cursor: pointer; text-align: center; text-decoration: none; display: block;
+}
+.ghost { border: 1.5px solid var(--fg); background: transparent; color: var(--fg); border-radius: 12px; padding: 10px; font: 700 .95rem var(--body); cursor: pointer; }
+.loc { justify-self: start; padding: 8px 14px; font-size: .9rem; }
+.loc[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+pre.msg { white-space: pre-wrap; background: var(--chip); padding: 12px; border-radius: 10px; font: 600 .85rem var(--body); margin: 0; }
+
+/* Barra fija */
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: var(--ink); color: #FFFFFF;
+}
+.bar .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.bar b { font-family: var(--display); font-size: 1.15rem; color: var(--brand); font-variant-numeric: tabular-nums; }
+.bar a { background: var(--brand); color: var(--ink); text-decoration: none; font: 600 1rem var(--display); padding: 10px 18px; border-radius: 999px; }
+footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: center; }
+@media (prefers-reduced-motion: no-preference) { .bump { animation: bump .25s ease; } @keyframes bump { 50% { transform: scale(1.08); } } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="31" fill="#1A1A1A"/>
+      <path d="M13 41c-1-12 10-23 22-22 8 1 14 7 16 14l-33 10c-2 0-4 0-5-2z" fill="none" stroke="#F2B705" stroke-width="3.4" stroke-linejoin="round"/>
+      <path d="M22 33c2-5 7-7 12-6" fill="none" stroke="#F2B705" stroke-width="3.4" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>Pa'l Antojo</h1>
+      <p>Campo de Carabobo · Las Manzanas</p>
+    </div>
+  </div>
+  <div class="wrap"><p class="status" id="status">Revisando el horario…</p></div>
+</header>
+
+<main class="wrap">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-dia" data-turno="dia">De día<small>Empanadas · 6 am – 3 pm</small></button>
+    <button class="tab" role="tab" id="tab-noche" data-turno="noche">De noche<small>Hamburguesas · jue a dom 3 pm – 12 am</small></button>
+  </div>
+  <p class="notice" id="turnoNotice"></p>
+  <nav class="cats" id="cats" aria-label="Categorías"></nav>
+  <div id="menu"></div>
+
+  <section id="pedido" aria-labelledby="pedidoTitle">
+    <h2 id="pedidoTitle">Tu pedido</h2>
+    <div id="lines"></div>
+    <div class="total"><span>Total</span><span id="total">0,00 $</span></div>
+
+    <fieldset>
+      <legend>¿Cómo lo quieres?</legend>
+      <div class="opts">
+        <div class="seg" id="entregaSeg">
+          <button type="button" data-v="Retiro en el local" aria-pressed="true">Lo busco</button>
+          <button type="button" data-v="Delivery" aria-pressed="false">Delivery</button>
+        </div>
+      </div>
+      <p class="notice" id="deliveryNote" hidden>El costo del delivery depende de la zona. Te lo confirmamos por WhatsApp.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tus datos</legend>
+      <div class="field"><label for="nombre">Nombre</label><input type="text" id="nombre" autocomplete="name" placeholder="Ej. María Pérez"></div>
+      <div class="field"><label for="telefono">Teléfono</label><input type="tel" id="telefono" autocomplete="tel" placeholder="Ej. 0414 123 4567"></div>
+      <div class="field" id="dirField" hidden><label for="direccion">Dirección o punto de referencia</label><textarea id="direccion" rows="2" placeholder="Ej. Las Manzanas, calle 3, casa 12, frente a la bodega"></textarea>
+        <button type="button" class="ghost loc" id="loc">Usar mi ubicación actual</button>
+        <p class="notice" id="locMsg" hidden></p></div>
+      <div class="field"><label for="nota">Nota (opcional)</label><input type="text" id="nota" placeholder="Ej. sin cebolla, poca azúcar"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Forma de pago</legend>
+      <div class="seg" id="pagoSeg">
+        <button type="button" data-v="Pago móvil" aria-pressed="true">Pago móvil</button>
+        <button type="button" data-v="Efectivo $" aria-pressed="false">Efectivo $</button>
+        <button type="button" data-v="Efectivo Bs" aria-pressed="false">Efectivo Bs</button>
+      </div>
+    </fieldset>
+
+    <p class="err" id="err" hidden></p>
+    <a class="send" id="send" href="#" target="_blank" rel="noopener">Enviar pedido por WhatsApp</a>
+    <button type="button" class="ghost" id="copy">Copiar el pedido</button>
+    <pre class="msg" id="preview" hidden></pre>
+  </section>
+
+  <footer>Precios en dólares en efectivo. Pago móvil y bolívares a la tasa del día.</footer>
+</main>
+
+<div class="bar" id="bar" hidden>
+  <div class="wrap"><span><span id="barCount">0</span> productos · <b id="barTotal">0,00 $</b></span><a href="#pedido">Ver pedido</a></div>
+</div>
+
+<script>
+// Número de WhatsApp del local, con código de país y sin "+" (ej. 584141234567). Vacío = el cliente escoge el chat.
+const WHATSAPP = "584168150286";
+
+const JUGOS_A = ["Parchita","Mango","Patilla","Melón","Piña","Lechosa","Tamarindo","Guayaba","Limonada","Papelón con limón"];
+const JUGOS_B = ["Fresa","Mora","Guanábana","Naranja"];
+const JUGOS_C = ["Tropical Antojo (piña, naranja, parchita)","Tres en uno","Verde","Fresa-naranja","Mango-parchita","Lechosa-naranja","Patilla-limón con hierbabuena","Mora-fresa"];
+const FRAPE = [{ label: "Frapé", price: 0.5 }];
+const BEBIDAS = { cat: "Bebidas", items: [
+  { id: "malta", name: "Malta", price: 1.25 },
+  { id: "refresco", name: "Refresco personal", price: 1.5 },
+  { id: "agua", name: "Agua mineral", price: 1.0 },
+]};
+const JUGOS = { cat: "Jugos y frapés", items: [
+  { id: "jugoA", name: "Jugo natural", desc: JUGOS_A.join(", "), flavors: JUGOS_A, sizes: [["12 oz",1.0],["16 oz",1.5]], extras: FRAPE },
+  { id: "jugoB", name: "Jugo especial", desc: JUGOS_B.join(", "), flavors: JUGOS_B, sizes: [["12 oz",1.5],["16 oz",2.0]], extras: FRAPE },
+  { id: "jugoC", name: "Combinación de la casa", desc: "Mezclas de la casa", flavors: JUGOS_C, sizes: [["12 oz",1.75],["16 oz",2.25]], extras: FRAPE },
+]};
+
+const CAFE = { cat: "Café caliente", items: [
+      { id: "c-negrito", name: "Negrito o guayoyo", flavors: ["Negrito","Guayoyo"], sizes: [["4 oz",0.75],["8 oz",1.25]] },
+      { id: "c-marron", name: "Marrón", sizes: [["4 oz",1.0],["8 oz",1.5]] },
+      { id: "c-marronc", name: "Marrón claro", sizes: [["4 oz",1.0],["8 oz",1.75]] },
+      { id: "c-leche", name: "Café con leche o capuchino", flavors: ["Café con leche","Capuchino"], sizes: [["4 oz",1.25],["8 oz",2.0]] },
+      { id: "c-moka", name: "Moka o Café Pa'l Antojo", flavors: ["Moka","Café Pa'l Antojo"], sizes: [["4 oz",1.5],["8 oz",2.25]] },
+    ]};
+const CAFE_FRIO = { cat: "Café frío", items: [
+      { id: "cf-frio", name: "Café frío", sizes: [["12 oz",2.0],["16 oz",3.0]] },
+      { id: "cf-frappe", name: "Frappé de café", sizes: [["12 oz",2.75],["16 oz",3.5]] },
+      { id: "cf-moka", name: "Moka frappé", desc: "Con Savoy", sizes: [["12 oz",3.25],["16 oz",4.25]] },
+    ]};
+const POSTRES = { cat: "Postres", items: [
+  { id: "teq-guayaba", name: "Tequeño de guayaba", desc: "Por unidad", price: 0.5 },
+  { id: "teq-nutella", name: "Tequeño de Nutella", desc: "Por unidad", price: 0.75 },
+]};
+// Lo que se vende todo el día, de día y de noche
+const SIEMPRE = [JUGOS, CAFE, CAFE_FRIO, POSTRES, BEBIDAS];
+
+const MENU = {
+  dia: [
+    { cat: "Empanadas", items: [
+      { id: "e-queso", name: "Queso", desc: "Queso blanco", price: 1.5 },
+      { id: "e-domino", name: "Dominó", desc: "Caraotas y queso", price: 1.5 },
+      { id: "e-pollo", name: "Pollo", desc: "Pollo mechado", price: 1.5 },
+      { id: "e-mechada", name: "Carne mechada", desc: "Falda mechada", price: 1.5 },
+      { id: "e-pabellon", name: "Pabellón", desc: "Mechada, caraotas, plátano y queso", price: 1.5 },
+      { id: "e-jamon", name: "Jamón y queso", desc: "Jamón de pierna y queso blanco", price: 1.75 },
+      { id: "e-molida", name: "Carne molida", desc: "Carne molida guisada", price: 2.0 },
+      { id: "e-chicharron", name: "Chicharrón", desc: "Chicharrón de cerdo", price: 2.0 },
+      { id: "e-toc-queso", name: "Tocineta con queso", desc: "Tocineta dorada y queso blanco", price: 2.0 },
+      { id: "e-toc-pollo", name: "Tocineta con pollo", desc: "Tocineta y pollo mechado", price: 2.0 },
+      { id: "e-pollo-amarillo", name: "Pollo con queso amarillo", desc: "Pollo mechado y queso amarillo", price: 2.0 },
+      { id: "e-pizza", name: "Pizza", desc: "Mozzarella, jamón, salsa de tomate y orégano", price: 2.0 },
+      { id: "e-cazon", name: "Cazón", desc: "Cazón guisado", price: 2.0 },
+      { id: "e-camaron", name: "Camarón", desc: "Camarón salteado", price: 2.75 },
+      { id: "e-calamar", name: "Calamar", desc: "Calamar guisado", price: 2.75 },
+      { id: "e-pulpo", name: "Pulpo", desc: "Pulpo guisado", price: 4.0 },
+      { id: "e-gigante", name: "Pa'l Antojo gigante", desc: "4 ingredientes", price: 4.5, extras: [{ label: "Con camarón o pulpo", price: 1.5 }] },
+    ]},
+    { cat: "Papas rellenas y pastelitos", items: [
+      { id: "papa-carne", name: "Papa rellena de carne", desc: "Papa y carne molida", price: 2.25 },
+      { id: "papa-pollo", name: "Papa rellena de pollo", desc: "Papa y pollo", price: 2.25 },
+      { id: "pastelito", name: "Pastelito", flavors: ["Carne","Queso"], price: 1.0 },
+    ]},
+    ...SIEMPRE,
+  ],
+  noche: [
+    { cat: "Hamburguesas", items: [
+      { id: "h-clasica", name: "Clásica", desc: "175 g de carne, pan de batata, queso y salsa especial", price: 5.5 },
+      { id: "h-antojo", name: "Pa'l Antojo", desc: "La Clásica con 2 tocinetas y cebolla dorada", price: 7.0 },
+      { id: "h-doble", name: "Doble", desc: "2 carnes, doble queso y tocineta", price: 8.5 },
+      { id: "h-pollo", name: "De pollo", desc: "Pechuga a la plancha, queso y salsa", price: 5.5 },
+    ]},
+    { cat: "Papas y tequeños", items: [
+      { id: "papas", name: "Papas fritas", desc: "200 g", price: 1.5 },
+      { id: "papas-parm", name: "Papas con parmesano", desc: "Parmesano, ajo y perejil", price: 2.5 },
+      { id: "papas-toc", name: "Papas con queso y tocineta", desc: "250 g", price: 4.0 },
+      { id: "tequenos", name: "Tequeños de queso (6)", desc: "Con salsa", price: 4.0 },
+    ]},
+    { cat: "Ensaladas", items: [
+      { id: "cesar", name: "Ensalada César", desc: "Lechuga romana, crutones, parmesano y aderezo", price: 3.5, extras: [{ label: "Con pollo", price: 1.5 }] },
+    ]},
+    ...SIEMPRE,
+  ],
+};
+
+const fmt = n => n.toFixed(2).replace(".", ",") + " $";
+const $ = s => document.querySelector(s);
+const cart = [];
+let turno = "dia";
+let entrega = "Retiro en el local";
+let pago = "Pago móvil";
+let ubicacion = "";
+
+function caracasNow() {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Caracas", weekday: "short", hour: "numeric", hour12: false }).formatToParts(new Date());
+  const wd = parts.find(p => p.type === "weekday").value;
+  const h = parseInt(parts.find(p => p.type === "hour").value, 10) % 24;
+  return { day: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(wd), hour: h };
+}
+const nocheHoy = d => d === 0 || d >= 4;
+function estado() {
+  const { day, hour } = caracasNow();
+  if (hour >= 6 && hour < 15) return { abierto: "dia", txt: "Abierto ahora · menú de día hasta las 3:00 pm" };
+  if (hour >= 15 && nocheHoy(day)) return { abierto: "noche", txt: "Abierto ahora · menú de noche hasta las 12:00 am" };
+  const txt = hour < 6 ? "Cerrado ahora · abrimos hoy a las 6:00 am. Puedes dejar tu pedido listo." : "Cerrado ahora · abrimos mañana a las 6:00 am. Puedes dejar tu pedido listo.";
+  return { abierto: null, txt };
+}
+// Comida de día: mientras abre el día, o cerrado (se deja listo para la mañana).
+// Comida de noche: cualquier hora de jueves a domingo; antes de las 3 pm queda en espera.
+function puedePedir(t) {
+  const ab = estado().abierto;
+  if (t === "dia") return ab !== "noche";
+  return nocheHoy(caracasNow().day);
+}
+const enEsperaNoche = () => estado().abierto !== "noche";
+const HORARIO = { dia: "de día (todos los días, 6 am – 3 pm)", noche: "de noche (jueves a domingo, 3 pm – 12 am)" };
+
+function itemPrice(it, sel) {
+  let p = it.sizes ? it.sizes[sel.size][1] : it.price;
+  (it.extras || []).forEach((e, i) => { if (sel.extras[i]) p += e.price; });
+  return p;
+}
+function minPrice(it) { return it.sizes ? it.sizes[0][1] : it.price; }
+
+function renderMenu() {
+  const groups = MENU[turno];
+  const soloVer = !puedePedir(turno);
+  let aviso = "";
+  if (soloVer && turno === "noche") aviso = "Las hamburguesas se piden de jueves a domingo. Hoy puedes ver el menú, y las bebidas, el café y los postres sí los puedes agregar.";
+  else if (soloVer) aviso = "La comida de día se pide de 6 am a 3 pm. Ahora las bebidas, el café y los postres sí los puedes agregar.";
+  else if (turno === "noche" && enEsperaNoche()) aviso = "Puedes hacer tu pedido de noche desde ya. Queda en espera y lo preparamos a partir de las 3:00 pm.";
+  $("#turnoNotice").textContent = aviso;
+  $("#cats").innerHTML = groups.map((g, i) => `<a href="#cat-${turno}-${i}">${g.cat}</a>`).join("");
+  $("#menu").innerHTML = groups.map((g, gi) => `
+    <h2 id="cat-${turno}-${gi}">${g.cat}</h2>
+    <div class="items">${g.items.map(it => itemHTML(it, soloVer && !SIEMPRE.includes(g))).join("")}</div>`).join("");
+  document.querySelectorAll(".item").forEach(bindItem);
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.turno === turno)));
+}
+function itemHTML(it, disabled) {
+  const desde = it.sizes ? "desde " : "";
+  let opts = "";
+  if (it.flavors) opts += `<select aria-label="Sabor de ${it.name}" data-k="flavor">${it.flavors.map((f, i) => `<option value="${i}">${f}</option>`).join("")}</select>`;
+  if (it.sizes) opts += `<div class="seg" data-k="size">${it.sizes.map((s, i) => `<button type="button" data-i="${i}" aria-pressed="${i === 0}">${s[0]} · ${fmt(s[1])}</button>`).join("")}</div>`;
+  (it.extras || []).forEach((e, i) => { opts += `<label class="check"><input type="checkbox" data-k="extra" data-i="${i}"> ${e.label} +${fmt(e.price)}</label>`; });
+  return `<article class="item" data-id="${it.id}">
+    <div class="item-top"><div><h3>${it.name}</h3>${it.desc ? `<p class="desc">${it.desc}</p>` : ""}</div><span class="price">${desde}${fmt(minPrice(it))}</span></div>
+    ${opts ? `<div class="opts">${opts}</div>` : ""}
+    <button type="button" class="add" ${disabled ? "disabled" : ""}>Agregar</button>
+  </article>`;
+}
+function grupoDe(it) { for (const t of ["dia","noche"]) for (const g of MENU[t]) if (g.items.includes(it)) return SIEMPRE.includes(g) ? null : t; return null; }
+function findItem(id) { for (const g of MENU[turno]) for (const it of g.items) if (it.id === id) return it; }
+function bindItem(el) {
+  const it = findItem(el.dataset.id);
+  const sel = { size: 0, flavor: 0, extras: [] };
+  el.querySelectorAll('[data-k="size"] button').forEach(b => b.addEventListener("click", () => {
+    sel.size = +b.dataset.i;
+    el.querySelectorAll('[data-k="size"] button').forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  }));
+  const fs = el.querySelector('[data-k="flavor"]');
+  if (fs) fs.addEventListener("change", () => sel.flavor = +fs.value);
+  el.querySelectorAll('[data-k="extra"]').forEach(c => c.addEventListener("change", () => sel.extras[+c.dataset.i] = c.checked));
+  el.querySelector(".add").addEventListener("click", () => {
+    const parts = [];
+    if (it.flavors) parts.push(it.flavors[sel.flavor]);
+    if (it.sizes) parts.push(it.sizes[sel.size][0]);
+    (it.extras || []).forEach((e, i) => { if (sel.extras[i]) parts.push(e.label.toLowerCase()); });
+    const label = JUGOS.items.includes(it) ? "Jugo" : (MENU.dia[0].items.includes(it) ? "Empanada" : "");
+    const name = label === "Empanada" ? `Empanada de ${it.name.toLowerCase()}`.replace("de pa'l antojo gigante", "Pa'l Antojo gigante") : it.name;
+    const nombre = MENU.noche[0].items.includes(it) ? `Hamburguesa ${it.name}` : name;
+    const key = it.id + "|" + parts.join("|");
+    const unit = itemPrice(it, sel);
+    const found = cart.find(l => l.key === key);
+    if (found) found.qty++; else cart.push({ key, name: nombre, detail: parts.join(" · "), unit, qty: 1, turno: grupoDe(it) });
+    renderCart(true);
+  });
+}
+
+function renderCart(bump) {
+  const count = cart.reduce((a, l) => a + l.qty, 0);
+  const total = cart.reduce((a, l) => a + l.qty * l.unit, 0);
+  const fuera = cart.filter(l => l.turno && !puedePedir(l.turno));
+  $("#lines").innerHTML = cart.length ? cart.map((l, i) => `
+    <div class="line">
+      <span class="nm">${l.name} · ${fmt(l.unit * l.qty)}</span>
+      <span class="qty"><button type="button" aria-label="Quitar uno" data-i="${i}" data-d="-1">−</button><span>${l.qty}</span><button type="button" aria-label="Agregar uno" data-i="${i}" data-d="1">+</button></span>
+      ${l.detail ? `<span class="sub">${l.detail}</span>` : ""}
+      ${l.turno && !puedePedir(l.turno) ? `<span class="sub off">Ya no está disponible: se pide ${HORARIO[l.turno]}</span>` : (l.turno === "noche" && enEsperaNoche() ? `<span class="sub">En espera: sale desde las 3:00 pm</span>` : "")}
+    </div>`).join("") + (fuera.length ? `<button type="button" class="ghost" id="quitarFuera">Quitar lo que ya no está disponible</button>` : "") : `<p class="empty">Todavía no has agregado nada. Escoge del menú y toca "Agregar".</p>`;
+  const qf = $("#quitarFuera");
+  if (qf) qf.addEventListener("click", () => { for (let i = cart.length - 1; i >= 0; i--) if (cart[i].turno && !puedePedir(cart[i].turno)) cart.splice(i, 1); renderCart(); });
+  $("#lines").querySelectorAll(".qty button").forEach(b => b.addEventListener("click", () => {
+    const l = cart[+b.dataset.i]; l.qty += +b.dataset.d;
+    if (l.qty <= 0) cart.splice(+b.dataset.i, 1);
+    renderCart();
+  }));
+  $("#total").textContent = fmt(total);
+  $("#barCount").textContent = count;
+  $("#barTotal").textContent = fmt(total);
+  $("#bar").hidden = count === 0;
+  if (bump) { const b = $("#barTotal"); b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump"); }
+  updateSend();
+}
+
+function buildMessage() {
+  const total = cart.reduce((a, l) => a + l.qty * l.unit, 0);
+  const lines = cart.map(l => `• ${l.qty} × ${l.name}${l.detail ? " (" + l.detail + ")" : ""} · ${fmt(l.unit * l.qty)}`);
+  const out = ["Hola, Pa'l Antojo. Quiero hacer este pedido:", "", ...lines, "", `Total: ${fmt(total)}`, `Entrega: ${entrega}`, `Nombre: ${$("#nombre").value.trim()}`, `Teléfono: ${$("#telefono").value.trim()}`];
+  if (entrega === "Delivery") {
+    const dir = $("#direccion").value.trim();
+    if (dir) out.push(`Dirección: ${dir}`);
+    if (ubicacion) out.push(`Ubicación: ${ubicacion}`);
+  }
+  if (cart.some(l => l.turno === "noche") && enEsperaNoche()) out.push("Hora: la comida de noche, desde las 3:00 pm");
+  out.push(`Pago: ${pago}`);
+  const nota = $("#nota").value.trim();
+  if (nota) out.push(`Nota: ${nota}`);
+  return out.join("\n");
+}
+function problems() {
+  if (!cart.length) return "Agrega al menos un producto.";
+  if (cart.some(l => l.turno && !puedePedir(l.turno))) return "Tu pedido tiene comida que ya no está disponible a esta hora. Quítala para enviar.";
+  if (!$("#nombre").value.trim()) return "Escribe tu nombre.";
+  if ($("#telefono").value.replace(/\D/g, "").length < 10) return "Escribe tu teléfono completo (ej. 0414 123 4567).";
+  if (entrega === "Delivery" && !$("#direccion").value.trim() && !ubicacion) return "Escribe la dirección o usa tu ubicación actual para el delivery.";
+  return "";
+}
+function updateSend() {
+  const msg = buildMessage();
+  $("#send").href = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+  if (!$("#preview").hidden) $("#preview").textContent = msg;
+}
+$("#send").addEventListener("click", e => {
+  const p = problems();
+  $("#err").hidden = !p; $("#err").textContent = p;
+  if (p) { e.preventDefault(); return; }
+  updateSend();
+});
+$("#copy").addEventListener("click", () => {
+  const msg = buildMessage();
+  $("#preview").hidden = false; $("#preview").textContent = msg;
+  const done = () => { $("#copy").textContent = "Pedido copiado"; setTimeout(() => $("#copy").textContent = "Copiar el pedido", 1800); };
+  try {
+    navigator.clipboard.writeText(msg).then(done, () => window.getSelection().selectAllChildren($("#preview")));
+  } catch (_) { window.getSelection().selectAllChildren($("#preview")); }
+});
+function bindSeg(id, set) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(`#${id} button`).forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    set(b.dataset.v); updateSend();
+  }));
+}
+bindSeg("entregaSeg", v => { entrega = v; $("#dirField").hidden = v !== "Delivery"; $("#deliveryNote").hidden = v !== "Delivery"; });
+bindSeg("pagoSeg", v => pago = v);
+$("#loc").addEventListener("click", () => {
+  const msg = $("#locMsg"); msg.hidden = false;
+  const fail = () => { msg.textContent = "No pudimos tomar tu ubicación. Revisa que el GPS esté prendido y que el navegador tenga permiso, o escribe la dirección."; };
+  if (!navigator.geolocation) return fail();
+  msg.textContent = "Buscando tu ubicación…";
+  try {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude: la, longitude: lo } = pos.coords;
+      ubicacion = `https://maps.google.com/?q=${la.toFixed(6)},${lo.toFixed(6)}`;
+      msg.textContent = "Ubicación agregada al pedido. Si quieres, agrega un punto de referencia arriba.";
+      $("#loc").setAttribute("aria-pressed", "true"); $("#loc").textContent = "Ubicación agregada";
+      updateSend();
+    }, fail, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  } catch (_) { fail(); }
+});
+["nombre","telefono","direccion","nota"].forEach(id => $("#" + id).addEventListener("input", updateSend));
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => { turno = t.dataset.turno; renderMenu(); }));
+
+const st = estado();
+$("#status").textContent = st.txt;
+turno = st.abierto || "dia";
+renderMenu();
+renderCart();
+// Si la página queda abierta y cambia el turno (3 pm, 12 am, 6 am), se actualiza sola
+const clave = () => estado().abierto + "|" + caracasNow().day;
+let ultimo = clave();
+setInterval(() => {
+  const ahora = clave();
+  if (ahora === ultimo) return;
+  ultimo = ahora;
+  $("#status").textContent = estado().txt;
+  renderMenu(); renderCart();
+}, 60000);
+</script>
+</body>
+</html>
