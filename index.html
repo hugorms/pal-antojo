@@ -226,8 +226,8 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
 <script>
 // Número de WhatsApp del local, con código de país y sin "+" (ej. 584141234567). Vacío = el cliente escoge el chat.
 const WHATSAPP = "584168150286";
-// Delivery: ubicación del local (lat, lng). Mientras esté en null, el delivery sale "por confirmar".
-const LOCAL = null;
+// Delivery: ubicación del local (lat, lng). Si está en null, el delivery sale "por confirmar".
+const LOCAL = { lat: 10.0148284, lng: -68.1568891 }; // Calle Urdaneta, local 16 H, Las Manzanas
 const DELIVERY = { base: 1, kmBase: 3, porKm: 0.25, kmMax: 10, calles: 1.3 };
 
 const JUGOS_A = ["Parchita","Mango","Patilla","Melón","Piña","Lechosa","Tamarindo","Guayaba","Limonada","Papelón con limón"];
