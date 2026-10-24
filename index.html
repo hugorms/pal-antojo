@@ -113,6 +113,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
 legend { font-weight: 800; margin-bottom: 6px; padding: 0; }
 .field { display: grid; gap: 4px; }
+[hidden] { display: none !important; }
 .field label { font-weight: 700; font-size: .88rem; }
 .field input, .field textarea { width: 100%; }
 .err { color: var(--danger); font-weight: 700; font-size: .9rem; margin: 0; }
@@ -173,18 +174,18 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
       <legend>¿Cómo lo quieres?</legend>
       <div class="opts">
         <div class="seg" id="entregaSeg">
-          <button type="button" data-v="Retiro en el local" aria-pressed="true">Lo busco</button>
-          <button type="button" data-v="Delivery" aria-pressed="false">Delivery</button>
+          <button type="button" data-v="Delivery" aria-pressed="true">Delivery</button>
+          <button type="button" data-v="Retiro en el local" aria-pressed="false">Lo busco</button>
         </div>
       </div>
-      <p class="notice" id="deliveryNote" hidden>El costo del delivery depende de la zona. Te lo confirmamos por WhatsApp.</p>
+      <p class="notice" id="deliveryNote">El costo del delivery depende de la zona. Te lo confirmamos por WhatsApp.</p>
     </fieldset>
 
     <fieldset>
       <legend>Tus datos</legend>
       <div class="field"><label for="nombre">Nombre</label><input type="text" id="nombre" autocomplete="name" placeholder="Ej. María Pérez"></div>
       <div class="field"><label for="telefono">Teléfono</label><input type="tel" id="telefono" autocomplete="tel" placeholder="Ej. 0414 123 4567"></div>
-      <div class="field" id="dirField" hidden><label for="direccion">Dirección o punto de referencia</label><textarea id="direccion" rows="2" placeholder="Ej. Las Manzanas, calle 3, casa 12, frente a la bodega"></textarea>
+      <div class="field" id="dirField"><label for="direccion">Dirección o punto de referencia</label><textarea id="direccion" rows="2" placeholder="Ej. Las Manzanas, calle 3, casa 12, frente a la bodega"></textarea>
         <button type="button" class="ghost loc" id="loc">Usar mi ubicación actual</button>
         <p class="notice" id="locMsg" hidden></p></div>
       <div class="field"><label for="nota">Nota (opcional)</label><input type="text" id="nota" placeholder="Ej. sin cebolla, poca azúcar"></div>
@@ -302,7 +303,7 @@ const fmt = n => n.toFixed(2).replace(".", ",") + " $";
 const $ = s => document.querySelector(s);
 const cart = [];
 let turno = "dia";
-let entrega = "Retiro en el local";
+let entrega = "Delivery";
 let pago = "Pago móvil";
 let ubicacion = "";
 
@@ -466,7 +467,14 @@ function bindSeg(id, set) {
     set(b.dataset.v); updateSend();
   }));
 }
-bindSeg("entregaSeg", v => { entrega = v; $("#dirField").hidden = v !== "Delivery"; $("#deliveryNote").hidden = v !== "Delivery"; });
+bindSeg("entregaSeg", v => {
+  entrega = v; $("#dirField").hidden = v !== "Delivery"; $("#deliveryNote").hidden = v !== "Delivery";
+  // Si lo va a buscar, se borra la ubicación para que no viaje en el pedido
+  if (v !== "Delivery" && ubicacion) {
+    ubicacion = ""; $("#locMsg").hidden = true;
+    $("#loc").setAttribute("aria-pressed", "false"); $("#loc").textContent = "Usar mi ubicación actual";
+  }
+});
 bindSeg("pagoSeg", v => pago = v);
 $("#loc").addEventListener("click", () => {
   const msg = $("#locMsg"); msg.hidden = false;
