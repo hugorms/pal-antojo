@@ -316,27 +316,16 @@ const fmt = n => n.toFixed(2).replace(".", ",") + " $";
 const $ = s => document.querySelector(s);
 const cart = [];
 let pedidoId = "";
-let fallbackOrderCounter = 0;
+// ID de venta: fecha, hora y dos letras al azar (ej. 1105-0742-KM). Así dos clientes no reciben el mismo ID.
 function crearPedidoId() {
-  const dateParts = Object.fromEntries(
+  const p = Object.fromEntries(
     new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Caracas",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(new Date())
-      .filter(part => ["year", "month", "day"].includes(part.type))
-      .map(part => [part.type, part.value])
+      timeZone: "America/Caracas", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date()).map(part => [part.type, part.value])
   );
-  const storageKey = `pal-antojo-pedidos-${dateParts.year}-${dateParts.month}-${dateParts.day}`;
-  let orderNumber;
-  try {
-    orderNumber = Number(localStorage.getItem(storageKey) || 0) + 1;
-    localStorage.setItem(storageKey, String(orderNumber));
-  } catch (_) {
-    orderNumber = ++fallbackOrderCounter;
-  }
-  return `${dateParts.month}${dateParts.day}-${String(orderNumber).padStart(3, "0")}`;
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const azar = () => letras[Math.floor(Math.random() * letras.length)];
+  return `${p.month}${p.day}-${p.hour}${p.minute}-${azar()}${azar()}`;
 }
 let turno = "dia";
 let entrega = "Delivery";
