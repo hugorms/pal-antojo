@@ -315,6 +315,8 @@ const MENU = {
 const fmt = n => n.toFixed(2).replace(".", ",") + " $";
 const $ = s => document.querySelector(s);
 const cart = [];
+let pedidoId = "";
+const crearPedidoId = () => `PA-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 let turno = "dia";
 let entrega = "Delivery";
 let pago = "Pago móvil";
@@ -421,12 +423,14 @@ function bindItem(el) {
     const key = it.id + "|" + parts.join("|");
     const unit = itemPrice(it, sel);
     const found = cart.find(l => l.key === key);
+    if (!pedidoId) pedidoId = crearPedidoId();
     if (found) found.qty++; else cart.push({ key, id: it.id, cat: catDe(it), name: nombre, detail: parts.join(" · "), unit, qty: 1, turno: grupoDe(it) });
     renderCart(true);
   });
 }
 
 function renderCart(bump) {
+  if (cart.length === 0) pedidoId = "";
   const count = cart.reduce((a, l) => a + l.qty, 0);
   const total = cart.reduce((a, l) => a + l.qty * l.unit, 0);
   const fuera = cart.filter(l => l.turno && !puedePedir(l.turno));
@@ -460,21 +464,39 @@ function renderCart(bump) {
 
 function buildMessage() {
   const total = cart.reduce((a, l) => a + l.qty * l.unit, 0);
+  const nombre = $("#nombre").value.trim();
+  const telefono = $("#telefono").value.trim();
+  const nota = $("#nota").value.trim();
   const lines = cart.map(l => `• ${l.qty} × ${l.name}${l.detail ? " (" + l.detail + ")" : ""} · ${fmt(l.unit * l.qty)}`);
   const dv = costoDelivery();
-  const cuentas = entrega === "Delivery"
-    ? [`Productos: ${fmt(total)}`, dv !== null ? `Delivery (${kmTxt()}): ${fmt(dv)}` : `Delivery: ${textoDelivery()}`, `Total: ${fmt(total + (dv || 0))}${dv === null ? " + delivery" : ""}`]
-    : [`Total: ${fmt(total)}`];
-  const out = ["Hola, Pa'l Antojo. Quiero hacer este pedido:", "", ...lines, "", ...cuentas, `Entrega: ${entrega}`, `Nombre: ${$("#nombre").value.trim()}`, `Teléfono: ${$("#telefono").value.trim()}`];
+  const totalPagar = total + (dv || 0);
+  const out = [
+    `ID de venta: ${pedidoId}`,
+    `Cliente: ${nombre}`,
+    "",
+    "Hola, Pa'l Antojo. Quiero hacer este pedido:",
+    "",
+    "PEDIDO",
+    "",
+    ...lines,
+    "",
+    `Subtotal: ${fmt(total)}`,
+    ...(entrega === "Delivery" ? [`Delivery: ${dv !== null ? `${fmt(dv)} (${kmTxt()})` : textoDelivery()}`] : []),
+    "",
+    `TOTAL A PAGAR: ${fmt(totalPagar)}${entrega === "Delivery" && dv === null ? " + delivery por confirmar" : ""}`,
+    ...(nota ? ["", `Nota: ${nota}`] : []),
+    "",
+    "DATOS DEL CLIENTE",
+    `Teléfono: ${telefono}`,
+    `Forma de entrega: ${entrega}`,
+    `Forma de pago: ${pago}`
+  ];
   if (entrega === "Delivery") {
     const dir = $("#direccion").value.trim();
     if (dir) out.push(`Dirección: ${dir}`);
     if (ubicacion) out.push(`Ubicación: ${ubicacion}`);
   }
   if (cart.some(l => l.turno === "noche") && enEsperaNoche()) out.push("Hora: la comida de noche, desde las 3:00 pm");
-  out.push(`Pago: ${pago}`);
-  const nota = $("#nota").value.trim();
-  if (nota) out.push(`Nota: ${nota}`);
   return out.join("\n");
 }
 function problems() {
