@@ -316,7 +316,28 @@ const fmt = n => n.toFixed(2).replace(".", ",") + " $";
 const $ = s => document.querySelector(s);
 const cart = [];
 let pedidoId = "";
-const crearPedidoId = () => `PA-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+let fallbackOrderCounter = 0;
+function crearPedidoId() {
+  const dateParts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Caracas",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date())
+      .filter(part => ["year", "month", "day"].includes(part.type))
+      .map(part => [part.type, part.value])
+  );
+  const storageKey = `pal-antojo-pedidos-${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  let orderNumber;
+  try {
+    orderNumber = Number(localStorage.getItem(storageKey) || 0) + 1;
+    localStorage.setItem(storageKey, String(orderNumber));
+  } catch (_) {
+    orderNumber = ++fallbackOrderCounter;
+  }
+  return `${dateParts.month}${dateParts.day}-${String(orderNumber).padStart(3, "0")}`;
+}
 let turno = "dia";
 let entrega = "Delivery";
 let pago = "Pago móvil";
