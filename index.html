@@ -261,6 +261,7 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
   <div class="wrap"><span><span id="barCount">0</span> · <b id="barTotal">0,00 $</b></span><a href="#pedido">Ver pedido</a></div>
 </div>
 
+<script src="menu.js"></script>
 <script>
 // Número de WhatsApp del local, con código de país y sin "+" (ej. 584141234567). Vacío = el cliente escoge el chat.
 const WHATSAPP = "584168150286";
@@ -268,93 +269,24 @@ const WHATSAPP = "584168150286";
 const LOCAL = { lat: 10.0148284, lng: -68.1568891 }; // Calle Urdaneta, local 16 H, Las Manzanas
 const DELIVERY = { base: 1, kmBase: 3, porKm: 0.25, kmMax: 10, calles: 1.3 };
 
-const JUGOS_A = ["Parchita","Mango","Patilla","Melón","Piña","Lechosa","Tamarindo","Guayaba","Limonada","Papelón con limón"];
-const JUGOS_B = ["Fresa","Mora","Guanábana","Naranja"];
-const JUGOS_C = ["Tropical Antojo (piña, naranja, parchita)","Tres en uno","Verde","Fresa-naranja","Mango-parchita","Lechosa-naranja","Patilla-limón con hierbabuena","Mora-fresa"];
-const FRAPE = [{ label: "Frapé", price: 0.5 }];
-// Cada categoría: icono (mientras no hay foto) y foto = fotos/<foto>.jpg.
-// fotoPorProducto: cada producto usa su propia foto, fotos/<id>.jpg (las hamburguesas).
-const BEBIDAS = { cat: "Refrescos y bebidas", icono: "🥤", foto: "bebidas", items: [
-  { id: "refresco", name: "Refresco personal", price: 1.5 },
-  { id: "malta", name: "Malta", price: 1.25 },
-  { id: "agua", name: "Agua mineral", price: 1.0 },
-]};
-const JUGOS = { cat: "Jugos naturales", icono: "🧃", foto: "jugos", items: [
-  { id: "jugoA", name: "Jugo natural", desc: JUGOS_A.join(", "), flavors: JUGOS_A, sizes: [["12 oz",1.0],["16 oz",1.5]], extras: FRAPE },
-  { id: "jugoB", name: "Jugo especial", desc: JUGOS_B.join(", "), flavors: JUGOS_B, sizes: [["12 oz",1.5],["16 oz",2.0]], extras: FRAPE },
-  { id: "jugoC", name: "Combinación de la casa", desc: "Mezclas de la casa", flavors: JUGOS_C, sizes: [["12 oz",1.75],["16 oz",2.25]], extras: FRAPE },
-]};
-
-const CAFE = { cat: "Café caliente", icono: "☕", foto: "cafe", items: [
-      { id: "c-negrito", name: "Negrito o guayoyo", flavors: ["Negrito","Guayoyo"], sizes: [["4 oz",0.75],["8 oz",1.25]] },
-      { id: "c-marron", name: "Marrón", sizes: [["4 oz",1.0],["8 oz",1.5]] },
-      { id: "c-marronc", name: "Marrón claro", sizes: [["4 oz",1.0],["8 oz",1.75]] },
-      { id: "c-leche", name: "Café con leche o capuchino", flavors: ["Café con leche","Capuchino"], sizes: [["4 oz",1.25],["8 oz",2.0]] },
-      { id: "c-moka", name: "Moka o Café Pa'l Antojo", flavors: ["Moka","Café Pa'l Antojo"], sizes: [["4 oz",1.5],["8 oz",2.25]] },
-    ]};
-const CAFE_FRIO = { cat: "Café frío", icono: "🧋", foto: "cafe-frio", items: [
-      { id: "cf-frio", name: "Café frío", sizes: [["12 oz",2.0],["16 oz",3.0]] },
-      { id: "cf-frappe", name: "Frappé de café", sizes: [["12 oz",2.75],["16 oz",3.5]] },
-      { id: "cf-moka", name: "Moka frappé", desc: "Con Savoy", sizes: [["12 oz",3.25],["16 oz",4.25]] },
-    ]};
-const POSTRES = { cat: "Postres", icono: "🍫", foto: "postres", items: [
-  { id: "teq-guayaba", name: "Tequeño de guayaba", desc: "Por unidad", price: 0.5 },
-  { id: "teq-nutella", name: "Tequeño de Nutella", desc: "Por unidad", price: 0.75 },
-]};
-// Lo que se vende todo el día, de día y de noche
-const SIEMPRE = [JUGOS, BEBIDAS, CAFE, CAFE_FRIO, POSTRES];
-
-const MENU = {
-  dia: [
-    { cat: "Empanadas", icono: "🥟", foto: "empanadas", prefijo: "Empanada", items: [
-      { id: "e-queso", name: "Queso", desc: "Queso blanco", price: 1.5 },
-      { id: "e-domino", name: "Dominó", desc: "Caraotas y queso", price: 1.5 },
-      { id: "e-pollo", name: "Pollo", desc: "Pollo mechado", price: 1.5 },
-      { id: "e-mechada", name: "Carne mechada", desc: "Falda mechada", price: 1.5 },
-      { id: "e-pabellon", name: "Pabellón", desc: "Mechada, caraotas, plátano y queso", price: 1.5 },
-      { id: "e-jamon", name: "Jamón y queso", desc: "Jamón de pierna y queso blanco", price: 1.75 },
-      { id: "e-molida", name: "Carne molida", desc: "Carne molida guisada", price: 2.0 },
-      { id: "e-chicharron", name: "Chicharrón", desc: "Chicharrón de cerdo", price: 2.0 },
-      { id: "e-toc-queso", name: "Tocineta con queso", desc: "Tocineta dorada y queso blanco", price: 2.0 },
-      { id: "e-toc-pollo", name: "Tocineta con pollo", desc: "Tocineta y pollo mechado", price: 2.0 },
-      { id: "e-pollo-amarillo", name: "Pollo con queso amarillo", desc: "Pollo mechado y queso amarillo", price: 2.0 },
-      { id: "e-pizza", name: "Pizza", desc: "Mozzarella, jamón, salsa de tomate y orégano", price: 2.0 },
-      { id: "e-cazon", name: "Cazón", desc: "Cazón guisado", price: 2.0 },
-      { id: "e-camaron", name: "Camarón", desc: "Camarón salteado", price: 2.75 },
-      { id: "e-calamar", name: "Calamar", desc: "Calamar guisado", price: 2.75 },
-      { id: "e-pulpo", name: "Pulpo", desc: "Pulpo guisado", price: 4.0 },
-      { id: "e-gigante", name: "Pa'l Antojo gigante", desc: "4 ingredientes", price: 4.5, extras: [{ label: "Con camarón o pulpo", price: 1.5 }] },
-    ]},
-    { cat: "Papas rellenas", icono: "🥔", foto: "papas-rellenas", items: [
-      { id: "papa-carne", name: "Papa rellena de carne", desc: "Papa y carne molida", price: 2.25 },
-      { id: "papa-pollo", name: "Papa rellena de pollo", desc: "Papa y pollo", price: 2.25 },
-    ]},
-    { cat: "Pastelitos", icono: "🥐", foto: "pastelitos", items: [
-      { id: "pastelito", name: "Pastelito", flavors: ["Carne","Queso"], price: 1.0 },
-    ]},
-    ...SIEMPRE,
-  ],
-  noche: [
-    { cat: "Hamburguesas", icono: "🍔", foto: "hamburguesas", fotoPorProducto: true, prefijo: "Hamburguesa", items: [
-      { id: "h-clasica", name: "Clásica", desc: "175 g de carne, pan de batata, queso y salsa especial", price: 5.5 },
-      { id: "h-antojo", name: "Pa'l Antojo", desc: "La Clásica con 2 tocinetas y cebolla dorada", price: 7.0 },
-      { id: "h-doble", name: "Doble", desc: "2 carnes, doble queso y tocineta", price: 8.5 },
-      { id: "h-pollo", name: "De pollo", desc: "Pechuga a la plancha, queso y salsa", price: 5.5 },
-    ]},
-    { cat: "Papas fritas", icono: "🍟", foto: "papas-fritas", items: [
-      { id: "papas", name: "Papas fritas", desc: "200 g", price: 1.5 },
-      { id: "papas-parm", name: "Papas con parmesano", desc: "Parmesano, ajo y perejil", price: 2.5 },
-      { id: "papas-toc", name: "Papas con queso y tocineta", desc: "250 g", price: 4.0 },
-    ]},
-    { cat: "Tequeños", icono: "🧀", foto: "tequenos", items: [
-      { id: "tequenos", name: "Tequeños de queso (6)", desc: "Con salsa", price: 4.0 },
-    ]},
-    { cat: "Ensaladas", icono: "🥗", foto: "ensaladas", items: [
-      { id: "cesar", name: "Ensalada César", desc: "Lechuga romana, crutones, parmesano y aderezo", price: 3.5, extras: [{ label: "Con pollo", price: 1.5 }] },
-    ]},
-    ...SIEMPRE,
-  ],
-};
+// El menú se edita en el panel (/admin/) y se publica como menu.json en Supabase.
+// Mientras no carga (o si falla) se usa el último que vio este teléfono, o el menú base de menu.js.
+const MENU_URL = "https://ymzwomnzjfxznmpdouad.supabase.co/storage/v1/object/public/menu/menu.json";
+let MENU = { dia: [], noche: [] };
+// Lo que se vende de día y de noche (bebidas, café, postres) se puede pedir a cualquier hora
+const siempre = g => g.turnos.includes("dia") && g.turnos.includes("noche");
+const menuValido = m => Array.isArray(m) && m.length > 0 && m.every(c => c && c.cat && Array.isArray(c.turnos) && Array.isArray(c.items));
+function usarMenu(cats) {
+  const visibles = cats.filter(c => !c.oculta && c.items.length);
+  MENU = { dia: visibles.filter(c => c.turnos.includes("dia")), noche: visibles.filter(c => c.turnos.includes("noche")) };
+}
+let menuGuardado = null;
+try { menuGuardado = JSON.parse(localStorage.getItem("pa.menu")); } catch (_) {}
+usarMenu(menuValido(menuGuardado) ? menuGuardado : MENU_BASE);
+// index.html#borrador: el panel muestra cómo queda el menú antes de publicarlo (solo en ese equipo)
+let borrador = null;
+if (location.hash === "#borrador") try { borrador = JSON.parse(localStorage.getItem("pa.admin.borrador")); } catch (_) {}
+if (menuValido(borrador)) usarMenu(borrador); else borrador = null;
 
 const fmt = n => n.toFixed(2).replace(".", ",") + " $";
 const $ = s => document.querySelector(s);
@@ -426,8 +358,8 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 // Las fotos que todavía no existen se recuerdan para no volver a pedirlas en cada toque
 const sinFoto = new Set();
 const foto = (src, icono, cls) => `<span class="ph ${cls}" aria-hidden="true">${icono}${sinFoto.has(src) ? "" : `<img src="${src}" alt="" loading="lazy" onerror="sinFoto.add('${src}'); this.remove()">`}</span>`;
-const fotoDe = (g, it) => `fotos/${g.fotoPorProducto && it ? it.id : g.foto}.jpg`;
-const bloqueada = g => !SIEMPRE.includes(g) && !puedePedir(turno);
+const fotoDe = (g, it) => g.fotoPorProducto && it ? (it.fotoUrl || `fotos/${it.id}.jpg`) : (g.fotoUrl || `fotos/${g.foto}.jpg`);
+const bloqueada = g => !siempre(g) && !puedePedir(turno);
 // Cada sabor es una fila: los productos con sabores (jugos, pastelitos, café) se abren en una fila por sabor
 function filas(g) {
   const conSub = g.items.length > 1 && g.items.every(it => it.flavors);
@@ -460,7 +392,7 @@ function cambiar(g, f, d) {
   if (d > 0) {
     if (!pedidoId) pedidoId = crearPedidoId();
     if (found) found.qty++;
-    else cart.push({ key, id: f.it.id, cat: g.cat, icono: g.icono, foto: fotoDe(g, f.it), name: nombreCarrito(g, f.it), detail: parts.join(" · "), unit: itemPrice(f.it, sel), qty: 1, turno: SIEMPRE.includes(g) ? null : turno });
+    else cart.push({ key, id: f.it.id, cat: g.cat, icono: g.icono, foto: fotoDe(g, f.it), name: nombreCarrito(g, f.it), detail: parts.join(" · "), unit: itemPrice(f.it, sel), qty: 1, turno: siempre(g) ? null : turno });
   } else if (found) {
     found.qty--;
     if (found.qty <= 0) cart.splice(cart.indexOf(found), 1);
@@ -506,14 +438,15 @@ function renderMenu() {
         html += `<p class="subh"><span>${f.sub.name}</span><span>${f.sub.sizes ? f.sub.sizes.map(s => `${s[0]} ${fmt(s[1])}`).join(" · ") : fmt(f.sub.price)}</span></p>`;
       }
       const sel = selFila[f.key] || (selFila[f.key] = { size: 0, extras: [] });
-      const abre = abierta === f.key && !off;
+      const agotado = !!f.it.agotado;
+      const abre = abierta === f.key && !off && !agotado;
       const n = qtyFila(f);
-      const precio = f.sub ? "" : `<span class="price">${f.it.sizes ? "desde " : ""}${fmt(minPrice(f.it))}</span>`;
+      const precio = agotado ? `<span class="price">Agotado</span>` : f.sub ? "" : `<span class="price">${f.it.sizes ? "desde " : ""}${fmt(minPrice(f.it))}</span>`;
       html += `<div class="row${abre ? " open" : ""}">
-        <button type="button" class="rh" data-k="${f.key}" data-f="r${f.key}" aria-expanded="${abre}" ${off ? "disabled" : ""}>
+        <button type="button" class="rh" data-k="${f.key}" data-f="r${f.key}" aria-expanded="${abre}" ${off || agotado ? "disabled" : ""}>
           ${g.fotoPorProducto ? foto(fotoDe(g, f.it), g.icono, "rt") : ""}
           <span class="rn"><b>${esc(f.label)}</b>${f.desc ? `<span>${esc(f.desc)}</span>` : ""}</span>
-          <span class="re">${precio}${off ? "" : (n ? `<span class="cnt" aria-label="${n} en tu pedido">${n}</span>` : `<span class="plus" aria-hidden="true">+</span>`)}</span>
+          <span class="re">${precio}${off || agotado ? "" : (n ? `<span class="cnt" aria-label="${n} en tu pedido">${n}</span>` : `<span class="plus" aria-hidden="true">+</span>`)}</span>
         </button>`;
       if (abre) {
         let opts = "";
@@ -721,6 +654,16 @@ turno = st.abierto || "dia";
 history.replaceState(null, "");
 renderMenu();
 renderCart();
+// Trae el menú publicado desde el panel y, si cambió, lo muestra
+if (borrador) $("#status").textContent = "Vista previa del panel: así queda el menú sin publicar.";
+else fetch(MENU_URL + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(m => {
+  if (!menuValido(m) || JSON.stringify(m) === JSON.stringify(menuGuardado)) return;
+  try { localStorage.setItem("pa.menu", JSON.stringify(m)); } catch (_) {}
+  const actual = vista === null ? null : MENU[turno][vista];
+  usarMenu(m);
+  if (actual) { vista = MENU[turno].findIndex(c => c.cat === actual.cat); if (vista < 0) { vista = null; abierta = null; } }
+  renderMenu();
+}).catch(() => {});
 // Si la página queda abierta y cambia el turno (3 pm, 12 am, 6 am), se actualiza sola
 const clave = () => estado().abierto + "|" + caracasNow().day;
 let ultimo = clave();
