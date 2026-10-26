@@ -56,14 +56,18 @@ header.hero {
   margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: .92rem;
   background: var(--ink); color: var(--brand);
 }
-.tabs { display: flex; gap: 8px; margin: 18px 0 6px; position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); padding-block: 8px; z-index: 5; }
+/* Arriba fijo: turnos y, dentro de una categoría, el botón para volver al menú */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); margin-top: 8px; padding-block: 6px; display: grid; gap: 6px; }
+.tabs { display: flex; gap: 8px; }
+.catbar { display: flex; align-items: center; gap: 10px; }
+.catbar b { font: 600 1.15rem var(--display); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tab {
-  flex: 1; font: 600 1rem var(--display); padding: 10px 12px; border-radius: 999px; cursor: pointer;
-  border: 2px solid var(--fg); background: transparent; color: var(--fg);
+  flex: 1; font: 600 .92rem var(--display); line-height: 1.2; padding: 6px 8px; border-radius: 14px; cursor: pointer;
+  border: 1.5px solid var(--fg); background: transparent; color: var(--fg);
 }
 .tab[aria-selected="true"] { background: var(--fg); color: var(--bg); }
-.tab small { display: block; font: 600 .72rem var(--body); opacity: .8; }
-.notice { color: var(--muted); font-size: .9rem; margin: 6px 0 0; }
+.tab small { display: block; font: 600 .66rem var(--body); line-height: 1.25; opacity: .8; }
+.notice { color: var(--muted); font-size: .82rem; line-height: 1.4; margin: 6px 0 0; }
 h2 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; margin: 26px 0 10px; text-wrap: balance; }
 .price { font-family: var(--display); font-weight: 600; font-size: 1.05rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -95,9 +99,10 @@ label.check { display: inline-flex; gap: 6px; align-items: center; font-weight: 
   position: absolute; top: 8px; right: 8px; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px;
   display: grid; place-items: center; background: var(--btn-bg); color: var(--btn-fg); font: 800 .9rem var(--body);
 }
-.back { border: 0; background: none; color: var(--fg); font: 700 .95rem var(--body); padding: 8px 0; cursor: pointer; }
+.back { flex: none; border: 0; border-radius: 999px; background: var(--brand); color: var(--on-brand); font: 600 .95rem var(--display); padding: 7px 14px; cursor: pointer; }
 .banner { aspect-ratio: 16 / 7; border-radius: 18px; font-size: 4.2rem; margin-top: 4px; }
 .cathead h2 { margin: 14px 0 2px; }
+.banner + .cathead h2, .cathead:first-child h2 { margin-top: 10px; }
 .cathead p { margin: 0; color: var(--muted); font-size: .9rem; font-weight: 600; }
 .subh { margin: 18px 0 2px; font: 800 .78rem var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
 .rows { display: grid; gap: 8px; margin-top: 12px; }
@@ -196,9 +201,12 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
 
 <main class="wrap">
   <div id="arriba"></div>
-  <div class="tabs" role="tablist">
-    <button class="tab" role="tab" id="tab-dia" data-turno="dia">De día<small>Empanadas · 6 am – 3 pm</small></button>
-    <button class="tab" role="tab" id="tab-noche" data-turno="noche">De noche<small>Hamburguesas · jue a dom 3 pm – 12 am</small></button>
+  <div class="top" id="top">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-dia" data-turno="dia">De día<small>Empanadas · 6 am – 3 pm</small></button>
+      <button class="tab" role="tab" id="tab-noche" data-turno="noche">De noche<small>Hamburguesas · jue a dom 3 pm – 12 am</small></button>
+    </div>
+    <div class="catbar" id="catbar" hidden><button type="button" class="back" id="volver">‹ Ver todo el menú</button><b id="catNombre"></b></div>
   </div>
   <p class="notice" id="turnoNotice"></p>
   <div id="menu"></div>
@@ -472,6 +480,9 @@ function renderMenu() {
   document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.turno === turno)));
   const foco = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.f : null;
   const g = vista === null ? null : groups[vista];
+  $("#top").classList.toggle("encat", !!g);
+  $("#catbar").hidden = !g;
+  $("#catNombre").textContent = g ? g.cat : "";
   if (!g) {
     $("#menu").innerHTML = `<div class="grid">${groups.map((g, gi) => {
       const fs = filas(g), n = qtyCat(g);
@@ -486,8 +497,7 @@ function renderMenu() {
   } else {
     const off = bloqueada(g);
     const fs = filas(g);
-    let html = `<button type="button" class="back" id="volver" data-f="volver">‹ Todo el menú</button>
-      ${g.fotoPorProducto ? "" : foto(fotoDe(g), g.icono, "banner")}
+    let html = `${g.fotoPorProducto ? "" : foto(fotoDe(g), g.icono, "banner")}
       <div class="cathead"><h2>${g.cat}</h2><p>${off ? "Ahora solo puedes verlo. " : ""}Toca lo que quieras y escoge cuántos.</p></div>
       <div class="rows">`;
     let ultimoSub = null;
@@ -522,7 +532,6 @@ function renderMenu() {
     });
     $("#menu").innerHTML = html + `</div>`;
     const fila = k => fs.find(f => f.key === k);
-    $("#volver").addEventListener("click", cerrarCat);
     $("#menu").querySelectorAll(".rh").forEach(b => b.addEventListener("click", () => {
       const f = fila(b.dataset.k);
       if (abierta === f.key) { abierta = null; renderMenu(); return; }
@@ -699,6 +708,7 @@ $("#loc").addEventListener("click", () => {
     }, fail, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   } catch (_) { fail(); }
 });
+$("#volver").addEventListener("click", cerrarCat);
 $("#bar a").addEventListener("click", e => { e.preventDefault(); $("#pedido").scrollIntoView({ behavior: "smooth" }); });
 ["nombre","telefono","direccion","nota"].forEach(id => $("#" + id).addEventListener("input", updateSend));
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
