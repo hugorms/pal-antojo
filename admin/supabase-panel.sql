@@ -32,3 +32,15 @@ create policy "admin cambia menu" on storage.objects for update to authenticated
   using (bucket_id = 'menu' and public.es_admin()) with check (bucket_id = 'menu' and public.es_admin());
 create policy "admin borra menu" on storage.objects for delete to authenticated
   using (bucket_id = 'menu' and public.es_admin());
+
+-- Entrada a la app (/app/): el dueño y el personal. Para dar acceso a alguien del personal:
+-- 1) Authentication > Users > Add user (con Auto Confirm)  2) insert into public.personal (email, nombre) values ('correo', 'Nombre');
+create table if not exists public.personal (email text primary key, nombre text);
+alter table public.personal enable row level security;
+create or replace function public.puede_entrar() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.administradores where email = lower(auth.jwt() ->> 'email'))
+      or exists (select 1 from public.personal where email = lower(auth.jwt() ->> 'email'));
+$$;
+revoke all on function public.puede_entrar() from public, anon;
+grant execute on function public.puede_entrar() to authenticated;

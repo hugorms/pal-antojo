@@ -194,7 +194,10 @@ async function subir(ruta, cuerpo, tipo) {
   }
   return `${SB_URL}/storage/v1/object/public/${BUCKET}/${ruta}`;
 }
-function salir() { ses = null; LS.del("pa.admin.ses"); $("#salir").hidden = $("#cambiarClave").hidden = true; $("#barra").hidden = true; pintarLogin(); }
+function salir() {
+  // Dentro de la app, salir cierra la sesión de toda la app
+  try { if (window.parent !== window && window.parent.salirApp) return window.parent.salirApp(); } catch (_) {}
+  ses = null; LS.del("pa.admin.ses"); $("#salir").hidden = $("#cambiarClave").hidden = true; $("#barra").hidden = true; pintarLogin(); }
 $("#salir").addEventListener("click", salir);
 
 // Cambiar la contraseña: se confirma la actual y se guarda la nueva en Supabase Auth
@@ -260,7 +263,8 @@ let abierta = null;    // índice de la categoría abierta
 
 async function entrar() {
   $("#app").innerHTML = `<p class="ayuda" style="margin-top:20px">Cargando el menú…</p>`;
-  if (!await esAdmin()) { const c = ses.email; salir(); pintarLogin(`${c} no tiene permiso para cambiar el menú.`); return; }
+  // Dentro de la app la sesión es la misma de la app: si no es el dueño, solo se avisa (no se cierra la sesión)
+  if (!await esAdmin()) { $("#app").innerHTML = `<p class="msg err" style="margin-top:24px">Solo el dueño puede cambiar el menú. ${esc(ses.email || "")} puede usar la caja, pero no este módulo.</p>`; return; }
   $("#salir").hidden = $("#cambiarClave").hidden = false; $("#barra").hidden = false;
   let enLinea = null;
   try {
