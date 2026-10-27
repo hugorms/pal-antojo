@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Pa'l Antojo Panel</title>
+<link rel="icon" href="../caja/icono-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Panel del menú: una columna, cada categoría se abre para editar sus productos */
+:root {
+  --brand: #F2B705; --ink: #1A1A1A; --bg: #FFFBEF; --surface: #FFFFFF; --fg: #1A1A1A; --muted: #6B6B6B;
+  --line: #EDE3C4; --chip: #FFF3C9; --danger: #B3261E; --ok: #1E7B34;
+  --btn-bg: #1A1A1A; --btn-fg: #F2B705;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141310; --surface: #1F1E1A; --fg: #F6F1E3; --muted: #B4AE9E; --line: #34312A; --chip: #2C2918;
+    --danger: #F2B8B5; --ok: #8FD19E; --btn-bg: #F2B705; --btn-fg: #1A1A1A; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141310; --surface: #1F1E1A; --fg: #F6F1E3; --muted: #B4AE9E; --line: #34312A; --chip: #2C2918;
+  --danger: #F2B8B5; --ok: #8FD19E; --btn-bg: #F2B705; --btn-fg: #1A1A1A; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 var(--body); padding: 0 16px 120px; }
+.wrap { max-width: 720px; margin: 0 auto; }
+header { background: var(--brand); color: var(--ink); margin: 0 -16px; padding: 16px; }
+header .wrap { display: flex; gap: 12px; align-items: center; }
+header img { width: 44px; height: 44px; border-radius: 50%; }
+header h1 { font: 700 1.5rem var(--display); margin: 0; line-height: 1; flex: 1; }
+header small { display: block; font: 700 .85rem var(--body); }
+h2 { font: 600 1.3rem var(--display); margin: 22px 0 8px; }
+p.ayuda { color: var(--muted); font-size: .9rem; margin: 4px 0 12px; }
+label { display: grid; gap: 4px; font-weight: 800; font-size: .85rem; }
+input, textarea, select {
+  font: 600 .95rem var(--body); color: var(--fg); background: var(--bg); border: 1.5px solid var(--line);
+  border-radius: 10px; padding: 9px 10px; width: 100%; min-width: 0;
+}
+textarea { resize: vertical; }
+input:focus, textarea:focus { outline: 2px solid var(--brand); border-color: var(--brand); }
+label.chk { display: inline-flex; grid-auto-flow: column; gap: 6px; align-items: center; font-size: .9rem; cursor: pointer; }
+label.chk input { width: auto; accent-color: var(--brand); width: 18px; height: 18px; }
+.btn {
+  font: 600 .95rem var(--display); border-radius: 999px; padding: 9px 16px; cursor: pointer;
+  border: 1.5px solid var(--fg); background: transparent; color: var(--fg);
+}
+.btn.brand { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+.btn.peq { padding: 5px 11px; font-size: .85rem; }
+.btn.malo { color: var(--danger); border-color: var(--danger); }
+.btn:disabled { opacity: .45; cursor: default; }
+.fila { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.caja { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.login { max-width: 380px; margin: 30px auto 0; display: grid; gap: 12px; }
+.msg { font-weight: 700; font-size: .9rem; }
+.msg.err { color: var(--danger); }
+.msg.ok { color: var(--ok); }
+/* Barra fija de publicar */
+.barra {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.barra .wrap { display: flex; gap: 10px; align-items: center; }
+.barra .msg { flex: 1; min-width: 0; }
+/* Categorías */
+.cats { display: grid; gap: 10px; }
+.cat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.cat.abierta { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand); }
+.cat.oculta .ch { opacity: .55; }
+.ch {
+  width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px;
+  background: none; border: 0; color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+}
+.ch b { font: 600 1.1rem var(--display); display: block; }
+.ch small { color: var(--muted); font-weight: 700; font-size: .8rem; }
+.ph {
+  position: relative; overflow: hidden; width: 56px; height: 56px; border-radius: 12px; flex: none;
+  background: radial-gradient(circle at 30% 25%, #FFD54A, var(--brand) 70%); display: grid; place-items: center; font-size: 1.8rem;
+}
+.ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ph.grande { width: 120px; height: 90px; font-size: 2.6rem; }
+.cb { padding: 4px 14px 16px; display: grid; gap: 12px; border-top: 1px solid var(--line); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { background: var(--chip); border-radius: 999px; padding: 1px 9px; font-size: .75rem; font-weight: 800; }
+.chip.no { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+.prods { display: grid; gap: 10px; }
+.prod { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 10px; background: var(--bg); }
+.prod.agotado { border-style: dashed; }
+.prod .tit { display: flex; gap: 8px; align-items: center; }
+.prod .tit b { flex: 1; min-width: 0; font: 600 1rem var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista { display: grid; gap: 6px; }
+.lista .li { display: grid; grid-template-columns: 1fr 90px auto; gap: 6px; align-items: center; }
+.x { border: 0; background: none; color: var(--danger); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; }
+.sub { font: 800 .75rem var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.foto { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+input[type="file"] { display: none; }
+.toast {
+  position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 10; max-width: calc(100% - 32px);
+  background: var(--ink); color: var(--brand); padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: .9rem;
+}
+@media (max-width: 420px) { .dos { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <img src="../caja/icono-192.png" alt="">
+  <h1>Panel del menú<small>Pa'l Antojo</small></h1>
+  <button class="btn peq" id="salir" hidden>Salir</button>
+</div></header>
+<main class="wrap" id="app"></main>
+<div class="barra" id="barra" hidden><div class="wrap">
+  <span class="msg" id="estado"></span>
+  <a class="btn peq" href="../#borrador" target="_blank" rel="noopener">Ver cómo queda</a>
+  <button class="btn brand" id="publicar">Publicar</button>
+</div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="../menu.js"></script>
+<script>
+// Proyecto de Supabase de la caja. La clave pública (publishable) se puede ver en el navegador; nunca se usa aquí la clave secreta.
+const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co";
+const SB_PUBLICA = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
+const BUCKET = "menu";
+const $ = s => document.querySelector(s);
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (_) {} },
+};
+const num = v => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : NaN; };
+const precioTxt = n => typeof n === "number" && isFinite(n) ? String(n).replace(".", ",") : "";
+const fmt = n => n.toFixed(2).replace(".", ",") + " $";
+const slug = t => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "x";
+const nuevoId = base => slug(base) + "-" + Math.random().toString(36).slice(2, 6);
+const copia = x => JSON.parse(JSON.stringify(x));
+let timerToast;
+function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(timerToast); timerToast = setTimeout(() => el.hidden = true, 2600); }
+
+// ---------- Sesión (Supabase Auth) ----------
+const cajaCfg = LS.get("pa.cfg", {});
+let clave = LS.get("pa.admin.clave", "") || SB_PUBLICA;
+let ses = LS.get("pa.admin.ses", null);
+
+async function auth(tipo, cuerpo) {
+  const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=${tipo}`, {
+    method: "POST", headers: { apikey: clave, "content-type": "application/json" }, body: JSON.stringify(cuerpo),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error_code === "invalid_credentials" || d.error === "invalid_grant" ? "Correo o contraseña incorrectos." : (d.msg || d.error_description || d.message || "No se pudo entrar (" + r.status + ")."));
+  ses = { access_token: d.access_token, refresh_token: d.refresh_token, expira: Date.now() + (d.expires_in || 3600) * 1000, email: d.user && d.user.email };
+  LS.set("pa.admin.ses", ses);
+}
+async function token() {
+  if (!ses) throw new Error("Vuelve a entrar.");
+  if (Date.now() > ses.expira - 60000) {
+    try { await auth("refresh_token", { refresh_token: ses.refresh_token }); }
+    catch (_) { salir(); throw new Error("La sesión venció. Vuelve a entrar."); }
+  }
+  return ses.access_token;
+}
+async function esAdmin() {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/es_admin`, {
+    method: "POST", headers: { apikey: clave, authorization: "Bearer " + await token(), "content-type": "application/json" }, body: "{}",
+  });
+  if (r.status === 404) throw new Error("Falta correr en Supabase el SQL del panel (admin/supabase-panel.sql).");
+  if (!r.ok) throw new Error("No se pudo revisar el permiso (" + r.status + ").");
+  return (await r.json()) === true;
+}
+async function subir(ruta, cuerpo, tipo) {
+  const r = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${ruta}`, {
+    method: "POST",
+    headers: { apikey: clave, authorization: "Bearer " + await token(), "content-type": tipo, "x-upsert": "true", "cache-control": "max-age=30" },
+    body: cuerpo,
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error(/row-level|Unauthorized|403/i.test(d.message || d.error || r.status) ? "Este usuario no tiene permiso para cambiar el menú." : (d.message || "No se pudo subir (" + r.status + ")."));
+  }
+  return `${SB_URL}/storage/v1/object/public/${BUCKET}/${ruta}`;
+}
+function salir() { ses = null; LS.del("pa.admin.ses"); $("#salir").hidden = true; $("#barra").hidden = true; pintarLogin(); }
+$("#salir").addEventListener("click", salir);
+
+function pintarLogin(error) {
+  $("#app").innerHTML = `<form class="login caja" id="flogin">
+    <h2 style="margin-top:0">Entrar</h2>
+    <p class="ayuda" style="margin:0">Solo para el dueño. Aquí cambias categorías, sabores, precios, fotos y qué sale de día o de noche.</p>
+    <label>Correo<input type="email" id="lcorreo" autocomplete="username" required value="${esc(LS.get("pa.admin.correo", ""))}"></label>
+    <label>Contraseña<input type="password" id="lclave" autocomplete="current-password" required></label>
+    ${clave ? "" : `<label>Clave pública de Supabase<input id="lpub" required placeholder="sb_publishable_…"><span class="ayuda" style="margin:0;font-weight:600">La misma de Ajustes de la caja. Se pide una sola vez en este equipo.</span></label>`}
+    <button class="btn brand" id="lbtn">Entrar</button>
+    <p class="msg err" id="lerr">${esc(error || "")}</p>
+  </form>`;
+  $("#flogin").addEventListener("submit", async e => {
+    e.preventDefault();
+    const correo = $("#lcorreo").value.trim();
+    if ($("#lpub")) { clave = $("#lpub").value.trim(); LS.set("pa.admin.clave", clave); }
+    $("#lbtn").disabled = true; $("#lerr").textContent = "";
+    try {
+      await auth("password", { email: correo, password: $("#lclave").value });
+      LS.set("pa.admin.correo", correo);
+      await entrar();
+    } catch (err) {
+      if (/api ?key/i.test(err.message)) { clave = ""; LS.del("pa.admin.clave"); }
+      pintarLogin(err.message);
+    }
+  });
+}
+
+// ---------- Menú ----------
+let menu = [];         // lo que se está editando
+let publicado = "";    // menú publicado (texto) para saber si hay cambios
+let abierta = null;    // índice de la categoría abierta
+
+async function entrar() {
+  $("#app").innerHTML = `<p class="ayuda" style="margin-top:20px">Cargando el menú…</p>`;
+  if (!await esAdmin()) { const c = ses.email; salir(); pintarLogin(`${c} no tiene permiso para cambiar el menú.`); return; }
+  $("#salir").hidden = false; $("#barra").hidden = false;
+  let enLinea = null;
+  try {
+    const r = await fetch(`${SB_URL}/storage/v1/object/public/${BUCKET}/menu.json?v=${Date.now()}`, { cache: "no-store" });
+    if (r.ok) enLinea = await r.json();
+  } catch (_) {}
+  publicado = enLinea ? JSON.stringify(enLinea) : "";
+  const borrador = LS.get("pa.admin.borrador", null);
+  menu = borrador || copia(enLinea || MENU_BASE);
+  if (!borrador && !enLinea) toast("Todavía no hay menú publicado: empiezas con el menú actual del enlace.");
+  pintar();
+}
+
+function guardarBorrador() {
+  const igual = JSON.stringify(menu) === publicado;
+  if (igual) LS.del("pa.admin.borrador"); else LS.set("pa.admin.borrador", menu);
+  const e = $("#estado");
+  e.className = "msg" + (igual ? " ok" : "");
+  e.textContent = igual ? "Todo publicado." : "Hay cambios sin publicar.";
+  $("#publicar").disabled = igual;
+}
+
+function problemas() {
+  const out = [];
+  menu.forEach(c => {
+    if (!c.cat.trim()) out.push("Hay una categoría sin nombre.");
+    if (!c.turnos.length) out.push(`${c.cat}: marca día, noche o los dos.`);
+    if (!c.items.length && !c.oculta) out.push(`${c.cat}: no tiene productos.`);
+    c.items.forEach(it => {
+      const n = `${c.cat} › ${it.name || "producto sin nombre"}`;
+      if (!it.name.trim()) out.push(`${c.cat}: hay un producto sin nombre.`);
+      if (it.sizes) { if (!it.sizes.length || it.sizes.some(s => !s[0].trim() || !(s[1] > 0))) out.push(`${n}: revisa los tamaños y precios.`); }
+      else if (!(it.price > 0)) out.push(`${n}: falta el precio.`);
+      (it.extras || []).forEach(x => { if (!x.label.trim() || !(x.price >= 0)) out.push(`${n}: revisa los extras.`); });
+    });
+  });
+  return [...new Set(out)];
+}
+
+$("#publicar").addEventListener("click", async () => {
+  const p = problemas();
+  if (p.length) { $("#estado").className = "msg err"; $("#estado").textContent = p[0]; return; }
+  $("#publicar").disabled = true; $("#estado").className = "msg"; $("#estado").textContent = "Publicando…";
+  try {
+    await subir("menu.json", JSON.stringify(menu), "application/json");
+    publicado = JSON.stringify(menu);
+    guardarBorrador();
+    toast("Listo. El enlace ya muestra el menú nuevo.");
+  } catch (err) { $("#estado").className = "msg err"; $("#estado").textContent = err.message; $("#publicar").disabled = false; }
+});
+
+// Fotos: se achican en el teléfono (máx. 1000 px) antes de subirlas
+function achicar(archivo) {
+  return new Promise((ok, mal) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1000 / Math.max(img.width, img.height));
+      const cv = document.createElement("canvas");
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(img.src);
+      cv.toBlob(b => b ? ok(b) : mal(new Error("No se pudo leer la foto.")), "image/jpeg", 0.82);
+    };
+    img.onerror = () => mal(new Error("Ese archivo no es una foto."));
+    img.src = URL.createObjectURL(archivo);
+  });
+}
+async function subirFoto(obj, nombre) {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "image/*";
+  inp.addEventListener("change", async () => {
+    const f = inp.files[0]; if (!f) return;
+    toast("Subiendo la foto…");
+    try {
+      const url = await subir(`fotos/${slug(nombre)}-${Date.now()}.jpg`, await achicar(f), "image/jpeg");
+      obj.fotoUrl = url; pintar(); toast("Foto lista. Falta publicar.");
+    } catch (err) { toast(err.message); }
+  });
+  inp.click();
+}
+
+const fotoHtml = (url, icono, cls = "") => `<span class="ph ${cls}" aria-hidden="true">${esc(icono)}${url ? `<img src="${esc(url)}" alt="" onerror="this.remove()">` : ""}</span>`;
+const fotoCat = c => c.fotoUrl || `../fotos/${c.foto}.jpg`;
+const fotoProd = it => it.fotoUrl || `../fotos/${it.id}.jpg`;
+const precioCorto = it => it.sizes ? (it.sizes.length ? "desde " + fmt(Math.min(...it.sizes.map(s => s[1] || 0))) : "") : (it.price > 0 ? fmt(it.price) : "sin precio");
+
+function pintar() {
+  const html = menu.map((c, ci) => {
+    const ab = abierta === ci;
+    const agot = c.items.filter(it => it.agotado).length;
+    return `<section class="cat${ab ? " abierta" : ""}${c.oculta ? " oculta" : ""}">
+      <button class="ch" data-abrir="${ci}" aria-expanded="${ab}">
+        ${fotoHtml(fotoCat(c), c.icono)}
+        <span><b>${esc(c.cat || "Sin nombre")}</b>
+          <span class="chips">${c.turnos.includes("dia") ? `<span class="chip">Día</span>` : ""}${c.turnos.includes("noche") ? `<span class="chip">Noche</span>` : ""}
+          <small>${c.items.length} producto${c.items.length === 1 ? "" : "s"}</small>${agot ? `<span class="chip no">${agot} agotado${agot > 1 ? "s" : ""}</span>` : ""}${c.oculta ? `<span class="chip no">No sale</span>` : ""}</span></span>
+        <span aria-hidden="true">${ab ? "▴" : "▾"}</span>
+      </button>
+      ${ab ? pintarCat(c, ci) : ""}
+    </section>`;
+  }).join("");
+  $("#app").innerHTML = `<h2>Menú del enlace</h2>
+    <p class="ayuda">Toca una categoría para cambiar sus productos, sabores, precios y foto. Los cambios se guardan aquí mientras trabajas; salen en el enlace cuando tocas <b>Publicar</b>.</p>
+    <div class="cats">${html}</div>
+    <div class="fila" style="margin-top:14px">
+      <button class="btn" data-a="nuevaCat">+ Agregar categoría</button>
+      <button class="btn peq malo" data-a="descartar" ${JSON.stringify(menu) === publicado ? "disabled" : ""}>Descartar cambios</button>
+      <button class="btn peq" data-a="base">Volver al menú base</button>
+    </div>`;
+  guardarBorrador();
+}
+
+function pintarCat(c, ci) {
+  const prods = c.items.map((it, ii) => pintarProd(c, ci, it, ii)).join("");
+  return `<div class="cb">
+    <div class="dos">
+      <label>Nombre de la categoría<input data-c="${ci}" data-k="cat" value="${esc(c.cat)}"></label>
+      <label>Dibujito (mientras no hay foto)<input data-c="${ci}" data-k="icono" value="${esc(c.icono)}" maxlength="4"></label>
+    </div>
+    <div class="fila">
+      <span class="sub" style="margin-right:4px">Sale</span>
+      <label class="chk"><input type="checkbox" data-c="${ci}" data-turno="dia" ${c.turnos.includes("dia") ? "checked" : ""}> De día</label>
+      <label class="chk"><input type="checkbox" data-c="${ci}" data-turno="noche" ${c.turnos.includes("noche") ? "checked" : ""}> De noche</label>
+      <label class="chk"><input type="checkbox" data-c="${ci}" data-k="oculta" ${c.oculta ? "checked" : ""}> No mostrar en el enlace</label>
+    </div>
+    <div class="foto">
+      ${fotoHtml(fotoCat(c), c.icono, "grande")}
+      <div class="fila">
+        <button class="btn peq" data-a="fotoCat" data-c="${ci}">${c.fotoUrl ? "Cambiar foto" : "Subir foto"}</button>
+        ${c.fotoUrl ? `<button class="btn peq malo" data-a="quitarFotoCat" data-c="${ci}">Quitar</button>` : ""}
+        <label class="chk"><input type="checkbox" data-c="${ci}" data-k="fotoPorProducto" ${c.fotoPorProducto ? "checked" : ""}> Cada producto con su foto</label>
+      </div>
+    </div>
+    <p class="sub">Productos</p>
+    <div class="prods">${prods || `<p class="ayuda">Todavía no tiene productos.</p>`}</div>
+    <div class="fila">
+      <button class="btn" data-a="nuevoProd" data-c="${ci}">+ Agregar producto</button>
+    </div>
+    <div class="fila" style="justify-content:flex-end">
+      <button class="btn peq" data-a="subirCat" data-c="${ci}" ${ci === 0 ? "disabled" : ""}>↑ Subir</button>
+      <button class="btn peq" data-a="bajarCat" data-c="${ci}" ${ci === menu.length - 1 ? "disabled" : ""}>↓ Bajar</button>
+      <button class="btn peq malo" data-a="borrarCat" data-c="${ci}">Borrar categoría</button>
+    </div>
+  </div>`;
+}
+
+function pintarProd(c, ci, it, ii) {
+  const d = `data-c="${ci}" data-i="${ii}"`;
+  const lista = (arr, tipo, ph) => `<div class="lista">${arr.map((x, xi) => `<div class="li">
+      <input ${d} data-${tipo}="${xi}" data-p="0" value="${esc(tipo === "size" ? x[0] : x.label)}" placeholder="${ph}">
+      <input ${d} data-${tipo}="${xi}" data-p="1" value="${esc(precioTxt(tipo === "size" ? x[1] : x.price))}" placeholder="Precio $" inputmode="decimal">
+      <button class="x" data-a="quitar-${tipo}" ${d} data-x="${xi}" aria-label="Quitar">✕</button></div>`).join("")}</div>`;
+  return `<div class="prod${it.agotado ? " agotado" : ""}">
+    <div class="tit">
+      ${c.fotoPorProducto ? fotoHtml(fotoProd(it), c.icono) : ""}
+      <b>${esc(it.name || "Producto nuevo")}</b><span class="chip">${precioCorto(it)}</span>
+    </div>
+    <div class="dos">
+      <label>Nombre${c.prefijo ? ` <span class="ayuda" style="margin:0;font-weight:600">(en el pedido sale “${esc(c.prefijo)} …”)</span>` : ""}<input ${d} data-k="name" value="${esc(it.name)}"></label>
+      <label>Descripción<input ${d} data-k="desc" value="${esc(it.desc || "")}" placeholder="Opcional"></label>
+    </div>
+    <div class="fila">
+      <label class="chk"><input type="radio" name="tp${ci}-${ii}" ${d} data-tipo="uno" ${it.sizes ? "" : "checked"}> Un solo precio</label>
+      <label class="chk"><input type="radio" name="tp${ci}-${ii}" ${d} data-tipo="tam" ${it.sizes ? "checked" : ""}> Por tamaño</label>
+    </div>
+    ${it.sizes
+      ? `${lista(it.sizes, "size", "Tamaño (ej. 12 oz)")}<div><button class="btn peq" data-a="nuevo-size" ${d}>+ Tamaño</button></div>`
+      : `<label style="max-width:160px">Precio ($)<input ${d} data-k="price" value="${esc(precioTxt(it.price))}" inputmode="decimal" placeholder="0,00"></label>`}
+    <label>Sabores o variedades <span class="ayuda" style="margin:0;font-weight:600">(uno por línea; cada uno sale aparte con el mismo precio. Vacío = no tiene)</span>
+      <textarea ${d} data-k="flavors" rows="${Math.min(8, Math.max(2, (it.flavors || []).length + 1))}">${esc((it.flavors || []).join("\n"))}</textarea></label>
+    <div><p class="sub">Extras (se marcan aparte y suman)</p>
+      ${(it.extras || []).length ? lista(it.extras, "extra", "Ej. Con pollo") : ""}
+      <button class="btn peq" data-a="nuevo-extra" ${d} style="margin-top:6px">+ Extra</button></div>
+    ${c.fotoPorProducto ? `<div class="fila"><button class="btn peq" data-a="fotoProd" ${d}>${it.fotoUrl ? "Cambiar foto" : "Subir foto"}</button>${it.fotoUrl ? `<button class="btn peq malo" data-a="quitarFotoProd" ${d}>Quitar foto</button>` : ""}</div>` : ""}
+    <div class="fila" style="justify-content:space-between">
+      <label class="chk"><input type="checkbox" ${d} data-k="agotado" ${it.agotado ? "checked" : ""}> Agotado</label>
+      <span class="fila">
+        <button class="btn peq" data-a="subirProd" ${d} ${ii === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
+        <button class="btn peq" data-a="bajarProd" ${d} ${ii === c.items.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button>
+        <button class="btn peq malo" data-a="borrarProd" ${d}>Borrar</button>
+      </span>
+    </div>
+  </div>`;
+}
+
+// Escribir no vuelve a pintar (para no perder el cursor); solo actualiza el borrador
+$("#app").addEventListener("input", e => {
+  const el = e.target, c = menu[el.dataset.c];
+  if (!c) return;
+  const it = el.dataset.i !== undefined ? c.items[el.dataset.i] : null;
+  const k = el.dataset.k;
+  if (el.dataset.size !== undefined) it.sizes[el.dataset.size][el.dataset.p] = el.dataset.p === "1" ? num(el.value) : el.value;
+  else if (el.dataset.extra !== undefined) it.extras[el.dataset.extra][el.dataset.p === "1" ? "price" : "label"] = el.dataset.p === "1" ? num(el.value) : el.value;
+  else if (k === "flavors") { const f = el.value.split("\n").map(x => x.trim()).filter(Boolean); if (f.length) it.flavors = f; else delete it.flavors; }
+  else if (k === "price") it.price = num(el.value);
+  else if (k === "name" || k === "desc") { it[k] = el.value; if (k === "desc" && !el.value) delete it.desc; }
+  else if (k === "cat" || k === "icono") c[k] = el.value;
+  else return;
+  guardarBorrador();
+});
+// Casillas y opciones sí vuelven a pintar
+$("#app").addEventListener("change", e => {
+  const el = e.target, c = menu[el.dataset.c];
+  if (!c || (el.type !== "checkbox" && el.type !== "radio")) return;
+  const it = el.dataset.i !== undefined ? c.items[el.dataset.i] : null;
+  if (el.dataset.turno) {
+    c.turnos = ["dia", "noche"].filter(t => t === el.dataset.turno ? el.checked : c.turnos.includes(t));
+  } else if (el.dataset.tipo) {
+    if (el.dataset.tipo === "tam") { it.sizes = [["", isFinite(it.price) ? it.price : NaN]]; delete it.price; }
+    else { it.price = it.sizes && it.sizes[0] ? it.sizes[0][1] : NaN; delete it.sizes; }
+  } else {
+    const obj = it || c, k = el.dataset.k;
+    if (el.checked) obj[k] = true; else delete obj[k];
+  }
+  pintar();
+});
+$("#app").addEventListener("click", e => {
+  const ab = e.target.closest("[data-abrir]");
+  if (ab) { abierta = abierta === +ab.dataset.abrir ? null : +ab.dataset.abrir; pintar(); if (abierta !== null) ab.scrollIntoView({ block: "nearest" }); return; }
+  const b = e.target.closest("[data-a]");
+  if (!b) return;
+  const a = b.dataset.a, ci = +b.dataset.c, ii = +b.dataset.i, c = menu[ci], it = c && c.items[ii];
+  const mover = (arr, i, d) => { const [x] = arr.splice(i, 1); arr.splice(i + d, 0, x); };
+  switch (a) {
+    case "nuevaCat": {
+      const id = nuevoId("cat");
+      menu.push({ id, cat: "Categoría nueva", icono: "🍽️", foto: id, turnos: ["dia"], items: [] });
+      abierta = menu.length - 1; break;
+    }
+    case "nuevoProd": c.items.push({ id: nuevoId(c.id || c.cat), name: "", price: NaN }); break;
+    case "borrarCat": if (!confirm(`¿Borrar la categoría ${c.cat} con todos sus productos?`)) return; menu.splice(ci, 1); abierta = null; break;
+    case "borrarProd": if (!confirm(`¿Borrar ${it.name || "este producto"}?`)) return; c.items.splice(ii, 1); break;
+    case "subirCat": mover(menu, ci, -1); abierta = ci - 1; break;
+    case "bajarCat": mover(menu, ci, 1); abierta = ci + 1; break;
+    case "subirProd": mover(c.items, ii, -1); break;
+    case "bajarProd": mover(c.items, ii, 1); break;
+    case "nuevo-size": it.sizes.push(["", NaN]); break;
+    case "quitar-size": if (it.sizes.length < 2) return toast("Debe quedar al menos un tamaño."); it.sizes.splice(+b.dataset.x, 1); break;
+    case "nuevo-extra": (it.extras = it.extras || []).push({ label: "", price: NaN }); break;
+    case "quitar-extra": it.extras.splice(+b.dataset.x, 1); if (!it.extras.length) delete it.extras; break;
+    case "fotoCat": return subirFoto(c, c.id || c.cat);
+    case "fotoProd": return subirFoto(it, it.id);
+    case "quitarFotoCat": delete c.fotoUrl; break;
+    case "quitarFotoProd": delete it.fotoUrl; break;
+    case "descartar": if (!confirm("¿Descartar los cambios sin publicar?")) return; menu = copia(publicado ? JSON.parse(publicado) : MENU_BASE); break;
+    case "base": if (!confirm("¿Empezar de nuevo con el menú base? Lo que no hayas publicado se pierde.")) return; menu = copia(MENU_BASE); abierta = null; break;
+    default: return;
+  }
+  pintar();
+});
+
+if (ses) entrar().catch(err => pintarLogin(err.message)); else pintarLogin();
+</script>
+</body>
+</html>

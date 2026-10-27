@@ -4,7 +4,7 @@ Página de pedidos de Pa'l Antojo (Campo de Carabobo, Las Manzanas). El cliente 
 
 Es un solo archivo, `index.html`, sin compilación. Vercel lo publica tal cual.
 
-Para cambiar precios o productos, edita la lista `MENU` dentro de `index.html`. Para cambiar el número de WhatsApp, edita `WHATSAPP`.
+Para cambiar precios, productos, sabores o fotos usa el panel `/admin/` (ver abajo). `menu.js` es el menú base, el que sale si el panel todavía no ha publicado nada. Para cambiar el número de WhatsApp, edita `WHATSAPP`.
 
 ## Caja de la tienda
 
@@ -16,3 +16,9 @@ Las fotos van en la carpeta `fotos/`, en `.jpg` y cuadradas o 4:3. Mientras una 
 
 - Una foto por categoría (todos los sabores se ven iguales): `empanadas.jpg`, `papas-rellenas.jpg`, `pastelitos.jpg`, `jugos.jpg`, `bebidas.jpg`, `cafe.jpg`, `cafe-frio.jpg`, `postres.jpg`, `papas-fritas.jpg`, `tequenos.jpg`, `ensaladas.jpg`.
 - Hamburguesas, una por cada una: `h-clasica.jpg`, `h-antojo.jpg`, `h-doble.jpg`, `h-pollo.jpg`, y `hamburguesas.jpg` para la tarjeta de la categoría.
+
+## Panel del menú (`/admin/`)
+
+Con correo y contraseña, el dueño cambia categorías, productos, sabores, tamaños, extras, precios, agotados, qué sale de día o de noche, y sube las fotos (una por categoría, o una por producto si se marca "Cada producto con su foto"). Al tocar **Publicar** se guarda `menu.json` en Supabase Storage y el enlace lo lee de ahí; si no carga, el enlace usa `menu.js`.
+
+Una sola vez: correr `admin/supabase-panel.sql` (con tu correo) y crear el usuario en Supabase > Authentication > Users > Add user.
