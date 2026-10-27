@@ -1098,6 +1098,16 @@ function formasDe(x, u) {
   if (x && x.pres && num(x.presC) > 0) f.push(["pres", `${x.pres} (${cant(num(x.presC))} ${u})`, num(x.presC)]);
   return f;
 }
+// Lo que va a sumar cada línea, ya pasado a la unidad del ingrediente
+function resumenLinea(l) {
+  if (!(num(l.c) > 0)) return null;
+  const x = insumoDe(l.ins), n = x ? x.n : String(l.nombre || "").trim(); if (!n) return null;
+  const u = x ? x.u : l.u, forma = formasDe(x, u).find(f => f[0] === l.en) || [u, u, 1];
+  const y = x || inv.insumos.find(z => norm(z.n) === norm(n));
+  return { n: y ? y.n : n, c: num(l.c) * forma[2], u: y ? y.u : u, nuevo: !y, como: forma[2] !== 1 ? `${cant(num(l.c))} ${forma[0] === "pres" ? x.pres : forma[0]}` : "" };
+}
+const sumaHTML = l => { const r = resumenLinea(l); return r ? `Suma: <b>${cant(r.c)} ${esc(r.u)}</b> a ${esc(r.n)}${r.nuevo ? " (nuevo)" : ""}` : ""; };
+const resumenFac = () => fac.lineas.map(resumenLinea).filter(Boolean);
 function confirmarFactura() {
   const nuevos = [], sumados = [], t = Date.now();
   fac.lineas.forEach((l, i) => {
@@ -1126,9 +1136,16 @@ function facturaHTML() {
       ${nuevos.length ? `<p class="hint">A los ingredientes nuevos ponles su mínimo en Ingredientes y úsalos en las recetas.</p>` : ""}
       <div class="acts"><button class="btn brand" data-iv="flisto">Listo</button></div></section>`;
   }
+  if (fac.revisar) {
+    const r = resumenFac();
+    return `<section class="card" id="facRev"><h3>Revisa antes de sumar</h3>
+      <p class="hint">Factura${fac.prov.trim() ? " de " + esc(fac.prov.trim()) : ""}. Si algo está mal, toca Corregir.</p>
+      <div>${r.map(x => `<div class="mov"><div>${esc(x.n)}${x.nuevo ? ` <span class="meta">(ingrediente nuevo)</span>` : ""}${x.como ? `<br><span class="meta">${esc(x.como)}</span>` : ""}</div><div class="mq">+ ${cant(x.c)} ${esc(x.u)}</div></div>`).join("")}</div>
+      <div class="acts"><button class="btn brand" data-iv="fconfirmar">Está bien, sumar</button><button class="btn ghost" data-iv="fcorregir">Corregir</button></div></section>`;
+  }
   const opts = sel => inv.insumos.filter(x => x.n).map(x => `<option value="${x.id}"${x.id === sel ? " selected" : ""}>${esc(x.n)}</option>`).join("");
   return `<section class="card" id="facRev"><h3>Llegó una factura</h3>
-    <p class="hint">Anota todo lo que llegó y al final toca Sumar todo. Lo que no exista se crea como ingrediente nuevo.</p>
+    <p class="hint">Anota todo lo que llegó y al final toca Revisar y sumar. Lo que no exista se crea como ingrediente nuevo.</p>
     <div class="fields"><label class="ancho">Proveedor<input data-fl="prov" value="${esc(fac.prov)}" placeholder="Opcional"></label></div>
     <div>${fac.lineas.map((l, k) => { const x = insumoDe(l.ins), u = x ? x.u : l.u, formas = formasDe(x, u); return `<div class="fline">
       <div class="fields">
@@ -1138,8 +1155,9 @@ function facturaHTML() {
         <label>Cantidad<input data-fl="c" data-k="${k}" inputmode="decimal" value="${esc(l.c)}" placeholder="Ej. 2"></label>
         ${formas.length > 1 ? `<label>En<select data-fl="en" data-k="${k}">${formas.map(([v, t]) => `<option value="${v}"${v === l.en ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>` : ""}
       </div>
+      <span class="meta" id="fs-${k}">${sumaHTML(l)}</span>
       ${fac.lineas.length > 1 ? `<button class="x" data-iv="fquitar" data-k="${k}" style="justify-self:start;padding:4px 0">× Quitar línea</button>` : ""}</div>`; }).join("")}</div>
-    <div class="acts"><button class="btn ghost" data-iv="flinea">+ Otra línea</button><button class="btn brand" data-iv="fconfirmar">Sumar todo</button></div></section>`;
+    <div class="acts"><button class="btn ghost" data-iv="flinea">+ Otra línea</button><button class="btn brand" data-iv="frevisar">Revisar y sumar</button></div></section>`;
 }
 function pInventario() {
   const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
@@ -1258,7 +1276,9 @@ $("#main").addEventListener("click", e => {
   }
   if (a === "flinea") { fac.lineas.push(lineaVacia()); guardarFac(); }
   if (a === "fquitar") { fac.lineas.splice(+k, 1); guardarFac(); }
-  if (a === "fconfirmar") { if (!confirm("¿Sumar esta factura al inventario?")) return; confirmarFactura(); }
+  if (a === "frevisar") { if (!resumenFac().length) { toast("Pon el ingrediente y la cantidad de al menos una línea."); return; } fac.revisar = true; window.scrollTo(0, 0); }
+  if (a === "fcorregir") fac.revisar = false;
+  if (a === "fconfirmar") { if (!fac.revisar) return; fac.revisar = false; confirmarFactura(); }
   if (a === "flisto") fac.hecho = null;
   // Anular pide el motivo, queda escrito, y deja el formulario listo para anotarlo bien
   if (a === "anular") {
@@ -1291,7 +1311,7 @@ $("#main").addEventListener("change", e => {
 });
 $("#main").addEventListener("input", e => {
   const el = e.target, f = el.dataset.fl; if (tab !== "inventario" || !f || el.tagName === "SELECT") return;
-  if (f === "prov") fac.prov = el.value; else fac.lineas[+el.dataset.k][f] = el.value;
+  if (f === "prov") fac.prov = el.value; else { const l = fac.lineas[+el.dataset.k]; l[f] = el.value; $("#fs-" + el.dataset.k).innerHTML = sumaHTML(l); }
   guardarFac();
 });
 
