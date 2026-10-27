@@ -124,9 +124,9 @@ input[type="file"] { display: none; }
 
 <script src="../menu.js"></script>
 <script>
-// Proyecto de Supabase de la caja. La clave pública (publishable) se toma de los Ajustes de la caja de este equipo,
-// o se escribe una vez al entrar. Nunca se usa aquí la clave secreta.
+// Proyecto de Supabase de la caja. La clave pública (publishable) se puede ver en el navegador; nunca se usa aquí la clave secreta.
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co";
+const SB_PUBLICA = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
 const BUCKET = "menu";
 const $ = s => document.querySelector(s);
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -146,7 +146,7 @@ function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = fals
 
 // ---------- Sesión (Supabase Auth) ----------
 const cajaCfg = LS.get("pa.cfg", {});
-let clave = LS.get("pa.admin.clave", "") || (cajaCfg.url === SB_URL || !cajaCfg.url ? cajaCfg.key || "" : "");
+let clave = LS.get("pa.admin.clave", "") || SB_PUBLICA;
 let ses = LS.get("pa.admin.ses", null);
 
 async function auth(tipo, cuerpo) {
