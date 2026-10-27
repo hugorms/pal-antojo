@@ -1177,7 +1177,7 @@ function invHay() {
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
     ${ult.length ? `<div>${ult.map(m => { const x = insumoDe(m.ins); return `<div class="mov"${m.anulado ? ` style="opacity:.45"` : ""}>
-      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}</span></div>
+      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span></div>
       <div class="mq"><span>${cant(num(m.c))} ${x ? esc(x.u) : ""}</span>${m.anulado ? `<span class="meta">Anulado</span>` : `<button class="x" style="padding:4px 0;font-size:.9rem" data-iv="anular" data-k="${m.id}">Anular</button>`}</div></div>`; }).join("")}</div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
   </section>`;
 }
@@ -1260,7 +1260,17 @@ $("#main").addEventListener("click", e => {
   if (a === "fquitar") { fac.lineas.splice(+k, 1); guardarFac(); }
   if (a === "fconfirmar") { if (!confirm("¿Sumar esta factura al inventario?")) return; confirmarFactura(); }
   if (a === "flisto") fac.hecho = null;
-  if (a === "anular") { const m = movs[k]; if (m) { m.anulado = true; m.rev = (m.rev || 1) + 1; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); } }
+  // Anular pide el motivo, queda escrito, y deja el formulario listo para anotarlo bien
+  if (a === "anular") {
+    const m = movs[k]; if (!m) return;
+    const motivo = (prompt("¿Por qué lo anulas? Ej. puse 2000 y eran 200") || "").trim();
+    if (!motivo) { toast("Para anular escribe el motivo."); return; }
+    Object.assign(m, { anulado: true, motivo, anuladoPor: cfg.equipo || "", anuladoT: Date.now(), rev: (m.rev || 1) + 1 });
+    LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar();
+    pintar();
+    if ($("#mv-ins")) { $("#mv-ins").value = m.ins; $("#mv-tipo").value = m.tipo; $("#mv-nota").value = "Corrige: " + motivo; $("#mv-c").focus(); $("#mv-c").scrollIntoView({ block: "center" }); toast("Anulado. Ahora anota la cantidad correcta."); }
+    return;
+  }
   pintar();
 });
 $("#main").addEventListener("input", e => {
