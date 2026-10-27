@@ -38,8 +38,8 @@ const MENU_BASE = [
  ]},
  {"id":"papas-fritas","cat":"Papas fritas","icono":"🍟","foto":"papas-fritas","turnos":["noche"], "items": [
   {"id":"papas","name":"Papas fritas","desc":"200 g","price":1.5},
-  {"id":"papas-parm","name":"Papas con parmesano","desc":"Parmesano, ajo y perejil","price":2.5},
-  {"id":"papas-toc","name":"Papas con queso y tocineta","desc":"250 g","price":4}
+  {"id":"papas-parm","name":"Papas al ajillo con parmesano","desc":"Ajo, perejil y parmesano","price":2.5},
+  {"id":"papas-toc","name":"Papas con queso amarillo y tocineta","desc":"250 g","price":4}
  ]},
  {"id":"tequenos","cat":"Tequeños","icono":"🧀","foto":"tequenos","turnos":["noche"], "items": [
   {"id":"tequenos","name":"Tequeños de queso (6)","desc":"Con salsa","price":4}
