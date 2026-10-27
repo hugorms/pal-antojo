@@ -8,7 +8,7 @@ Para cambiar precios, productos, sabores o fotos usa el panel `/admin/` (ver aba
 
 ## Caja de la tienda
 
-La carpeta `caja/` es la caja (app instalable en Android y PC). Recibe los pedidos ya pagados que se comparten desde WhatsApp o se pegan desde WhatsApp Web, imprime el ticket y lleva el cierre e inventario del día. Queda en `/caja/`. Para que los equipos se vean entre ellos usa Supabase: corre `caja/supabase.sql` y pon los datos en Ajustes.
+La carpeta `caja/` es la app de la tienda (instalable en Android y PC), también en `/app/`. Tiene un menú lateral con los módulos: Caja (Recibir, Pedidos, Banco, Cierre) y Administración (Menú del enlace, que abre `/admin/` adentro, y Ajustes). Para sumar un módulo se agrega a `TABS` en `caja/index.html`. Recibe los pedidos ya pagados que se comparten desde WhatsApp o se pegan desde WhatsApp Web, imprime el ticket y lleva el cierre e inventario del día. Queda en `/caja/`. Para que los equipos se vean entre ellos usa Supabase: corre `caja/supabase.sql` y pon los datos en Ajustes.
 
 ## Fotos del menú
 
