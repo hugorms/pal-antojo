@@ -144,6 +144,22 @@ label { display: grid; gap: 3px; font-size: .8rem; font-weight: 700; color: var(
 input, select, textarea { font: 700 .95rem var(--body); color: var(--fg); background: var(--surface); border: 1.5px solid var(--line); border-radius: 8px; padding: 7px 9px; min-width: 0; width: 100%; }
 textarea { font-weight: 600; resize: vertical; }
 .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+/* Inventario: filas que no cortan los nombres. En teléfono el nombre va solo en su línea. */
+.irow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 10px 0; border-top: 1px solid var(--line); }
+.irow:first-of-type { border-top: 0; padding-top: 2px; }
+.irow .ancho { grid-column: 1 / -1; }
+.irow .x { align-self: center; padding: 8px 6px; }
+.ucant { display: flex; align-items: center; gap: 6px; }
+.ucant span { color: var(--muted); font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.mov { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: center; }
+.mov:first-child { border-top: 0; }
+.mov b { font-weight: 800; } .mov .mq { font-weight: 800; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; }
+@media (max-width: 639px) { .fields .ancho { grid-column: 1 / -1; } }
+@media (min-width: 640px) {
+  .irow { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
+  .irow.c4 { grid-template-columns: minmax(0, 2fr) 110px minmax(0, 1fr) auto; }
+  .irow .ancho { grid-column: auto; }
+}
 .chk { display: flex; gap: 8px; align-items: center; font-size: .9rem; color: var(--fg); font-weight: 700; }
 .chk input { width: 18px; height: 18px; flex: none; }
 .msg { font-size: .88rem; font-weight: 700; border-radius: 8px; padding: 7px 10px; }
@@ -1081,7 +1097,7 @@ function invHay() {
   return `
   <section class="card"><h3>Anotar</h3>
     <div class="fields">
-      <label>Ingrediente<select id="mv-ins">${inv.insumos.map(x => `<option value="${x.id}">${esc(x.n)} (${esc(x.u)})</option>`).join("")}</select></label>
+      <label class="ancho">Ingrediente<select id="mv-ins">${inv.insumos.map(x => `<option value="${x.id}">${esc(x.n)} (${esc(x.u)})</option>`).join("")}</select></label>
       <label>Qué pasó<select id="mv-tipo">${Object.entries(tipos).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
       <label>Cantidad<input id="mv-c" inputmode="decimal" placeholder="Ej. 2000"></label>
       <label>Nota<input id="mv-nota" placeholder="Opcional"></label></div>
@@ -1090,7 +1106,7 @@ function invHay() {
   </section>
   ${sinReceta.size ? `<p class="msg w">Hoy se vendió sin receta (no descuenta nada): ${[...sinReceta].map(esc).join(", ")}.</p>` : ""}
   <section class="card"><h3>Ingredientes</h3><div class="tbl"><table><thead><tr><th>Ingrediente</th><th class="n">Hay</th><th class="n">Mínimo</th></tr></thead><tbody>
-    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h != null && h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${h == null ? `<span class="meta">Sin stock anotado</span>` : `${cant(h)} ${esc(x.u)}`}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
+    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h != null && h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${h == null ? `<span class="meta" style="white-space:nowrap">Sin anotar</span>` : `${cant(h)} ${esc(x.u)}`}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
   </tbody></table></div></section>
   <section class="card"><h3>Alcanza para</h3>
     ${alc.length ? `<div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Quedan</th></tr></thead><tbody>
@@ -1098,9 +1114,9 @@ function invHay() {
       <p class="hint">Sin sabores ni extras. Si dos productos usan el mismo ingrediente, al vender uno bajan los dos.</p>` : `<p class="note">Todavía no hay stock anotado. Haz un conteo real de los ingredientes y aquí aparece para cuántos alcanza cada producto.</p>`}
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
-    ${ult.length ? `<div class="tbl"><table><tbody>${ult.map(m => { const x = insumoDe(m.ins); return `<tr${m.anulado ? ` style="opacity:.45"` : ""}><td>${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
-      <td>${tipos[m.tipo]}${m.nota ? `<br><span class="meta">${esc(m.nota)}</span>` : ""}</td><td>${x ? esc(x.n) : "?"}</td><td class="n">${cant(num(m.c))} ${x ? esc(x.u) : ""}</td>
-      <td>${m.anulado ? "Anulado" : `<button class="btn link" data-iv="anular" data-k="${m.id}">Anular</button>`}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
+    ${ult.length ? `<div>${ult.map(m => { const x = insumoDe(m.ins); return `<div class="mov"${m.anulado ? ` style="opacity:.45"` : ""}>
+      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}</span></div>
+      <div class="mq"><span>${cant(num(m.c))} ${x ? esc(x.u) : ""}</span>${m.anulado ? `<span class="meta">Anulado</span>` : `<button class="x" style="padding:4px 0;font-size:.9rem" data-iv="anular" data-k="${m.id}">Anular</button>`}</div></div>`; }).join("")}</div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
   </section>`;
 }
 function invRecetas() {
@@ -1119,11 +1135,12 @@ function invRecetas() {
   <section class="card"><div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">${lista}</div></section>`;
 }
 function partesHTML(partes, conPreps) {
-  const ops = [...inv.insumos.map(x => [x.id, `${x.n} (${x.u})`]), ...(conPreps ? inv.preps.map(p => [p.id, `${p.n} (porción)`]) : [])];
-  return (partes || []).map((x, k) => `<div class="fields">
-    <label>Ingrediente<select data-ip="i" data-k="${k}">${ops.map(([id, t]) => `<option value="${id}"${id === x.i ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>
-    <label>Cantidad<input data-ip="c" data-k="${k}" inputmode="decimal" value="${esc(x.c)}"></label>
-    <button class="x" data-iv="qparte" data-k="${k}" aria-label="Quitar">× Quitar</button></div>`).join("");
+  const ops = [...inv.insumos.map(x => [x.id, x.n]), ...(conPreps ? inv.preps.map(p => [p.id, p.n]) : [])];
+  const unidad = id => { const i = insumoDe(id); return i ? i.u : prepDe(id) ? "porción" : ""; };
+  return (partes || []).map((x, k) => `<div class="irow">
+    <label class="ancho">Ingrediente<select data-ip="i" data-k="${k}">${ops.map(([id, t]) => `<option value="${id}"${id === x.i ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>
+    <label>Cantidad<span class="ucant"><input data-ip="c" data-k="${k}" inputmode="decimal" value="${esc(x.c)}"><span>${esc(unidad(x.i))}</span></span></label>
+    <button class="x" data-iv="qparte" data-k="${k}" aria-label="Quitar ingrediente de la receta">× Quitar</button></div>`).join("");
 }
 function recetaSel() {
   if (invSel.startsWith("prep:")) { const p = prepDe(invSel.slice(5)); return p ? { partes: p.partes, n: p.n, prep: p } : null; }
@@ -1141,17 +1158,17 @@ function invEditorReceta() {
 }
 function invIngredientes() {
   return `<section class="card"><h3>Ingredientes</h3>
-    <p class="hint">Lo que compras. La unidad es la misma que usas en las recetas (si la carne va en gramos, anótala en g).</p>
-    ${inv.insumos.map((x, k) => `<div class="fields">
-      <label>Nombre<input data-ii="n" data-k="${k}" value="${esc(x.n)}" placeholder="Ej. Carne de res"></label>
+    <p class="hint">Lo que compras. La unidad es la misma que usas en las recetas (si la carne va en gramos, anótala en g). Mínimo: cuando quede eso o menos, sale en rojo.</p>
+    ${inv.insumos.map((x, k) => `<div class="irow c4">
+      <label class="ancho">Nombre<input data-ii="n" data-k="${k}" value="${esc(x.n)}" placeholder="Ej. Carne de res"></label>
       <label>Unidad<select data-ii="u" data-k="${k}">${UNIDADES.map(u => `<option${u === x.u ? " selected" : ""}>${u}</option>`).join("")}</select></label>
-      <label>Avisar cuando quede<input data-ii="min" data-k="${k}" inputmode="decimal" value="${esc(x.min ?? "")}"></label>
+      <label>Mínimo<span class="ucant"><input data-ii="min" data-k="${k}" inputmode="decimal" value="${esc(x.min ?? "")}"><span>${esc(x.u)}</span></span></label>
       <button class="x" data-iv="qins" data-k="${k}" aria-label="Quitar ingrediente">× Quitar</button></div>`).join("") || `<p class="note">Sin ingredientes.</p>`}
     <div class="acts"><button class="btn ghost" data-iv="ins">+ Agregar ingrediente</button></div></section>
   <section class="card"><h3>Preparaciones</h3>
     <p class="hint">Lo que se hace en la cocina con varios ingredientes, ej. carne mechada: 2000 g de carne rinden 40 porciones. En la receta de la empanada pones 1 porción.</p>
-    ${inv.preps.map((p, k) => `<div class="fields">
-      <label>Nombre<input data-ipr="n" data-k="${k}" value="${esc(p.n)}" placeholder="Ej. Carne mechada"></label>
+    ${inv.preps.map((p, k) => `<div class="irow c4">
+      <label class="ancho">Nombre<input data-ipr="n" data-k="${k}" value="${esc(p.n)}" placeholder="Ej. Carne mechada"></label>
       <label>Rinde (porciones)<input data-ipr="rinde" data-k="${k}" inputmode="decimal" value="${esc(p.rinde)}"></label>
       <button class="btn ghost" data-iv="sel" data-k="prep:${p.id}">Qué lleva (${(p.partes || []).length})</button>
       <button class="x" data-iv="qprep" data-k="${k}" aria-label="Quitar preparación">× Quitar</button></div>`).join("") || `<p class="note">Sin preparaciones.</p>`}
