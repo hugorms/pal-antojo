@@ -1042,11 +1042,13 @@ function existencias() {
     if (!cuentaEnInventario(p)) return;
     p.items.forEach(i => Object.entries(consumoDe(i.n, i.d)).forEach(([id, c]) => { if (p.creado > desde[id]) hay[id] -= c * i.q; }));
   });
+  // Un ingrediente sin conteo ni compra todavía no se lleva: queda en null y no frena ninguna venta
+  inv.insumos.forEach(x => { if (desde[x.id] === Infinity) hay[x.id] = null; });
   return hay;
 }
-// Para cuántos alcanza lo que hay; null si el producto no tiene receta
+// Para cuántos alcanza lo que hay; null si el producto no tiene receta o ninguno de sus ingredientes tiene stock anotado
 function alcanza(n, d, hay = existencias()) {
-  const c = Object.entries(consumoDe(n, d)); if (!c.length) return null;
+  const c = Object.entries(consumoDe(n, d)).filter(([id, q]) => q > 0 && hay[id] != null); if (!c.length) return null;
   return Math.min(...c.map(([id, q]) => Math.floor((hay[id] || 0) / q + 1e-9)));
 }
 // Todo lo que se puede vender, con los mismos nombres del pedido, y los detalles (sabores, tamaños, extras)
@@ -1088,12 +1090,12 @@ function invHay() {
   </section>
   ${sinReceta.size ? `<p class="msg w">Hoy se vendió sin receta (no descuenta nada): ${[...sinReceta].map(esc).join(", ")}.</p>` : ""}
   <section class="card"><h3>Ingredientes</h3><div class="tbl"><table><thead><tr><th>Ingrediente</th><th class="n">Hay</th><th class="n">Mínimo</th></tr></thead><tbody>
-    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${cant(h)} ${esc(x.u)}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
+    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h != null && h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${h == null ? `<span class="meta">Sin stock anotado</span>` : `${cant(h)} ${esc(x.u)}`}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
   </tbody></table></div></section>
   <section class="card"><h3>Alcanza para</h3>
     ${alc.length ? `<div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Quedan</th></tr></thead><tbody>
       ${alc.map(p => `<tr><td>${esc(p.n)}</td><td class="n${p.a <= 5 ? " low" : ""}">${Math.max(0, p.a)}</td></tr>`).join("")}</tbody></table></div>
-      <p class="hint">Sin sabores ni extras. Si dos productos usan el mismo ingrediente, al vender uno bajan los dos.</p>` : `<p class="note">Ningún producto tiene receta todavía. Ve a Recetas.</p>`}
+      <p class="hint">Sin sabores ni extras. Si dos productos usan el mismo ingrediente, al vender uno bajan los dos.</p>` : `<p class="note">Todavía no hay stock anotado. Haz un conteo real de los ingredientes y aquí aparece para cuántos alcanza cada producto.</p>`}
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
     ${ult.length ? `<div class="tbl"><table><tbody>${ult.map(m => { const x = insumoDe(m.ins); return `<tr${m.anulado ? ` style="opacity:.45"` : ""}><td>${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
