@@ -29,3 +29,11 @@ create policy "clave de la tienda" on public.registros for all to anon
   with check ((current_setting('request.headers', true)::json ->> 'x-clave') = 'CAMBIA-ESTA-CLAVE');
 
 grant select, insert, update on public.registros to anon;
+
+-- Para que cada equipo se conecte solo al entrar con su usuario (sin el enlace de configuración).
+-- Necesita la función puede_entrar() del panel (admin/supabase-panel.sql). Cambia CAMBIA-ESTA-CLAVE por la misma clave de arriba.
+create or replace function public.clave_tienda() returns text
+  language sql stable security definer set search_path to 'public'
+as $$ select case when public.puede_entrar() then 'CAMBIA-ESTA-CLAVE' end; $$;
+revoke all on function public.clave_tienda() from public, anon;
+grant execute on function public.clave_tienda() to authenticated;
