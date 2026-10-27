@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Caja Pa'l Antojo</title>
+<title>Pa'l Antojo App</title>
 <meta name="theme-color" content="#1A1A1A">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icono-192.png">
@@ -35,9 +35,31 @@ p { margin: 0; }
 .top input { width: 90px; padding: 4px 8px; background: #2A2822; color: #F3EEE0; border: 1px solid #4A463A; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #888; margin-right: 5px; }
 .dot.ok { background: #6FCF8A; } .dot.w { background: var(--brand); } .dot.bad { background: #F08A82; }
-.tabs { display: flex; overflow-x: auto; background: var(--surface); border-bottom: 2px solid var(--fg); position: sticky; top: var(--topH, 48px); z-index: 2; }
-.tabs button { flex: 1 0 auto; background: transparent; border: 0; padding: 11px 14px; font: 800 .92rem var(--body); color: var(--fg); cursor: pointer; }
-.tabs button[aria-selected="true"] { background: var(--brand); color: var(--onbrand); }
+.top .menuBtn { background: none; border: 0; color: var(--brand); font-size: 1.5rem; line-height: 1; padding: 2px 6px 4px 0; cursor: pointer; }
+.top .izq { display: flex; align-items: center; gap: 4px; }
+/* Menú lateral: fijo en PC, cajón que se abre con ☰ en el teléfono. Cada módulo es una entrada. */
+.lado { position: fixed; z-index: 5; top: 0; bottom: 0; left: 0; width: 240px; background: var(--surface); border-right: 1px solid var(--line);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 10px 14px max(10px, env(safe-area-inset-left, 0px)); overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  transform: translateX(-100%); transition: transform .2s; }
+.lado.abierto { transform: none; box-shadow: 0 0 40px rgba(0,0,0,.35); }
+.lado .marca { display: flex; align-items: center; gap: 10px; padding: 0 6px 12px; font: 700 1.1rem var(--display); }
+.lado .marca img { width: 36px; height: 36px; border-radius: 50%; }
+.lado .grupo { font: 800 .7rem var(--body); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 12px 10px 4px; }
+.lado button, .lado a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent; border: 0; border-radius: 10px;
+  padding: 9px 10px; font: 800 .95rem var(--body); color: var(--fg); cursor: pointer; text-decoration: none; }
+.lado button:hover, .lado a:hover { background: var(--warnbg); }
+.lado button[aria-current="page"] { background: var(--brand); color: var(--onbrand); }
+.lado .ico { width: 22px; text-align: center; }
+.lado .pie { margin-top: auto; padding-top: 12px; }
+.velo { position: fixed; inset: 0; z-index: 4; background: rgba(0,0,0,.35); }
+@media (min-width: 900px) {
+  .lado { transform: none; transition: none; }
+  .lado.abierto { box-shadow: none; }
+  .velo, .top .menuBtn { display: none; }
+  body { padding-left: 240px; }
+}
+main.modulo { max-width: none; padding: 0; display: block; }
+main.modulo iframe { display: block; width: 100%; height: calc(100vh - var(--topH, 48px)); height: calc(100dvh - var(--topH, 48px)); border: 0; }
 .badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--fg); color: var(--surface); font: 800 .72rem var(--body); }
 .badge.red { background: var(--bad); color: #fff; }
 main { max-width: 900px; margin: 0 auto; padding: 14px max(14px, env(safe-area-inset-right, 0px)) 40px max(14px, env(safe-area-inset-left, 0px)); display: grid; gap: 14px; }
@@ -115,13 +137,14 @@ details summary { cursor: pointer; font-weight: 800; }
 </head>
 <body>
 <header class="top" id="top">
-  <h1>Caja Pa'l Antojo</h1>
+  <div class="izq"><button class="menuBtn" id="menuBtn" aria-label="Abrir el menú" aria-controls="lado" aria-expanded="false">☰</button><h1 id="titulo">Caja Pa'l Antojo</h1></div>
   <div class="r">
     <label for="tasaTop">Tasa Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
     <span id="syncTxt"><span class="dot"></span>…</span>
   </div>
 </header>
-<nav class="tabs" role="tablist" id="tabs"></nav>
+<nav class="lado" id="lado" aria-label="Módulos"></nav>
+<div class="velo" id="velo" hidden></div>
 <main id="main"></main>
 <div id="ticket"></div>
 <div class="toast" id="toast" hidden></div>
@@ -229,23 +252,50 @@ function leerPedido(t) {
 
 // ---------- pestañas ----------
 let tab = LS.get("pa.tab", "nuevo");
-const TABS = [["nuevo", "Recibir"], ["cocina", "Pedidos"], ["banco", "Banco"], ["cierre", "Cierre"], ["ajustes", "Ajustes"]];
+// Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
+const TABS = [
+  ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"],
+  ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
+];
+if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
+function abrirLado(si) {
+  $("#lado").classList.toggle("abierto", si); $("#velo").hidden = !si; $("#menuBtn").setAttribute("aria-expanded", String(si));
+}
 function pedidosDe(fecha) { return Object.values(pedidos).filter(p => p.fecha === fecha).sort((a, b) => a.creado - b.creado); }
 function pintarTabs() {
   const hoy = ahoraCaracas().fecha, lista = pedidosDe(hoy);
   const n = { cocina: lista.filter(p => p.estado === "cocina" || p.estado === "listo").length,
     banco: lista.reduce((a, p) => a + vivos(p).filter(x => x.forma === "Pago móvil" && !x.revisado).length, 0) };
-  $("#tabs").innerHTML = TABS.map(([k, t]) => `<button role="tab" data-t="${k}" aria-selected="${k === tab}">${t}${n[k] ? `<span class="badge${k === "banco" ? " red" : ""}">${n[k]}</span>` : ""}</button>`).join("")
-    + (borrador && tab !== "nuevo" ? "" : "");
+  let grupo = "";
+  $("#lado").innerHTML = `<div class="marca"><img src="icono-192.png" alt="">Pa'l Antojo</div>` + TABS.map(([k, t, ico, g]) => {
+    const cab = g !== grupo ? `<div class="grupo">${g}</div>` : ""; grupo = g;
+    return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
+  }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a></div>`;
+  const actual = TABS.find(t => t[0] === tab);
+  $("#titulo").textContent = actual[3] === "Caja" ? "Caja Pa'l Antojo" : actual[1];
 }
 function pintar() {
   pintarTabs();
+  // Los módulos de administración son páginas aparte dentro de la app; no se recargan con cada sincronización
+  const MODULOS = { menu: "../admin/?app=1" };
+  $("#main").classList.toggle("modulo", !!MODULOS[tab]);
+  if (MODULOS[tab]) {
+    if (!$("#main iframe")) $("#main").innerHTML = `<iframe src="${MODULOS[tab]}" title="${TABS.find(t => t[0] === tab)[1]}"></iframe>`;
+    document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
+    return;
+  }
   const f = { nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
 }
-$("#tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.t; LS.set("pa.tab", tab); pintar(); window.scrollTo(0, 0); });
+$("#lado").addEventListener("click", e => {
+  const b = e.target.closest("button[data-t]"); if (!b) return;
+  if (b.dataset.t !== tab) $("#main").innerHTML = "";
+  tab = b.dataset.t; LS.set("pa.tab", tab); abrirLado(false); pintar(); window.scrollTo(0, 0);
+});
+$("#menuBtn").addEventListener("click", () => abrirLado(!$("#lado").classList.contains("abierto")));
+$("#velo").addEventListener("click", () => abrirLado(false));
 $("#tasaTop").value = cfg.tasa ? String(cfg.tasa).replace(".", ",") : "";
 $("#tasaTop").addEventListener("input", e => { cfg.tasa = num(e.target.value); LS.set("pa.cfg", cfg); if (tab === "nuevo") refrescarRevision(); });
 
