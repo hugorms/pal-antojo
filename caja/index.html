@@ -154,6 +154,11 @@ textarea { font-weight: 600; resize: vertical; }
 .mov { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: center; }
 .mov:first-child { border-top: 0; }
 .mov b { font-weight: 800; } .mov .mq { font-weight: 800; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; }
+/* Llegó una factura: varias líneas de una vez */
+.fline { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.fline:first-of-type { border-top: 0; }
+.fline.fuera { opacity: .5; }
+.fline .meta { font-size: .85rem; }
 @media (max-width: 639px) { .fields .ancho { grid-column: 1 / -1; } }
 @media (min-width: 640px) {
   .irow { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
@@ -1079,6 +1084,63 @@ function vendibles() {
   productos().forEach(x => { if (!prods.has(norm(x.n))) prods.set(norm(x.n), { n: x.n, cat: "Otros" }); });
   return { prods: [...prods.values()], dets: [...dets.values()] };
 }
+// Llegó una factura: se anotan todas sus líneas de una vez. Cada ingrediente puede tener su presentación (bulto, caja…)
+// para escribir "2 bultos" en vez de 40000 g. El borrador queda guardado en el equipo hasta sumarlo.
+let fac = Object.assign({ prov: "", lineas: [], hecho: null }, LS.get("pa.fac", {}));
+const lineaVacia = () => ({ ins: "", nombre: "", u: "g", c: "", en: "" });
+if (!fac.lineas.length) fac.lineas = [lineaVacia()];
+const guardarFac = () => LS.set("pa.fac", { prov: fac.prov, lineas: fac.lineas });
+const MAYOR = { g: ["kg", 1000], ml: ["L", 1000] };
+// En qué se puede escribir la cantidad de un ingrediente: su unidad, la mayor (kg, L) y su presentación
+function formasDe(x, u) {
+  const f = [[u, u, 1]];
+  if (MAYOR[u]) f.push([MAYOR[u][0], MAYOR[u][0], MAYOR[u][1]]);
+  if (x && x.pres && num(x.presC) > 0) f.push(["pres", `${x.pres} (${cant(num(x.presC))} ${u})`, num(x.presC)]);
+  return f;
+}
+function confirmarFactura() {
+  const nuevos = [], sumados = [], t = Date.now();
+  fac.lineas.forEach((l, i) => {
+    if (!(num(l.c) > 0)) return;
+    let x = insumoDe(l.ins);
+    if (!x) {
+      const n = String(l.nombre || "").trim(); if (!n) return;
+      x = inv.insumos.find(y => norm(y.n) === norm(n));
+      if (!x) { x = { id: "i" + uid(), n, u: l.u, min: "" }; inv.insumos.push(x); nuevos.push(x.n); }
+    }
+    const forma = formasDe(x, x.u).find(f => f[0] === l.en) || [x.u, x.u, 1], c = num(l.c) * forma[2];
+    const m = { id: uid() + uid(), ins: x.id, tipo: "entrada", c, t: t + i, nota: "Factura" + (fac.prov.trim() ? " " + fac.prov.trim() : ""), quien: cfg.equipo || "", rev: 1 };
+    movs[m.id] = m; cola.push("mov:" + m.id); sumados.push({ n: x.n, c, u: x.u });
+  });
+  if (!sumados.length) { toast("Pon la cantidad de al menos una línea."); return; }
+  if (nuevos.length) tocarInv();
+  LS.set("pa.movs", movs); LS.set("pa.cola", cola); sincronizar();
+  fac = { prov: "", lineas: [lineaVacia()], hecho: { nuevos, sumados } }; guardarFac();
+}
+function facturaHTML() {
+  if (fac.hecho) {
+    const { nuevos, sumados } = fac.hecho;
+    return `<section class="card"><h3>Listo, se sumó la factura</h3>
+      ${nuevos.length ? `<p><b>Ingredientes nuevos:</b> ${nuevos.map(esc).join(", ")}</p>` : ""}
+      <div>${sumados.map(x => `<div class="mov"><div>${esc(x.n)}</div><div class="mq">+ ${cant(x.c)} ${esc(x.u)}</div></div>`).join("")}</div>
+      ${nuevos.length ? `<p class="hint">A los ingredientes nuevos ponles su mínimo en Ingredientes y úsalos en las recetas.</p>` : ""}
+      <div class="acts"><button class="btn brand" data-iv="flisto">Listo</button></div></section>`;
+  }
+  const opts = sel => inv.insumos.filter(x => x.n).map(x => `<option value="${x.id}"${x.id === sel ? " selected" : ""}>${esc(x.n)}</option>`).join("");
+  return `<section class="card" id="facRev"><h3>Llegó una factura</h3>
+    <p class="hint">Anota todo lo que llegó y al final toca Sumar todo. Lo que no exista se crea como ingrediente nuevo.</p>
+    <div class="fields"><label class="ancho">Proveedor<input data-fl="prov" value="${esc(fac.prov)}" placeholder="Opcional"></label></div>
+    <div>${fac.lineas.map((l, k) => { const x = insumoDe(l.ins), u = x ? x.u : l.u, formas = formasDe(x, u); return `<div class="fline">
+      <div class="fields">
+        <label class="ancho">Ingrediente<select data-fl="ins" data-k="${k}"><option value=""${x ? "" : " selected"}>➕ Nuevo ingrediente</option>${opts(l.ins)}</select></label>
+        ${x ? "" : `<label class="ancho">Nombre del nuevo<input data-fl="nombre" data-k="${k}" value="${esc(l.nombre)}" placeholder="Ej. Salsa de ajo"></label>
+        <label>Se lleva en<select data-fl="u" data-k="${k}">${UNIDADES.map(v => `<option${v === l.u ? " selected" : ""}>${v}</option>`).join("")}</select></label>`}
+        <label>Cantidad<input data-fl="c" data-k="${k}" inputmode="decimal" value="${esc(l.c)}" placeholder="Ej. 2"></label>
+        ${formas.length > 1 ? `<label>En<select data-fl="en" data-k="${k}">${formas.map(([v, t]) => `<option value="${v}"${v === l.en ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>` : ""}
+      </div>
+      ${fac.lineas.length > 1 ? `<button class="x" data-iv="fquitar" data-k="${k}" style="justify-self:start;padding:4px 0">× Quitar línea</button>` : ""}</div>`; }).join("")}</div>
+    <div class="acts"><button class="btn ghost" data-iv="flinea">+ Otra línea</button><button class="btn brand" data-iv="fconfirmar">Sumar todo</button></div></section>`;
+}
 function pInventario() {
   const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
   const cab = `<h2>Inventario</h2><div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
@@ -1094,8 +1156,8 @@ function invHay() {
   pedidosDe(ahoraCaracas().fecha).forEach(p => p.items.forEach(i => { if (!Object.keys(consumoDe(i.n, i.d)).length) sinReceta.add(i.n); }));
   const ult = Object.values(movs).sort((a, b) => b.t - a.t).slice(0, 15);
   const tipos = { entrada: "Llegó compra", conteo: "Conteo real", merma: "Se dañó o se botó" };
-  return `
-  <section class="card"><h3>Anotar</h3>
+  return facturaHTML() + `
+  <section class="card"><h3>Anotar a mano</h3>
     <div class="fields">
       <label class="ancho">Ingrediente<select id="mv-ins">${inv.insumos.map(x => `<option value="${x.id}">${esc(x.n)} (${esc(x.u)})</option>`).join("")}</select></label>
       <label>Qué pasó<select id="mv-tipo">${Object.entries(tipos).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
@@ -1158,12 +1220,14 @@ function invEditorReceta() {
 }
 function invIngredientes() {
   return `<section class="card"><h3>Ingredientes</h3>
-    <p class="hint">Lo que compras. La unidad es la misma que usas en las recetas (si la carne va en gramos, anótala en g). Mínimo: cuando quede eso o menos, sale en rojo.</p>
+    <p class="hint">Lo que compras. La unidad es la misma que usas en las recetas (si la carne va en gramos, anótala en g). Mínimo: cuando quede eso o menos, sale en rojo. Viene en: cómo lo compras (bulto de 20000 g, caja de 24), para anotar facturas más rápido.</p>
     ${inv.insumos.map((x, k) => `<div class="irow c4">
       <label class="ancho">Nombre<input data-ii="n" data-k="${k}" value="${esc(x.n)}" placeholder="Ej. Carne de res"></label>
       <label>Unidad<select data-ii="u" data-k="${k}">${UNIDADES.map(u => `<option${u === x.u ? " selected" : ""}>${u}</option>`).join("")}</select></label>
       <label>Mínimo<span class="ucant"><input data-ii="min" data-k="${k}" inputmode="decimal" value="${esc(x.min ?? "")}"><span>${esc(x.u)}</span></span></label>
-      <button class="x" data-iv="qins" data-k="${k}" aria-label="Quitar ingrediente">× Quitar</button></div>`).join("") || `<p class="note">Sin ingredientes.</p>`}
+      <button class="x" data-iv="qins" data-k="${k}" aria-label="Quitar ingrediente">× Quitar</button>
+      <div class="fields" style="grid-column:1/-1"><label>Viene en (opcional)<input data-ii="pres" data-k="${k}" value="${esc(x.pres || "")}" placeholder="Ej. bulto, caja"></label>
+      <label>Cada uno trae<span class="ucant"><input data-ii="presC" data-k="${k}" inputmode="decimal" value="${esc(x.presC ?? "")}"><span>${esc(x.u)}</span></span></label></div></div>`).join("") || `<p class="note">Sin ingredientes.</p>`}
     <div class="acts"><button class="btn ghost" data-iv="ins">+ Agregar ingrediente</button></div></section>
   <section class="card"><h3>Preparaciones</h3>
     <p class="hint">Lo que se hace en la cocina con varios ingredientes, ej. carne mechada: 2000 g de carne rinden 40 porciones. En la receta de la empanada pones 1 porción.</p>
@@ -1192,6 +1256,10 @@ $("#main").addEventListener("click", e => {
     const m = { id: uid() + uid(), ins: $("#mv-ins").value, tipo, c, t: Date.now(), nota: $("#mv-nota").value.trim(), quien: cfg.equipo || "", rev: 1 };
     movs[m.id] = m; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); toast("Anotado.");
   }
+  if (a === "flinea") { fac.lineas.push(lineaVacia()); guardarFac(); }
+  if (a === "fquitar") { fac.lineas.splice(+k, 1); guardarFac(); }
+  if (a === "fconfirmar") { if (!confirm("¿Sumar esta factura al inventario?")) return; confirmarFactura(); }
+  if (a === "flisto") fac.hecho = null;
   if (a === "anular") { const m = movs[k]; if (m) { m.anulado = true; m.rev = (m.rev || 1) + 1; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); } }
   pintar();
 });
@@ -1205,6 +1273,17 @@ $("#main").addEventListener("input", e => {
   tocarInv();
 });
 $("#main").addEventListener("change", e => { if (tab === "inventario" && e.target.tagName === "SELECT" && (e.target.dataset.ii || e.target.dataset.ip)) pintar(); });
+$("#main").addEventListener("change", e => {
+  const el = e.target, f = el.dataset.fl; if (tab !== "inventario" || !f || el.tagName !== "SELECT") return;
+  const l = fac.lineas[+el.dataset.k]; l[f] = el.value;
+  if (f === "ins" || f === "u") l.en = "";
+  guardarFac(); pintar();
+});
+$("#main").addEventListener("input", e => {
+  const el = e.target, f = el.dataset.fl; if (tab !== "inventario" || !f || el.tagName === "SELECT") return;
+  if (f === "prov") fac.prov = el.value; else fac.lineas[+el.dataset.k][f] = el.value;
+  guardarFac();
+});
 
 // ---------- Ajustes ----------
 function pAjustes() {
