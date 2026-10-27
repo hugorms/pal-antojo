@@ -155,6 +155,7 @@ textarea { font-weight: 600; resize: vertical; }
 .shots { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 .pago { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; background: var(--bg); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button[aria-pressed="true"], .vprod[aria-pressed="true"] { border-color: var(--fg); box-shadow: inset 0 0 0 1.5px var(--fg); }
 .chips button { border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 4px 10px; font: 700 .82rem var(--body); cursor: pointer; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .kpi { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 2px; background: var(--surface); }
@@ -309,7 +310,7 @@ let tab = LS.get("pa.tab", "nuevo");
 { const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
-  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"],
+  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["inventario", "Inventario", "📦", "Caja"],
   ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
@@ -340,7 +341,7 @@ function pintar() {
     return;
   }
   $("#main").classList.toggle("ancho", tab === "vender");
-  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, ajustes: pAjustes }[tab];
+  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, inventario: pInventario, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
@@ -436,8 +437,8 @@ function editorHTML() {
   const b = borrador, p = b.pedido, existe = !!pedidos[p.id] && b.modo !== "nuevo";
   const tot = totalDe(p), cub = cubiertoDe(p, b.pagos.map(x => ({ usd: usdDe(x) })));
   const titulo = b.modo === "devolver" ? "Cancelar y devolver" : existe ? "Cambiar pedido" : p.origen === "mostrador" ? "Venta de mostrador" : "Pedido recibido";
-  const inv = inventarioHoy();
-  const agotados = p.items.filter(i => { const r = inv.find(x => norm(x.n) === norm(i.n)); return r && r.abrir !== "" && r.queda - (existe ? 0 : i.q) < 0; });
+  const hay = existencias();
+  const agotados = p.items.filter(i => { const a = alcanza(i.n, i.d, hay); return a !== null && a - (existe ? 0 : i.q) < 0; });
   return `
   <section class="card">
     <div class="oh"><h2>${titulo}</h2><span class="id">${esc(p.id)}</span></div>
@@ -641,17 +642,17 @@ function pVender() {
   let izq;
   if (!c) izq = `<div class="vgrid">${cats.map(x => `<button class="vcard" data-v="cat" data-c="${esc(x.cat)}">${fotoHTML(foto(x), x.icono)}<b>${esc(x.cat)}</b></button>`).join("")}</div>`;
   else {
-    const fs = filasVenta(c);
+    const fs = filasVenta(c), hayV = existencias();
     const el = venta.elegir && fs.find(f => f.ii === venta.elegir.ii && f.fi === venta.elegir.fi);
     izq = `<div class="vbar"><button class="btn ghost" data-v="volver">‹ Categorías</button><h2>${esc(c.cat)}</h2></div>
     ${el ? `<div class="card velegir"><h3>${esc(el.label)}${el.sub ? ` <small>${esc(el.sub)}</small>` : ""}</h3><p class="hint">¿Cuál?</p>
       <div class="vopts">${opcionesVenta(el.it, el.f).map((o, k) => `<button class="vprod" data-v="addop" data-k="${k}"><b>${esc(o.etiqueta)}</b><span class="vp">${fmt(o.p)}</span></button>`).join("")}</div>
       <button class="btn link" data-v="cancelar">Cancelar</button></div>` : ""}
     <div class="vprods">${fs.map(f => {
-      const op = opcionesVenta(f.it, f.f), agot = !!f.it.agotado;
+      const op = opcionesVenta(f.it, f.f), agot = !!f.it.agotado, q = alcanza(nombreVenta(c, f.it), f.f || "", hayV);
       return `<button class="vprod${agot ? " agot" : ""}" data-v="prod" data-ii="${f.ii}" data-fi="${f.fi}"${agot ? " disabled" : ""}>
         ${c.fotoPorProducto ? fotoHTML(foto(c, f.it), c.icono, "mini") : ""}
-        <b>${esc(f.label)}</b>${f.sub ? `<small>${esc(f.sub)}</small>` : ""}
+        <b>${esc(f.label)}</b>${f.sub ? `<small>${esc(f.sub)}</small>` : ""}${!agot && q !== null && q <= 5 ? `<small class="low">Quedan ${Math.max(0, q)}</small>` : ""}
         <span class="vp">${agot ? "Agotado" : (op.length > 1 ? "desde " : "") + fmt(Math.min(...op.map(o => o.p)))}</span></button>`;
     }).join("")}</div>`;
   }
@@ -845,7 +846,6 @@ $("#main").addEventListener("input", e => {
     else refrescarRevision();
     return;
   }
-  if (el.dataset.inv) { const d = diaDe(diaSel); d[el.dataset.inv][el.dataset.n] = el.value; tocarDia(diaSel, true); return; }
   if (el.dataset.g !== undefined) { const d = diaDe(diaSel); d.gastos[+el.dataset.g][el.dataset.f] = el.value; tocarDia(diaSel, true); return; }
   if (el.id === "fondo") { diaDe(diaSel).fondo = el.value; tocarDia(diaSel, true); return; }
   if (el.id === "diaSel") { diaSel = el.value || ahoraCaracas().fecha; pintar(); return; }
@@ -941,15 +941,6 @@ function tocarDia(f, suave) {
   const d = diaDe(f); d.rev = (d.rev || 0) + 1; d.actualizado = Date.now(); cola.push("dia:" + f); guardarTodo();
   if (suave) { clearTimeout(timerDia); timerDia = setTimeout(() => { if (tab === "cierre") pintarCierreNumeros(); sincronizar(); }, 600); } else sincronizar();
 }
-function inventarioHoy(f = ahoraCaracas().fecha) {
-  const d = dias[f] || { abrir: {}, contado: {} };
-  const vend = {};
-  pedidosDe(f).forEach(p => { if (p.devuelto && !p.merma) return; p.items.forEach(i => { const k = norm(i.n); vend[k] = (vend[k] || 0) + i.q; }); });
-  return productos().filter(x => x.inv).map(x => {
-    const abrir = d.abrir[x.n] ?? "", v = vend[norm(x.n)] || 0;
-    return { n: x.n, abrir, vendido: v, queda: num(abrir) - v, contado: d.contado[x.n] ?? "" };
-  });
-}
 function cuentasDia(f) {
   const lista = pedidosDe(f), pagos = [];
   lista.forEach(p => vivos(p).forEach(x => pagos.push({ p, x })));
@@ -984,18 +975,7 @@ function pCierre() {
       <button class="x" data-a="qgasto" data-k="${k}" aria-label="Quitar gasto">× Quitar</button></div>`).join("") || `<p class="note">Sin gastos anotados.</p>`}
     <div class="acts"><button class="btn ghost" data-a="gasto">+ Agregar gasto</button></div>
   </section>
-  <section class="card"><h3>Inventario</h3>
-    <p class="hint">Anota cuánto hay al abrir. Lo vendido se descuenta solo con cada pedido. Al cerrar, cuenta lo que hay de verdad.</p>
-    <div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Al abrir</th><th class="n">Vendido</th><th class="n">Debería quedar</th><th class="n">Contado</th><th class="n">Diferencia</th></tr></thead>
-    <tbody id="invBody">${invFilas(f)}</tbody></table></div>
-  </section>`;
-}
-function invFilas(f) {
-  return inventarioHoy(f).map(r => `<tr><td>${esc(r.n)}</td>
-    <td class="n"><input data-inv="abrir" data-n="${esc(r.n)}" inputmode="numeric" value="${esc(r.abrir)}" aria-label="${esc(r.n)} al abrir"></td>
-    <td class="n">${r.vendido}</td><td class="n${r.abrir !== "" && r.queda <= 3 ? " low" : ""}">${r.abrir === "" ? "" : r.queda}</td>
-    <td class="n"><input data-inv="contado" data-n="${esc(r.n)}" inputmode="numeric" value="${esc(r.contado)}" aria-label="${esc(r.n)} contado"></td>
-    <td class="n">${r.contado === "" || r.abrir === "" ? "" : `<span class="${num(r.contado) - r.queda < 0 ? "low" : ""}">${num(r.contado) - r.queda}</span>`}</td></tr>`).join("");
+`;
 }
 function cierreNumeros(f) {
   const c = cuentasDia(f), d = diaDe(f), t = tasaHoy();
@@ -1019,7 +999,192 @@ function cierreNumeros(f) {
       <p>Fondo ${fmt(num(d.fondo))} + efectivo cobrado ${fmt(c.ef)} − gastos en efectivo ${fmt(gEfUsd)} = <b>debería haber ${fmt(deberia)}</b> en la gaveta.</p>
     </section>`;
 }
-function pintarCierreNumeros() { const el = $("#cierreNum"); if (el) el.innerHTML = cierreNumeros(diaSel); const ib = $("#invBody"); if (ib && !ib.contains(document.activeElement)) ib.innerHTML = invFilas(diaSel); }
+function pintarCierreNumeros() { const el = $("#cierreNum"); if (el) el.innerHTML = cierreNumeros(diaSel); }
+
+// ---------- Inventario: ingredientes, preparaciones y recetas ----------
+// Cada producto vendido descuenta sus ingredientes. Lo que hay = último conteo + compras − mermas − lo vendido desde ese conteo.
+// Si dos productos usan la misma carne, al vender uno baja lo que alcanza para los dos.
+const UNIDADES = ["g", "kg", "ml", "L", "unidad"];
+let inv = Object.assign({ insumos: [], preps: [], recetas: {}, rev: 0 }, LS.get("pa.inv", {}));
+let movs = LS.get("pa.movs", {}); // id → { id, ins, tipo: entrada|conteo|merma, c, t, nota, quien, anulado }
+let invVista = LS.get("pa.invVista", "hay"), invSel = "";
+const cant = n => (Math.round(n * 100) / 100).toLocaleString("es-VE", { maximumFractionDigits: 2 });
+const insumoDe = id => inv.insumos.find(x => x.id === id);
+const prepDe = id => inv.preps.find(x => x.id === id);
+function tocarInv() {
+  inv.rev = (inv.rev || 0) + 1; inv.actualizado = Date.now(); LS.set("pa.inv", inv); cola.push("inv"); LS.set("pa.cola", cola);
+  clearTimeout(tocarInv.t); tocarInv.t = setTimeout(sincronizar, 800);
+}
+// Receta de un producto: la del nombre + la de cada detalle (sabor, tamaño o extra). Las preparaciones se abren en sus ingredientes.
+function consumoDe(n, d) {
+  const out = {};
+  const sumar = (partes, factor) => (partes || []).forEach(x => {
+    const c = num(x.c) * factor; if (!c) return;
+    const pr = prepDe(x.i);
+    if (pr) { if (num(pr.rinde) > 0) sumar(pr.partes, c / num(pr.rinde)); }
+    else if (insumoDe(x.i)) out[x.i] = (out[x.i] || 0) + c;
+  });
+  const r = inv.recetas[norm(n)]; if (r) sumar(r.partes, 1);
+  String(d || "").split(" · ").map(norm).filter(Boolean).forEach(k => { const rd = inv.recetas["+" + k]; if (rd) sumar(rd.partes, 1); });
+  return out;
+}
+const cuentaEnInventario = p => !(p.devuelto && !p.merma);
+function existencias() {
+  const hay = {}, desde = {};
+  inv.insumos.forEach(x => { hay[x.id] = 0; });
+  const lista = Object.values(movs).filter(m => !m.anulado && hay[m.ins] !== undefined).sort((a, b) => a.t - b.t);
+  // Lo vendido antes del primer movimiento de un ingrediente no se descuenta (todavía no se llevaba)
+  inv.insumos.forEach(x => { const m = lista.find(m => m.ins === x.id); desde[x.id] = m ? m.t - 1 : Infinity; });
+  lista.forEach(m => { if (m.tipo === "conteo") { hay[m.ins] = num(m.c); desde[m.ins] = m.t; } });
+  lista.forEach(m => { if (m.t > desde[m.ins]) { if (m.tipo === "entrada") hay[m.ins] += num(m.c); if (m.tipo === "merma") hay[m.ins] -= num(m.c); } });
+  Object.values(pedidos).forEach(p => {
+    if (!cuentaEnInventario(p)) return;
+    p.items.forEach(i => Object.entries(consumoDe(i.n, i.d)).forEach(([id, c]) => { if (p.creado > desde[id]) hay[id] -= c * i.q; }));
+  });
+  return hay;
+}
+// Para cuántos alcanza lo que hay; null si el producto no tiene receta
+function alcanza(n, d, hay = existencias()) {
+  const c = Object.entries(consumoDe(n, d)); if (!c.length) return null;
+  return Math.min(...c.map(([id, q]) => Math.floor((hay[id] || 0) / q + 1e-9)));
+}
+// Todo lo que se puede vender, con los mismos nombres del pedido, y los detalles (sabores, tamaños, extras)
+function vendibles() {
+  const prods = new Map(), dets = new Map();
+  menuVenta.forEach(c => c.items.forEach(it => {
+    const n = nombreVenta(c, it); prods.set(norm(n), { n, cat: c.cat });
+    (it.flavors || []).forEach(f => dets.set(norm(f), f));
+    (it.sizes || []).forEach(([t]) => t && dets.set(norm(t), t));
+    (it.extras || []).forEach(e => dets.set(norm(e.label), e.label.toLowerCase()));
+  }));
+  productos().forEach(x => { if (!prods.has(norm(x.n))) prods.set(norm(x.n), { n: x.n, cat: "Otros" }); });
+  return { prods: [...prods.values()], dets: [...dets.values()] };
+}
+function pInventario() {
+  const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
+  const cab = `<h2>Inventario</h2><div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
+  if (!inv.insumos.length && invVista !== "ingredientes")
+    return cab + `<section class="card"><p>Primero anota los ingredientes (carne, harina, queso…) con su unidad. Después le pones a cada producto cuánto lleva de cada uno, y la caja descuenta sola con cada venta.</p>
+      <div class="acts"><button class="btn brand" data-iv="vista" data-k="ingredientes">Anotar ingredientes</button></div></section>`;
+  return cab + { hay: invHay, recetas: invRecetas, ingredientes: invIngredientes }[invVista]();
+}
+function invHay() {
+  const hay = existencias(), { prods } = vendibles();
+  const alc = prods.map(p => ({ ...p, a: alcanza(p.n, "", hay) })).filter(p => p.a !== null).sort((a, b) => a.a - b.a);
+  const sinReceta = new Set();
+  pedidosDe(ahoraCaracas().fecha).forEach(p => p.items.forEach(i => { if (!Object.keys(consumoDe(i.n, i.d)).length) sinReceta.add(i.n); }));
+  const ult = Object.values(movs).sort((a, b) => b.t - a.t).slice(0, 15);
+  const tipos = { entrada: "Llegó compra", conteo: "Conteo real", merma: "Se dañó o se botó" };
+  return `
+  <section class="card"><h3>Anotar</h3>
+    <div class="fields">
+      <label>Ingrediente<select id="mv-ins">${inv.insumos.map(x => `<option value="${x.id}">${esc(x.n)} (${esc(x.u)})</option>`).join("")}</select></label>
+      <label>Qué pasó<select id="mv-tipo">${Object.entries(tipos).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
+      <label>Cantidad<input id="mv-c" inputmode="decimal" placeholder="Ej. 2000"></label>
+      <label>Nota<input id="mv-nota" placeholder="Opcional"></label></div>
+    <p class="hint">Conteo real: lo que hay de verdad ahora. Desde ahí se vuelve a descontar lo vendido.</p>
+    <div class="acts"><button class="btn brand" data-iv="mov">Guardar</button></div>
+  </section>
+  ${sinReceta.size ? `<p class="msg w">Hoy se vendió sin receta (no descuenta nada): ${[...sinReceta].map(esc).join(", ")}.</p>` : ""}
+  <section class="card"><h3>Ingredientes</h3><div class="tbl"><table><thead><tr><th>Ingrediente</th><th class="n">Hay</th><th class="n">Mínimo</th></tr></thead><tbody>
+    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${cant(h)} ${esc(x.u)}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
+  </tbody></table></div></section>
+  <section class="card"><h3>Alcanza para</h3>
+    ${alc.length ? `<div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Quedan</th></tr></thead><tbody>
+      ${alc.map(p => `<tr><td>${esc(p.n)}</td><td class="n${p.a <= 5 ? " low" : ""}">${Math.max(0, p.a)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hint">Sin sabores ni extras. Si dos productos usan el mismo ingrediente, al vender uno bajan los dos.</p>` : `<p class="note">Ningún producto tiene receta todavía. Ve a Recetas.</p>`}
+  </section>
+  <section class="card"><h3>Últimos movimientos</h3>
+    ${ult.length ? `<div class="tbl"><table><tbody>${ult.map(m => { const x = insumoDe(m.ins); return `<tr${m.anulado ? ` style="opacity:.45"` : ""}><td>${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+      <td>${tipos[m.tipo]}${m.nota ? `<br><span class="meta">${esc(m.nota)}</span>` : ""}</td><td>${x ? esc(x.n) : "?"}</td><td class="n">${cant(num(m.c))} ${x ? esc(x.u) : ""}</td>
+      <td>${m.anulado ? "Anulado" : `<button class="btn link" data-iv="anular" data-k="${m.id}">Anular</button>`}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
+  </section>`;
+}
+function invRecetas() {
+  const { prods, dets } = vendibles();
+  const filas = [...prods.map(p => ({ k: norm(p.n), n: p.n, g: p.cat })), ...dets.map(d => ({ k: "+" + norm(d), n: d, g: "Sabores, tamaños y extras (se suman a la receta del producto)" })),
+    ...inv.preps.map(p => ({ k: "prep:" + p.id, n: p.n, g: "Preparaciones" }))];
+  let g = "";
+  const lista = filas.map(f => {
+    const cab = f.g !== g ? `<h3 style="margin-top:6px;grid-column:1/-1">${esc(f.g)}</h3>` : ""; g = f.g;
+    const partes = f.k.startsWith("prep:") ? (prepDe(f.k.slice(5)) || {}).partes : (inv.recetas[f.k] || {}).partes;
+    const n = (partes || []).filter(x => num(x.c)).length;
+    return cab + `<button class="vprod" data-iv="sel" data-k="${esc(f.k)}" style="text-align:left"${f.k === invSel ? ` aria-pressed="true"` : ""}><b>${esc(f.n)}</b><small>${n ? `${n} ingrediente(s)` : "Sin receta"}</small></button>`;
+  }).join("");
+  return `<p class="hint">Toca un producto y anota cuánto lleva de cada ingrediente para una unidad. Las preparaciones (ej. carne mechada) se arman en Ingredientes y se usan aquí como un ingrediente más.</p>
+  ${invSel ? invEditorReceta() : ""}
+  <section class="card"><div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">${lista}</div></section>`;
+}
+function partesHTML(partes, conPreps) {
+  const ops = [...inv.insumos.map(x => [x.id, `${x.n} (${x.u})`]), ...(conPreps ? inv.preps.map(p => [p.id, `${p.n} (porción)`]) : [])];
+  return (partes || []).map((x, k) => `<div class="fields">
+    <label>Ingrediente<select data-ip="i" data-k="${k}">${ops.map(([id, t]) => `<option value="${id}"${id === x.i ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>
+    <label>Cantidad<input data-ip="c" data-k="${k}" inputmode="decimal" value="${esc(x.c)}"></label>
+    <button class="x" data-iv="qparte" data-k="${k}" aria-label="Quitar">× Quitar</button></div>`).join("");
+}
+function recetaSel() {
+  if (invSel.startsWith("prep:")) { const p = prepDe(invSel.slice(5)); return p ? { partes: p.partes, n: p.n, prep: p } : null; }
+  const { prods, dets } = vendibles();
+  const n = invSel.startsWith("+") ? (dets.find(d => "+" + norm(d) === invSel) || invSel.slice(1)) : ((prods.find(p => norm(p.n) === invSel) || {}).n || invSel);
+  if (!inv.recetas[invSel]) inv.recetas[invSel] = { n, partes: [] };
+  return inv.recetas[invSel];
+}
+function invEditorReceta() {
+  const r = recetaSel(); if (!r) return "";
+  return `<section class="card" id="recEd"><div class="oh"><h3>${esc(r.n)}</h3><button class="btn ghost" data-iv="cerrar">Listo</button></div>
+    ${r.prep ? `<p class="hint">Lo que lleva una tanda completa.</p>` : `<p class="hint">Cuánto lleva una unidad.</p>`}
+    ${partesHTML(r.partes, !r.prep) || `<p class="note">Sin ingredientes todavía.</p>`}
+    <div class="acts"><button class="btn ghost" data-iv="parte">+ Agregar ingrediente</button></div></section>`;
+}
+function invIngredientes() {
+  return `<section class="card"><h3>Ingredientes</h3>
+    <p class="hint">Lo que compras. La unidad es la misma que usas en las recetas (si la carne va en gramos, anótala en g).</p>
+    ${inv.insumos.map((x, k) => `<div class="fields">
+      <label>Nombre<input data-ii="n" data-k="${k}" value="${esc(x.n)}" placeholder="Ej. Carne de res"></label>
+      <label>Unidad<select data-ii="u" data-k="${k}">${UNIDADES.map(u => `<option${u === x.u ? " selected" : ""}>${u}</option>`).join("")}</select></label>
+      <label>Avisar cuando quede<input data-ii="min" data-k="${k}" inputmode="decimal" value="${esc(x.min ?? "")}"></label>
+      <button class="x" data-iv="qins" data-k="${k}" aria-label="Quitar ingrediente">× Quitar</button></div>`).join("") || `<p class="note">Sin ingredientes.</p>`}
+    <div class="acts"><button class="btn ghost" data-iv="ins">+ Agregar ingrediente</button></div></section>
+  <section class="card"><h3>Preparaciones</h3>
+    <p class="hint">Lo que se hace en la cocina con varios ingredientes, ej. carne mechada: 2000 g de carne rinden 40 porciones. En la receta de la empanada pones 1 porción.</p>
+    ${inv.preps.map((p, k) => `<div class="fields">
+      <label>Nombre<input data-ipr="n" data-k="${k}" value="${esc(p.n)}" placeholder="Ej. Carne mechada"></label>
+      <label>Rinde (porciones)<input data-ipr="rinde" data-k="${k}" inputmode="decimal" value="${esc(p.rinde)}"></label>
+      <button class="btn ghost" data-iv="sel" data-k="prep:${p.id}">Qué lleva (${(p.partes || []).length})</button>
+      <button class="x" data-iv="qprep" data-k="${k}" aria-label="Quitar preparación">× Quitar</button></div>`).join("") || `<p class="note">Sin preparaciones.</p>`}
+    <div class="acts"><button class="btn ghost" data-iv="prep">+ Agregar preparación</button></div></section>`;
+}
+$("#main").addEventListener("click", e => {
+  const b = e.target.closest("[data-iv]"); if (!b || tab !== "inventario") return;
+  const a = b.dataset.iv, k = b.dataset.k;
+  if (a === "vista") { invVista = k; invSel = ""; LS.set("pa.invVista", k); }
+  if (a === "sel") { invSel = invSel === k ? "" : k; if (k.startsWith("prep:")) invVista = "recetas"; window.scrollTo(0, 0); }
+  if (a === "cerrar") invSel = "";
+  if (a === "ins") { inv.insumos.push({ id: "i" + uid(), n: "", u: "g", min: "" }); tocarInv(); }
+  if (a === "qins") { const x = inv.insumos[+k]; if (x && confirm(`¿Quitar ${x.n || "este ingrediente"}? Sale de todas las recetas.`)) { inv.insumos.splice(+k, 1); tocarInv(); } }
+  if (a === "prep") { inv.preps.push({ id: "p" + uid(), n: "", rinde: "", partes: [] }); tocarInv(); }
+  if (a === "qprep") { const x = inv.preps[+k]; if (x && confirm(`¿Quitar ${x.n || "esta preparación"}?`)) { inv.preps.splice(+k, 1); tocarInv(); } }
+  if (a === "parte") { const r = recetaSel(); if (!inv.insumos.length) { toast("Primero anota ingredientes."); return; } r.partes.push({ i: inv.insumos[0].id, c: "" }); tocarInv(); }
+  if (a === "qparte") { recetaSel().partes.splice(+k, 1); tocarInv(); }
+  if (a === "mov") {
+    const c = num($("#mv-c").value), tipo = $("#mv-tipo").value;
+    if (!$("#mv-ins").value || (!c && tipo !== "conteo")) { toast("Pon la cantidad."); return; }
+    const m = { id: uid() + uid(), ins: $("#mv-ins").value, tipo, c, t: Date.now(), nota: $("#mv-nota").value.trim(), quien: cfg.equipo || "", rev: 1 };
+    movs[m.id] = m; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); toast("Anotado.");
+  }
+  if (a === "anular") { const m = movs[k]; if (m) { m.anulado = true; m.rev = (m.rev || 1) + 1; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); } }
+  pintar();
+});
+$("#main").addEventListener("input", e => {
+  const el = e.target; if (tab !== "inventario") return;
+  const k = +el.dataset.k;
+  if (el.dataset.ii) inv.insumos[k][el.dataset.ii] = el.value;
+  else if (el.dataset.ipr) inv.preps[k][el.dataset.ipr] = el.value;
+  else if (el.dataset.ip) recetaSel().partes[k][el.dataset.ip] = el.value;
+  else return;
+  tocarInv();
+});
+$("#main").addEventListener("change", e => { if (tab === "inventario" && e.target.tagName === "SELECT" && (e.target.dataset.ii || e.target.dataset.ip)) pintar(); });
 
 // ---------- Ajustes ----------
 function pAjustes() {
@@ -1040,7 +1205,7 @@ function pAjustes() {
     <p class="note" id="cfgMsg"></p>
   </section>
   <section class="card"><h3>Productos</h3>
-    <p class="hint">Uno por línea: nombre | precio | sí o no (si se cuenta en el inventario). El nombre debe ser igual al del enlace.</p>
+    <p class="hint">Uno por línea: nombre | precio. El nombre debe ser igual al del enlace. Lo que lleva cada uno se anota en Inventario › Recetas.</p>
     <textarea data-cfg="productos" rows="12">${esc(cfg.productos)}</textarea>
   </section>
   <section class="card"><h3>Respaldo</h3>
@@ -1054,7 +1219,7 @@ function copiarConfig() {
   try { navigator.clipboard.writeText(enlace).then(ok, () => { $("#cfgMsg").textContent = enlace; }); } catch (_) { $("#cfgMsg").textContent = enlace; }
 }
 function respaldo() {
-  const blob = new Blob([JSON.stringify({ pedidos, dias, cfg: { ...cfg, key: "", clave: "" } }, null, 1)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ pedidos, dias, inv, movs, cfg: { ...cfg, key: "", clave: "" } }, null, 1)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `caja-pal-antojo-${ahoraCaracas().fecha}.json`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -1109,7 +1274,7 @@ async function sincronizar(manual) {
   try {
     const ids = [...new Set(cola)];
     if (ids.length) {
-      const filas = ids.map(id => ({ id, datos: id.startsWith("dia:") ? dias[id.slice(4)] : pedidos[id] })).filter(f => f.datos);
+      const filas = ids.map(id => ({ id, datos: id === "inv" ? inv : id.startsWith("mov:") ? movs[id.slice(4)] : id.startsWith("dia:") ? dias[id.slice(4)] : pedidos[id] })).filter(f => f.datos);
       const r = await fetch(base, { method: "POST", headers: { ...H, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(filas) });
       if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
       cola = cola.filter(x => !ids.includes(x)); LS.set("pa.cola", cola);
@@ -1118,8 +1283,13 @@ async function sincronizar(manual) {
     const r = await fetch(`${base}?select=id,datos,actualizado&actualizado=gt.${encodeURIComponent(desde)}&order=actualizado.asc&limit=1000`, { headers: H });
     if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
     const filas = await r.json(); let cambios = false; const porImprimir = [];
+    // Un equipo nuevo trae también las recetas y los movimientos de inventario viejos, no solo los de 3 días
+    if (!estadoSync.ultimo) { const ri = await fetch(`${base}?select=id,datos,actualizado&or=(id.eq.inv,id.like.mov:*)&limit=10000`, { headers: H }); if (ri.ok) filas.unshift(...await ri.json()); }
+    const masNuevo = (d, l) => !l || (d.rev || 0) > (l.rev || 0) || ((d.rev || 0) === (l.rev || 0) && (d.actualizado || 0) > (l.actualizado || 0));
     filas.forEach(f => {
-      if (f.id.startsWith("dia:")) {
+      if (f.id === "inv") { if (masNuevo(f.datos, inv) && !cola.includes("inv")) { inv = f.datos; LS.set("pa.inv", inv); cambios = true; } }
+      else if (f.id.startsWith("mov:")) { const k = f.id.slice(4); if ((!movs[k] || (f.datos.rev || 0) > (movs[k].rev || 0)) && !cola.includes(f.id)) { movs[k] = f.datos; LS.set("pa.movs", movs); cambios = true; } }
+      else if (f.id.startsWith("dia:")) {
         const k = f.id.slice(4), l = dias[k];
         if (!l || (f.datos.rev || 0) > (l.rev || 0) || ((f.datos.rev || 0) === (l.rev || 0) && (f.datos.actualizado || 0) > (l.actualizado || 0))) { if (!cola.includes(f.id)) { dias[k] = f.datos; cambios = true; } }
       } else {
