@@ -46,7 +46,8 @@ const MENU_BASE = [
  ]},
  {"id":"ensaladas","cat":"Ensaladas","icono":"🥗","foto":"ensaladas","turnos":["noche"], "items": [
   {"id":"cesar","name":"Ensalada César","desc":"Lechuga romana, crutones, parmesano y aderezo","price":3.5},
-  {"id":"cesar-pollo","name":"Ensalada César con pollo","desc":"La César con pollo a la plancha","price":5}
+  {"id":"cesar-pollo","name":"Ensalada César con pollo","desc":"La César con pollo a la plancha","price":5},
+  {"id":"cesar-camarones","name":"Ensalada César con camarones","desc":"La César con camarones rebozados","price":6}
  ]},
  {"id":"jugos","cat":"Jugos naturales","icono":"🧃","foto":"jugos","turnos":["dia","noche"], "items": [
   {"id":"jugoA","name":"Jugo natural","desc":"Parchita, Mango, Patilla, Melón, Piña, Lechosa, Tamarindo, Guayaba, Limonada, Papelón con limón","flavors":["Parchita","Mango","Patilla","Melón","Piña","Lechosa","Tamarindo","Guayaba","Limonada","Papelón con limón"],"sizes":[["12 oz",1],["16 oz",1.5]],"extras":[{"label":"Frapé","price":0.5}]},
