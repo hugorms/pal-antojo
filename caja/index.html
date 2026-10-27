@@ -1267,7 +1267,22 @@ function pintarSync(txt, tipo) {
   }
   $("#syncTxt").innerHTML = `<span class="dot ${tipo || ""}"></span>${esc(txt)}`;
 }
+// Al entrar con el usuario de la tienda, el equipo se conecta solo: la clave la da Supabase (función clave_tienda) a quien puede entrar
+const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
+let ultimoAuto = 0;
+async function conectarSolo() {
+  if ((cfg.url && cfg.key && cfg.clave) || !navigator.onLine || Date.now() - ultimoAuto < 30000) return;
+  ultimoAuto = Date.now();
+  const ses = LS.get("pa.admin.ses", null); if (!ses || !ses.access_token) return;
+  try {
+    const r = await fetch(SB_URL + "/rest/v1/rpc/clave_tienda", { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + ses.access_token, "content-type": "application/json" }, body: "{}" });
+    const clave = r.ok ? await r.json() : null; if (!clave) return;
+    cfg.url = cfg.url || SB_URL; cfg.key = cfg.key || SB_KEY; cfg.clave = clave; LS.set("pa.cfg", cfg);
+    toast("Equipo conectado a la caja de la tienda.");
+  } catch (_) { }
+}
 async function sincronizar(manual) {
+  await conectarSolo();
   if (!(cfg.url && cfg.key && cfg.clave)) { pintarSync(); if (manual) $("#cfgMsg").textContent = "Faltan datos de conexión."; return; }
   if (!navigator.onLine || sincronizando) { pintarSync(); return; }
   sincronizando = true;
