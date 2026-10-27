@@ -186,6 +186,7 @@ details summary { cursor: pointer; font-weight: 800; }
 }
 @media (prefers-reduced-motion: reduce) { .card.new { animation: none; } }
 </style>
+<script src="acceso.js"></script>
 </head>
 <body>
 <header class="top" id="top">
@@ -326,7 +327,7 @@ function pintarTabs() {
   $("#lado").innerHTML = `<div class="marca"><img src="icono-192.png" alt="">Pa'l Antojo</div>` + TABS.map(([k, t, ico, g]) => {
     const cab = g !== grupo ? `<div class="grupo">${g}</div>` : ""; grupo = g;
     return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
-  }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a></div>`;
+  }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a><button onclick="salirApp()"><span class="ico" aria-hidden="true">🚪</span>Cerrar sesión</button></div>`;
   const actual = TABS.find(t => t[0] === tab);
   $("#titulo").textContent = actual[3] === "Caja" ? "Caja Pa'l Antojo" : actual[1];
 }
