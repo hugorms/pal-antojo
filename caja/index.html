@@ -32,6 +32,8 @@ p { margin: 0; }
 .top h1 { color: var(--brand); font-size: 1.15rem; }
 .top .r { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .85rem; }
 .top label { display: flex; align-items: center; gap: 6px; color: #F3EEE0; font-weight: 700; }
+.top .tinfo { font-size: .78rem; color: #CFC8B4; display: flex; gap: 6px; align-items: center; }
+.top .tinfo button { padding: 2px 8px; font-size: .78rem; background: var(--brand); color: var(--ink); border: 0; font-weight: 700; cursor: pointer; }
 .top input { width: 90px; padding: 4px 8px; background: #2A2822; color: #F3EEE0; border: 1px solid #4A463A; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #888; margin-right: 5px; }
 .dot.ok { background: #6FCF8A; } .dot.w { background: var(--brand); } .dot.bad { background: #F08A82; }
@@ -140,6 +142,7 @@ details summary { cursor: pointer; font-weight: 800; }
   <div class="izq"><button class="menuBtn" id="menuBtn" aria-label="Abrir el menú" aria-controls="lado" aria-expanded="false">☰</button><h1 id="titulo">Caja Pa'l Antojo</h1></div>
   <div class="r">
     <label for="tasaTop">Tasa Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
+    <span id="tasaInfo" class="tinfo"></span>
     <span id="syncTxt"><span class="dot"></span>…</span>
   </div>
 </header>
@@ -197,7 +200,7 @@ Hamburguesa De pollo | 5,5 | sí
 Marrón | 1 | no
 Café con leche o capuchino | 1,25 | no
 Jugo natural | 1 | no`;
-let cfg = Object.assign({ equipo: "", imprime: false, url: "", key: "", clave: "", tasa: 0, productos: PRODUCTOS_BASE }, LS.get("pa.cfg", {}));
+let cfg = Object.assign({ equipo: "", imprime: false, url: "", key: "", clave: "", tasa: 0, tasaAuto: true, tasaFecha: "", productos: PRODUCTOS_BASE }, LS.get("pa.cfg", {}));
 let pedidos = LS.get("pa.pedidos", {});   // id → pedido
 let dias = LS.get("pa.dias", {});         // fecha → { abrir:{}, contado:{}, gastos:[], fondo }
 let cola = LS.get("pa.cola", []);         // ids por enviar a la nube
@@ -296,8 +299,46 @@ $("#lado").addEventListener("click", e => {
 });
 $("#menuBtn").addEventListener("click", () => abrirLado(!$("#lado").classList.contains("abierto")));
 $("#velo").addEventListener("click", () => abrirLado(false));
-$("#tasaTop").value = cfg.tasa ? String(cfg.tasa).replace(".", ",") : "";
-$("#tasaTop").addEventListener("input", e => { cfg.tasa = num(e.target.value); LS.set("pa.cfg", cfg); if (tab === "nuevo") refrescarRevision(); });
+// ---------- Tasa BCV: se toma sola del dólar oficial; si la escriben a mano, queda la de ellos hasta tocar "Usar BCV" ----------
+const TASA_API = "https://ve.dolarapi.com/v1/dolares/oficial";
+function pintarTasa() {
+  const inp = $("#tasaTop");
+  if (document.activeElement !== inp) inp.value = cfg.tasa ? String(cfg.tasa).replace(".", ",") : "";
+  const d = cfg.tasaFecha ? new Date(cfg.tasaFecha) : null;
+  const fecha = d && !isNaN(d) ? d.toLocaleDateString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short" }) : "";
+  $("#tasaInfo").innerHTML = cfg.tasaAuto
+    ? (fecha ? `BCV · ${esc(fecha)}` : "Buscando BCV…")
+    : `A mano <button type="button" id="tasaBcv">Usar BCV</button>`;
+}
+async function buscarTasa() {
+  if (!cfg.tasaAuto) return;
+  try {
+    const r = await fetch(TASA_API, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    const t = Math.round(Number(j.promedio ?? j.venta ?? j.compra) * 100) / 100;
+    if (!(t > 0) || !cfg.tasaAuto) throw new Error("sin tasa");
+    const cambio = t !== cfg.tasa;
+    cfg.tasa = t; cfg.tasaFecha = j.fechaActualizacion || new Date().toISOString(); LS.set("pa.cfg", cfg);
+    pintarTasa();
+    if (cambio && tab === "nuevo") refrescarRevision();
+  } catch (_) {
+    // Sin internet o la página de la tasa no responde: se queda la última que se guardó
+    if (cfg.tasaAuto && !cfg.tasaFecha) $("#tasaInfo").textContent = cfg.tasa ? "BCV sin actualizar" : "Sin BCV: escríbela";
+  }
+}
+$("#tasaTop").addEventListener("input", e => {
+  cfg.tasa = num(e.target.value); cfg.tasaAuto = false; LS.set("pa.cfg", cfg); pintarTasa();
+  if (tab === "nuevo") refrescarRevision();
+});
+$("#tasaInfo").addEventListener("click", e => {
+  if (!e.target.closest("#tasaBcv")) return;
+  cfg.tasaAuto = true; cfg.tasaFecha = ""; LS.set("pa.cfg", cfg); pintarTasa(); buscarTasa();
+});
+pintarTasa();
+buscarTasa();
+setInterval(buscarTasa, 30 * 60 * 1000);
+window.addEventListener("online", buscarTasa);
 
 // ---------- Recibir: pegar, compartir o venta de mostrador ----------
 let verAgregar = false;
