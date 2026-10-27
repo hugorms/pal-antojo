@@ -130,7 +130,9 @@ input[type="file"] { display: none; }
 <script src="../menu.js"></script>
 <script>
 // Proyecto de Supabase de la caja. La clave pública (publishable) se puede ver en el navegador; nunca se usa aquí la clave secreta.
-if (window.top !== window.self || /[?&]app=1/.test(location.search)) document.documentElement.classList.add("embebido");
+// El panel vive dentro de la app (Administración › Menú del enlace); abierto suelto, lleva a la app
+if (window.top === window.self && !/[?&]app=1/.test(location.search)) location.replace("../caja/?modulo=menu");
+document.documentElement.classList.add("embebido");
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co";
 const SB_PUBLICA = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
 const BUCKET = "menu";

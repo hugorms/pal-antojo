@@ -255,6 +255,8 @@ function leerPedido(t) {
 
 // ---------- pestañas ----------
 let tab = LS.get("pa.tab", "nuevo");
+// ?modulo=menu abre directo ese módulo (lo usa /admin/ para llevar a la app)
+{ const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
   ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"],
