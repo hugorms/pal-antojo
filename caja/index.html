@@ -154,6 +154,17 @@ textarea { font-weight: 600; resize: vertical; }
 .mov { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: center; }
 .mov:first-child { border-top: 0; }
 .mov b { font-weight: 800; } .mov .mq { font-weight: 800; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; }
+/* Agregar con foto de factura */
+.fotos { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.fotos div { position: relative; }
+.fotos img { width: 72px; height: 96px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--line); display: block; }
+.fotos .x { position: absolute; top: -8px; right: -8px; background: var(--surface); border-radius: 50%; width: 26px; height: 26px; padding: 0; border: 1.5px solid var(--line); }
+.subir { position: relative; overflow: hidden; }
+.subir input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.fline { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.fline:first-of-type { border-top: 0; }
+.fline.fuera { opacity: .5; }
+.fline .meta { font-size: .85rem; }
 @media (max-width: 639px) { .fields .ancho { grid-column: 1 / -1; } }
 @media (min-width: 640px) {
   .irow { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
@@ -1079,6 +1090,102 @@ function vendibles() {
   productos().forEach(x => { if (!prods.has(norm(x.n))) prods.set(norm(x.n), { n: x.n, cat: "Otros" }); });
   return { prods: [...prods.values()], dets: [...dets.values()] };
 }
+// Agregar con foto: la IA lee las facturas (función leer-factura en Supabase), se revisa y al confirmar suma al stock
+let fac = { fotos: [], leyendo: false, lineas: null, facturas: [], hecho: null };
+const convertir = (c, de, a) => de === a ? c : de === "kg" && a === "g" || de === "L" && a === "ml" ? c * 1000 : de === "g" && a === "kg" || de === "ml" && a === "L" ? c / 1000 : null;
+function achicarFoto(file) {
+  return new Promise((ok, mal) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+      const d = cv.toDataURL("image/jpeg", .85); ok({ url: d, tipo: "image/jpeg", datos: d.split(",")[1] });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error("foto")); };
+    img.src = url;
+  });
+}
+async function sesionViva() {
+  let s = LS.get("pa.admin.ses", null); if (!s || !s.refresh_token) return null;
+  if (Date.now() > (s.expira || 0) - 120000) {
+    const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: SB_KEY, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
+    if (!r.ok) return null;
+    const d = await r.json(); s = { ...s, access_token: d.access_token, refresh_token: d.refresh_token, expira: Date.now() + (d.expires_in || 3600) * 1000 }; LS.set("pa.admin.ses", s);
+  }
+  return s;
+}
+async function leerFacturas() {
+  if (!navigator.onLine) { toast("Hace falta internet para leer la factura."); return; }
+  fac.leyendo = true; pintar();
+  try {
+    const s = await sesionViva(); if (!s) throw new Error("Vuelve a entrar con tu usuario.");
+    const r = await fetch(SB_URL + "/functions/v1/leer-factura", { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + s.access_token, "content-type": "application/json" },
+      body: JSON.stringify({ fotos: fac.fotos.map(f => ({ tipo: f.tipo, datos: f.datos })), insumos: inv.insumos.filter(x => x.n).map(x => ({ id: x.id, n: x.n, u: x.u })) }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "No se pudo leer la factura (" + r.status + ").");
+    fac.facturas = d.facturas || [];
+    fac.lineas = (d.lineas || []).map(l => ({ ...l, usar: true }));
+    if (!fac.lineas.length) throw new Error("No se encontró mercancía en las fotos. Prueba con una foto más clara.");
+    fac.fotos = [];
+  } catch (e) { toast(e.message || "No se pudo leer la factura."); }
+  fac.leyendo = false; pintar();
+}
+function confirmarFactura() {
+  const nuevos = [], sumados = [], t = Date.now();
+  fac.lineas.forEach((l, i) => {
+    if (!l.usar || !(num(l.cantidad) > 0)) return;
+    let x = insumoDe(l.insumo_id);
+    if (!x) {
+      const n = String(l.nombre || "").trim(); if (!n) return;
+      x = inv.insumos.find(y => norm(y.n) === norm(n));
+      if (!x) { x = { id: "i" + uid(), n, u: l.unidad, min: "" }; inv.insumos.push(x); nuevos.push(x.n); }
+    }
+    const f = fac.facturas[l.factura - 1], c = num(l.cantidad);
+    const m = { id: uid() + uid(), ins: x.id, tipo: "entrada", c, t: t + i, nota: "Factura" + (f && f.proveedor ? " " + f.proveedor : ""), quien: cfg.equipo || "", rev: 1 };
+    movs[m.id] = m; cola.push("mov:" + m.id); sumados.push({ n: x.n, c, u: x.u });
+  });
+  if (!sumados.length) { toast("No hay nada marcado para agregar."); return; }
+  if (nuevos.length) tocarInv();
+  LS.set("pa.movs", movs); LS.set("pa.cola", cola); sincronizar();
+  fac = { fotos: [], leyendo: false, lineas: null, facturas: [], hecho: { nuevos, sumados } };
+}
+function facturaHTML() {
+  if (fac.hecho) {
+    const { nuevos, sumados } = fac.hecho;
+    return `<section class="card"><h3>Listo, se agregó la factura</h3>
+      ${nuevos.length ? `<p><b>Ingredientes nuevos:</b> ${nuevos.map(esc).join(", ")}</p>` : ""}
+      <div>${sumados.map(x => `<div class="mov"><div>${esc(x.n)}</div><div class="mq">+ ${cant(x.c)} ${esc(x.u)}</div></div>`).join("")}</div>
+      ${nuevos.length ? `<p class="hint">A los ingredientes nuevos ponles su mínimo en Ingredientes y úsalos en las recetas.</p>` : ""}
+      <div class="acts"><button class="btn brand" data-iv="flisto">Listo</button></div></section>`;
+  }
+  if (fac.leyendo) return `<section class="card"><h3>Leyendo ${fac.fotos.length > 1 ? "las facturas" : "la factura"}…</h3><p class="hint">Puede tardar hasta un minuto. No cierres la caja.</p></section>`;
+  if (fac.lineas) {
+    const opts = sel => inv.insumos.filter(x => x.n).map(x => `<option value="${x.id}"${x.id === sel ? " selected" : ""}>${esc(x.n)} (${esc(x.u)})</option>`).join("");
+    const dudas = fac.lineas.filter(l => !l.seguro).length;
+    return `<section class="card" id="facRev"><h3>Revisa antes de sumar</h3>
+      ${fac.facturas.map((f, i) => `<p class="meta">Factura ${i + 1}: ${esc(f.proveedor || "sin proveedor")}${f.fecha ? " · " + esc(f.fecha) : ""}${f.total ? " · Total " + esc(f.total) : ""}</p>`).join("")}
+      ${dudas ? `<p class="msg w">Revisa bien ${dudas === 1 ? "la línea marcada" : `las ${dudas} líneas marcadas`} con ⚠️.</p>` : ""}
+      <div>${fac.lineas.map((l, k) => { const x = insumoDe(l.insumo_id), u = x ? x.u : l.unidad; return `<div class="fline${l.usar ? "" : " fuera"}">
+        <label class="chk"><input type="checkbox" data-fl="usar" data-k="${k}"${l.usar ? " checked" : ""}> ${l.seguro ? "" : "⚠️ "}${esc(l.texto)}</label>
+        ${l.duda ? `<span class="meta">${esc(l.duda)}</span>` : ""}
+        <div class="fields">
+          <label class="ancho">Va a<select data-fl="insumo_id" data-k="${k}"><option value=""${x ? "" : " selected"}>➕ Ingrediente nuevo</option>${opts(l.insumo_id)}</select></label>
+          ${x ? "" : `<label class="ancho">Nombre del nuevo<input data-fl="nombre" data-k="${k}" value="${esc(l.nombre)}"></label>
+          <label>Unidad<select data-fl="unidad" data-k="${k}">${UNIDADES.map(v => `<option${v === l.unidad ? " selected" : ""}>${v}</option>`).join("")}</select></label>`}
+          <label>Cantidad<span class="ucant"><input data-fl="cantidad" data-k="${k}" inputmode="decimal" value="${l.cantidad}"><span>${esc(u)}</span></span></label>
+        </div></div>`; }).join("")}</div>
+      <div class="acts"><button class="btn brand" data-iv="fconfirmar">Confirmar y sumar</button><button class="btn ghost" data-iv="fcancelar">Cancelar</button></div></section>`;
+  }
+  return `<section class="card"><h3>Agregar con foto</h3>
+    <p class="hint">Tómale foto a la factura (o a varias) y la caja lee qué llegó. Antes de sumar te muestra todo para que lo revises.</p>
+    ${fac.fotos.length ? `<div class="fotos">${fac.fotos.map((f, k) => `<div><img src="${f.url}" alt="Foto ${k + 1}"><button class="x" data-iv="fquitar" data-k="${k}" aria-label="Quitar foto">×</button></div>`).join("")}</div>` : ""}
+    <div class="acts">
+      <label class="btn${fac.fotos.length ? " ghost" : " brand"} subir">📷 ${fac.fotos.length ? "Otra foto" : "Tomar foto"}<input type="file" accept="image/*" capture="environment" data-fac="1"></label>
+      <label class="btn ghost subir">🖼️ Galería<input type="file" accept="image/*" multiple data-fac="1"></label>
+      ${fac.fotos.length ? `<button class="btn brand" data-iv="fleer">Leer ${fac.fotos.length === 1 ? "factura" : `${fac.fotos.length} fotos`}</button>` : ""}
+    </div></section>`;
+}
 function pInventario() {
   const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
   const cab = `<h2>Inventario</h2><div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
@@ -1094,8 +1201,8 @@ function invHay() {
   pedidosDe(ahoraCaracas().fecha).forEach(p => p.items.forEach(i => { if (!Object.keys(consumoDe(i.n, i.d)).length) sinReceta.add(i.n); }));
   const ult = Object.values(movs).sort((a, b) => b.t - a.t).slice(0, 15);
   const tipos = { entrada: "Llegó compra", conteo: "Conteo real", merma: "Se dañó o se botó" };
-  return `
-  <section class="card"><h3>Anotar</h3>
+  return facturaHTML() + `
+  <section class="card"><h3>Anotar a mano</h3>
     <div class="fields">
       <label class="ancho">Ingrediente<select id="mv-ins">${inv.insumos.map(x => `<option value="${x.id}">${esc(x.n)} (${esc(x.u)})</option>`).join("")}</select></label>
       <label>Qué pasó<select id="mv-tipo">${Object.entries(tipos).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
@@ -1192,6 +1299,11 @@ $("#main").addEventListener("click", e => {
     const m = { id: uid() + uid(), ins: $("#mv-ins").value, tipo, c, t: Date.now(), nota: $("#mv-nota").value.trim(), quien: cfg.equipo || "", rev: 1 };
     movs[m.id] = m; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); toast("Anotado.");
   }
+  if (a === "fquitar") fac.fotos.splice(+k, 1);
+  if (a === "fleer") { leerFacturas(); return; }
+  if (a === "fcancelar") { if (!confirm("¿Descartar lo que se leyó de la factura?")) return; fac.lineas = null; }
+  if (a === "fconfirmar") confirmarFactura();
+  if (a === "flisto") fac.hecho = null;
   if (a === "anular") { const m = movs[k]; if (m) { m.anulado = true; m.rev = (m.rev || 1) + 1; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); } }
   pintar();
 });
@@ -1205,6 +1317,27 @@ $("#main").addEventListener("input", e => {
   tocarInv();
 });
 $("#main").addEventListener("change", e => { if (tab === "inventario" && e.target.tagName === "SELECT" && (e.target.dataset.ii || e.target.dataset.ip)) pintar(); });
+$("#main").addEventListener("change", async e => {
+  const el = e.target; if (tab !== "inventario") return;
+  if (el.dataset.fac) {
+    const files = [...el.files].slice(0, 6 - fac.fotos.length); el.value = "";
+    if (!files.length) { toast("Máximo 6 fotos a la vez."); return; }
+    for (const f of files) { try { fac.fotos.push(await achicarFoto(f)); } catch (_) { toast("No se pudo abrir una foto."); } }
+    pintar(); return;
+  }
+  const f = el.dataset.fl; if (!f || !fac.lineas) return;
+  const l = fac.lineas[+el.dataset.k];
+  if (f === "usar") { l.usar = el.checked; el.closest(".fline").classList.toggle("fuera", !l.usar); return; }
+  if (f === "insumo_id") {
+    // Al cambiar de ingrediente la cantidad se pasa a su unidad cuando se puede (kg↔g, L↔ml)
+    const de = insumoDe(l.insumo_id), a = insumoDe(el.value), u1 = de ? de.u : l.unidad, u2 = a ? a.u : l.unidad;
+    const c = convertir(num(l.cantidad), u1, u2); if (c != null) l.cantidad = Math.round(c * 1000) / 1000;
+    else toast(`Revisa la cantidad: estaba en ${u1} y este ingrediente va en ${u2}.`);
+    l.insumo_id = el.value; if (!a) l.unidad = u1; pintar();
+  }
+  if (f === "unidad") { l.unidad = el.value; pintar(); }
+});
+$("#main").addEventListener("input", e => { const el = e.target, f = el.dataset.fl; if (tab !== "inventario" || !fac.lineas || !(f === "nombre" || f === "cantidad")) return; fac.lineas[+el.dataset.k][f] = el.value; });
 
 // ---------- Ajustes ----------
 function pAjustes() {
