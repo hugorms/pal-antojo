@@ -112,6 +112,7 @@ input[type="file"] { display: none; }
 <header><div class="wrap">
   <img src="../caja/icono-192.png" alt="">
   <h1>Panel del menú<small>Pa'l Antojo</small></h1>
+  <button class="btn peq" id="cambiarClave" hidden>Contraseña</button>
   <button class="btn peq" id="salir" hidden>Salir</button>
 </div></header>
 <main class="wrap" id="app"></main>
@@ -145,8 +146,8 @@ let timerToast;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(timerToast); timerToast = setTimeout(() => el.hidden = true, 2600); }
 
 // ---------- Sesión (Supabase Auth) ----------
-const cajaCfg = LS.get("pa.cfg", {});
-let clave = LS.get("pa.admin.clave", "") || SB_PUBLICA;
+const clave = SB_PUBLICA;
+LS.del("pa.admin.clave");
 let ses = LS.get("pa.admin.ses", null);
 
 async function auth(tipo, cuerpo) {
@@ -186,8 +187,41 @@ async function subir(ruta, cuerpo, tipo) {
   }
   return `${SB_URL}/storage/v1/object/public/${BUCKET}/${ruta}`;
 }
-function salir() { ses = null; LS.del("pa.admin.ses"); $("#salir").hidden = true; $("#barra").hidden = true; pintarLogin(); }
+function salir() { ses = null; LS.del("pa.admin.ses"); $("#salir").hidden = $("#cambiarClave").hidden = true; $("#barra").hidden = true; pintarLogin(); }
 $("#salir").addEventListener("click", salir);
+
+// Cambiar la contraseña: se confirma la actual y se guarda la nueva en Supabase Auth
+$("#cambiarClave").addEventListener("click", () => {
+  $("#barra").hidden = true;
+  $("#app").innerHTML = `<form class="login caja" id="fclave">
+    <h2 style="margin-top:0">Cambiar contraseña</h2>
+    <label>Contraseña actual<input type="password" id="cactual" autocomplete="current-password" required></label>
+    <label>Contraseña nueva<input type="password" id="cnueva" autocomplete="new-password" minlength="8" required></label>
+    <label>Repite la nueva<input type="password" id="cotra" autocomplete="new-password" required></label>
+    <div class="fila"><button class="btn brand" id="cbtn">Guardar</button><button type="button" class="btn" id="cvolver">Volver al menú</button></div>
+    <p class="msg err" id="cerr"></p>
+  </form>`;
+  $("#cvolver").addEventListener("click", () => { $("#barra").hidden = false; pintar(); });
+  $("#fclave").addEventListener("submit", async e => {
+    e.preventDefault();
+    const nueva = $("#cnueva").value, err = $("#cerr");
+    err.className = "msg err";
+    if (nueva.length < 8) { err.textContent = "La nueva debe tener al menos 8 caracteres."; return; }
+    if (nueva !== $("#cotra").value) { err.textContent = "Las dos contraseñas nuevas no son iguales."; return; }
+    $("#cbtn").disabled = true; err.textContent = "";
+    try {
+      try { await auth("password", { email: ses.email, password: $("#cactual").value }); }
+      catch (_) { throw new Error("La contraseña actual no es correcta."); }
+      const r = await fetch(`${SB_URL}/auth/v1/user`, {
+        method: "PUT", headers: { apikey: clave, authorization: "Bearer " + await token(), "content-type": "application/json" },
+        body: JSON.stringify({ password: nueva }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error_code === "same_password" ? "La nueva es igual a la actual." : d.error_code === "weak_password" ? "Esa contraseña es muy débil. Usa una más larga." : (d.msg || d.message || "No se pudo cambiar (" + r.status + ")."));
+      $("#barra").hidden = false; pintar(); toast("Contraseña cambiada.");
+    } catch (x) { err.textContent = x.message; $("#cbtn").disabled = false; }
+  });
+});
 
 function pintarLogin(error) {
   $("#app").innerHTML = `<form class="login caja" id="flogin">
@@ -195,21 +229,18 @@ function pintarLogin(error) {
     <p class="ayuda" style="margin:0">Solo para el dueño. Aquí cambias categorías, sabores, precios, fotos y qué sale de día o de noche.</p>
     <label>Correo<input type="email" id="lcorreo" autocomplete="username" required value="${esc(LS.get("pa.admin.correo", ""))}"></label>
     <label>Contraseña<input type="password" id="lclave" autocomplete="current-password" required></label>
-    ${clave ? "" : `<label>Clave pública de Supabase<input id="lpub" required placeholder="sb_publishable_…"><span class="ayuda" style="margin:0;font-weight:600">La misma de Ajustes de la caja. Se pide una sola vez en este equipo.</span></label>`}
     <button class="btn brand" id="lbtn">Entrar</button>
     <p class="msg err" id="lerr">${esc(error || "")}</p>
   </form>`;
   $("#flogin").addEventListener("submit", async e => {
     e.preventDefault();
     const correo = $("#lcorreo").value.trim();
-    if ($("#lpub")) { clave = $("#lpub").value.trim(); LS.set("pa.admin.clave", clave); }
     $("#lbtn").disabled = true; $("#lerr").textContent = "";
     try {
       await auth("password", { email: correo, password: $("#lclave").value });
       LS.set("pa.admin.correo", correo);
       await entrar();
     } catch (err) {
-      if (/api ?key/i.test(err.message)) { clave = ""; LS.del("pa.admin.clave"); }
       pintarLogin(err.message);
     }
   });
@@ -223,7 +254,7 @@ let abierta = null;    // índice de la categoría abierta
 async function entrar() {
   $("#app").innerHTML = `<p class="ayuda" style="margin-top:20px">Cargando el menú…</p>`;
   if (!await esAdmin()) { const c = ses.email; salir(); pintarLogin(`${c} no tiene permiso para cambiar el menú.`); return; }
-  $("#salir").hidden = false; $("#barra").hidden = false;
+  $("#salir").hidden = $("#cambiarClave").hidden = false; $("#barra").hidden = false;
   let enLinea = null;
   try {
     const r = await fetch(`${SB_URL}/storage/v1/object/public/${BUCKET}/menu.json?v=${Date.now()}`, { cache: "no-store" });
