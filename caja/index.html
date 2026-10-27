@@ -60,6 +60,55 @@ p { margin: 0; }
   .velo, .top .menuBtn { display: none; }
   body { padding-left: 240px; }
 }
+/* Vender: productos a la izquierda, factura a la derecha (abajo en el teléfono) */
+main.ancho { max-width: 1200px; }
+.vender { display: grid; gap: 14px; align-items: start; }
+@media (min-width: 760px) { .vender { grid-template-columns: minmax(0, 1fr) 340px; } .vfac { position: sticky; top: calc(var(--topH, 48px) + 12px); } .vpie { display: none !important; } }
+.vbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.vcard { display: grid; gap: 0; padding: 0; overflow: hidden; border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--fg); cursor: pointer; text-align: left; }
+.vcard b { font: 600 1.05rem var(--display); padding: 8px 10px 10px; }
+.vph { position: relative; overflow: hidden; display: grid; place-items: center; aspect-ratio: 4 / 3; font-size: 2.6rem; background: radial-gradient(circle at 30% 25%, #FFD54A, var(--brand) 70%); }
+.vph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vph.mini { width: 56px; aspect-ratio: 1; border-radius: 10px; font-size: 1.6rem; grid-row: span 3; }
+.vprods, .vopts, .vformas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.vprod { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-content: start; text-align: left; padding: 12px; min-height: 72px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--fg); cursor: pointer; font: inherit; }
+.vprod > b, .vprod > small, .vprod > .vp { grid-column: 2; }
+.vprod:not(:has(.vph)) > * { grid-column: 1 / -1; }
+.vprod b { font-weight: 800; font-size: 1rem; }
+.vprod small { color: var(--muted); font-size: .8rem; }
+.vprod .vp { font: 700 1rem var(--display); margin-top: 4px; }
+.vprod:active, .vcard:active { transform: scale(.97); border-color: var(--brand); }
+.vprod.agot { opacity: .45; }
+.velegir { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand); margin-bottom: 10px; }
+.velegir small { color: var(--muted); font: 700 .85rem var(--body); }
+.vfac h2 { margin-bottom: 4px; }
+.vlin { display: grid; gap: 6px; }
+.vl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; font-variant-numeric: tabular-nums; }
+.vl .nm small { display: block; color: var(--muted); }
+.vq { display: inline-flex; align-items: center; gap: 6px; }
+.vq button { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--fg); background: var(--surface); color: var(--fg); font: 800 1.1rem var(--body); cursor: pointer; }
+.vq b { min-width: 18px; text-align: center; }
+.vtot { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px dashed var(--line); padding-top: 8px; font: 700 1.4rem var(--display); }
+.vtot small, .vbig small, .vvuelto small { display: block; font: 700 .85rem var(--body); color: var(--muted); text-align: right; }
+.vcobrar { width: 100%; font-size: 1.15rem; padding: 14px; }
+.vpie { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--surface); border-top: 1px solid var(--line); margin: 0 -14px -40px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 1.05rem; }
+.vbig { background: var(--ink); color: var(--brand); border-radius: 16px; padding: 14px 16px; display: grid; gap: 2px; margin-bottom: 12px; }
+.vbig span { color: #F3EEE0; font-weight: 700; }
+.vbig b { font: 700 2.4rem var(--display); line-height: 1.1; }
+.vbig small { text-align: left; color: #F3EEE0; font-size: 1rem; }
+.vbig small.bad { color: #F08A82; }
+.cobrar h3 { margin: 4px 0 8px; }
+.vformas { margin-bottom: 10px; }
+.vformas .vprod { min-height: 56px; align-content: center; }
+.vpago { margin-bottom: 10px; }
+.vmonto { font-size: 1.3rem !important; max-width: 200px; }
+.vfalta { font: 700 1.2rem var(--display); color: var(--bad); }
+.vvuelto { background: var(--okbg); color: var(--ok); border-radius: 14px; padding: 10px 14px; font: 700 1.2rem var(--display); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 8px 0; }
+.vvuelto b { font-size: 1.8rem; }
+#vestado { display: grid; gap: 6px; margin: 6px 0 12px; }
+.vlisto { max-width: 460px; margin: 30px auto; text-align: center; justify-items: center; }
+.vok { width: 72px; height: 72px; border-radius: 50%; background: var(--okbg); color: var(--ok); display: grid; place-items: center; font-size: 2.4rem; font-weight: 800; }
 main.modulo { max-width: none; padding: 0; display: block; }
 main.modulo iframe { display: block; width: 100%; height: calc(100vh - var(--topH, 48px)); height: calc(100dvh - var(--topH, 48px)); border: 0; }
 .badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--fg); color: var(--surface); font: 800 .72rem var(--body); }
@@ -152,6 +201,7 @@ details summary { cursor: pointer; font-weight: 800; }
 <div id="ticket"></div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="../menu.js"></script>
 <script>
 "use strict";
 // ---------- utilidades ----------
@@ -259,7 +309,7 @@ let tab = LS.get("pa.tab", "nuevo");
 { const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
-  ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"],
+  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"],
   ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
@@ -289,9 +339,10 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  const f = { nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, ajustes: pAjustes }[tab];
+  $("#main").classList.toggle("ancho", tab === "vender");
+  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
-  if (tab === "nuevo") despuesNuevo();
+  if (tab === "nuevo" || tab === "vender") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
 }
 $("#lado").addEventListener("click", e => {
@@ -504,12 +555,247 @@ function leerTexto(t) {
   abrirBorrador(p, "nuevo");
 }
 
+// ---------- Vender: venta de mostrador como una factura simple (agregar → cobrar → listo) ----------
+// Los productos salen del mismo menú del enlace: el publicado desde el panel (menu.json) o menu.js
+const MENU_URL = "https://ymzwomnzjfxznmpdouad.supabase.co/storage/v1/object/public/menu/menu.json";
+const menuOk = m => Array.isArray(m) && m.length > 0 && m.every(c => c && c.cat && Array.isArray(c.items));
+let menuVenta = (() => { const m = LS.get("pa.menu", null); return menuOk(m) ? m : (typeof MENU_BASE !== "undefined" ? MENU_BASE : []); })();
+function traerMenu() {
+  fetch(MENU_URL + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(m => {
+    if (!menuOk(m)) return;
+    LS.set("pa.menu", m); menuVenta = m;
+    if (tab === "vender" && venta.paso === "agregar" && !$("#main").contains(document.activeElement)) pintar();
+  }).catch(() => {});
+}
+traerMenu(); setInterval(traerMenu, 10 * 60 * 1000);
+
+let venta = LS.get("pa.venta", null) || { items: [], pagos: [], paso: "agregar", cat: null, elegir: null };
+const guardarVenta = () => LS.set("pa.venta", venta);
+const catsVenta = () => {
+  const ahora = turnoDe(ahoraCaracas().h) === "Día" ? "dia" : "noche";
+  const vis = menuVenta.filter(c => !c.oculta && c.items.length);
+  // Primero lo que se vende en este turno
+  return [...vis.filter(c => (c.turnos || []).includes(ahora)), ...vis.filter(c => !(c.turnos || []).includes(ahora))];
+};
+// Mismo nombre que pone el enlace en el mensaje, para que Pedidos, Cierre e inventario lo reconozcan
+function nombreVenta(c, it) {
+  if (c.prefijo === "Empanada") return `Empanada de ${it.name.toLowerCase()}`.replace("de pa'l antojo gigante", "Pa'l Antojo gigante");
+  if (c.prefijo === "Hamburguesa") return `Hamburguesa ${it.name}`;
+  return it.name;
+}
+// Una fila por sabor; cada fila da sus opciones (tamaño y extras) ya armadas, cada una con su precio
+function filasVenta(c) {
+  const out = [];
+  c.items.forEach((it, ii) => (it.flavors && it.flavors.length ? it.flavors : [null]).forEach((f, fi) => out.push({ c, it, ii, f, fi, label: f || it.name, sub: f && c.items.length > 1 ? it.name : (it.desc || "") })));
+  return out;
+}
+function opcionesVenta(it, f) {
+  const tams = it.sizes && it.sizes.length ? it.sizes : [[null, it.price]];
+  const ex = it.extras || [], out = [];
+  tams.forEach(([t, p]) => {
+    for (let m = 0; m < (1 << ex.length); m++) {
+      const parts = [], usados = ex.filter((_, i) => m & (1 << i));
+      if (f) parts.push(f); if (t) parts.push(t); usados.forEach(e => parts.push(e.label.toLowerCase()));
+      out.push({ d: parts.join(" · "), p: (p || 0) + usados.reduce((a, e) => a + e.price, 0), etiqueta: [t, ...usados.map(e => e.label)].filter(Boolean).join(" + ") || "Normal" });
+    }
+  });
+  return out;
+}
+const foto = (c, it) => (c.fotoPorProducto && it ? it.fotoUrl || `../fotos/${it.id}.jpg` : c.fotoUrl || `../fotos/${c.foto}.jpg`);
+const fotoHTML = (url, icono, cls) => `<span class="vph ${cls || ""}" aria-hidden="true">${esc(icono || "🍽️")}<img src="${esc(url)}" alt="" loading="lazy" onerror="this.remove()"></span>`;
+const totalVenta = () => venta.items.reduce((a, i) => a + i.q * i.p, 0);
+
+// Cuánto vale cada pago en $ y el vuelto: el efectivo puede ser más de lo que falta
+function cuentaVenta() {
+  const t = tasaHoy(), tot = totalVenta();
+  let falta = tot, vueltoUsd = 0;
+  const pagos = venta.pagos.map(x => {
+    let recibidoUsd = x.forma === "Efectivo $" ? num(x.monto) : t ? num(x.monto) / t : 0;
+    const aplica = Math.min(recibidoUsd, Math.max(0, falta));
+    if (x.forma !== "Pago móvil") vueltoUsd += recibidoUsd - aplica;
+    falta -= aplica;
+    return { x, recibidoUsd, aplica };
+  });
+  return { tot, pagos, falta: Math.max(0, falta), vueltoUsd };
+}
+function erroresCobro() {
+  const e = [], usadas = refsUsadas(""), c = cuentaVenta();
+  if (venta.pagos.some(x => x.forma !== "Efectivo $") && !tasaHoy()) e.push("Falta la tasa del día arriba.");
+  venta.pagos.forEach(x => {
+    if (!num(x.monto)) e.push(`Escribe con cuánto paga en ${x.forma.toLowerCase()}.`);
+    if (x.forma === "Pago móvil") {
+      if (!/^\d{6}$/.test(x.ref || "")) e.push("Escribe los últimos 6 dígitos de la referencia.");
+      else if (usadas.has(x.ref)) e.push(`La referencia ${x.ref} ya se usó en ${usadas.get(x.ref)}.`);
+      if (!x.visto) e.push("Marca \"Ya lo vi en el banco\".");
+    }
+  });
+  if (c.pagos.some(p => p.x.forma === "Pago móvil" && p.recibidoUsd - p.aplica > 0.02)) e.push("El pago móvil es más que el total: revisa el monto.");
+  if (c.falta > 0.01) e.push("");
+  return [...new Set(e)];
+}
+
+function pVender() {
+  if (venta.paso === "listo") return vListo();
+  if (venta.paso === "cobrar") return vCobrar();
+  const cats = catsVenta(), c = venta.cat !== null ? cats.find(x => x.cat === venta.cat) : null;
+  let izq;
+  if (!c) izq = `<div class="vgrid">${cats.map(x => `<button class="vcard" data-v="cat" data-c="${esc(x.cat)}">${fotoHTML(foto(x), x.icono)}<b>${esc(x.cat)}</b></button>`).join("")}</div>`;
+  else {
+    const fs = filasVenta(c);
+    const el = venta.elegir && fs.find(f => f.ii === venta.elegir.ii && f.fi === venta.elegir.fi);
+    izq = `<div class="vbar"><button class="btn ghost" data-v="volver">‹ Categorías</button><h2>${esc(c.cat)}</h2></div>
+    ${el ? `<div class="card velegir"><h3>${esc(el.label)}${el.sub ? ` <small>${esc(el.sub)}</small>` : ""}</h3><p class="hint">¿Cuál?</p>
+      <div class="vopts">${opcionesVenta(el.it, el.f).map((o, k) => `<button class="vprod" data-v="addop" data-k="${k}"><b>${esc(o.etiqueta)}</b><span class="vp">${fmt(o.p)}</span></button>`).join("")}</div>
+      <button class="btn link" data-v="cancelar">Cancelar</button></div>` : ""}
+    <div class="vprods">${fs.map(f => {
+      const op = opcionesVenta(f.it, f.f), agot = !!f.it.agotado;
+      return `<button class="vprod${agot ? " agot" : ""}" data-v="prod" data-ii="${f.ii}" data-fi="${f.fi}"${agot ? " disabled" : ""}>
+        ${c.fotoPorProducto ? fotoHTML(foto(c, f.it), c.icono, "mini") : ""}
+        <b>${esc(f.label)}</b>${f.sub ? `<small>${esc(f.sub)}</small>` : ""}
+        <span class="vp">${agot ? "Agotado" : (op.length > 1 ? "desde " : "") + fmt(Math.min(...op.map(o => o.p)))}</span></button>`;
+    }).join("")}</div>`;
+  }
+  return `<div class="vender">
+    <section class="vizq">${izq}</section>
+    <aside class="card vfac" id="vfac">${facturaHTML(true)}</aside>
+  </div>
+  ${venta.items.length ? `<div class="vpie"><span><b>${fmt(totalVenta())}</b> · ${venta.items.reduce((a, i) => a + i.q, 0)} producto(s)</span><button class="btn brand big" data-v="cobrar">Cobrar</button></div>` : ""}`;
+}
+function facturaHTML(editable) {
+  const tot = totalVenta(), t = tasaHoy();
+  return `<h2>Factura</h2>
+    <div class="vlin">${venta.items.map((i, k) => `<div class="vl">
+      ${editable ? `<span class="vq"><button data-v="menos" data-k="${k}" aria-label="Quitar uno">−</button><b>${i.q}</b><button data-v="mas" data-k="${k}" aria-label="Agregar uno">+</button></span>` : `<b>${i.q} ×</b>`}
+      <span class="nm">${esc(i.n)}${i.d ? `<small>${esc(i.d)}</small>` : ""}</span><span>${fmt(i.q * i.p)}</span></div>`).join("") || `<p class="hint">Toca los productos para agregarlos aquí.</p>`}</div>
+    <div class="vtot"><span>Total</span><span>${fmt(tot)}${t ? `<small>${fbs(tot * t)}</small>` : ""}</span></div>
+    ${editable && venta.items.length ? `<button class="btn brand big vcobrar" data-v="cobrar">Cobrar ${fmt(tot)}</button><button class="btn link" data-v="vaciar">Vaciar factura</button>` : ""}`;
+}
+function vCobrar() {
+  const c = cuentaVenta(), t = tasaHoy(), errs = erroresCobro();
+  const pagoHTMLv = (p, k) => {
+    const x = p.x, bs = x.forma !== "Efectivo $";
+    const rapidos = x.forma === "Efectivo $" ? [["Exacto", ""], ...[1, 5, 10, 20].map(n => [n + " $", n])] : x.forma === "Efectivo Bs" ? [["Exacto", ""]] : [];
+    return `<div class="card vpago"><div class="oh"><b>${{ "Efectivo $": "💵 Efectivo $", "Efectivo Bs": "💴 Efectivo Bs", "Pago móvil": "📱 Pago móvil" }[x.forma]}</b><button class="x" data-v="qpago" data-k="${k}" aria-label="Quitar">×</button></div>
+      <label>${x.forma === "Pago móvil" ? "Monto (Bs)" : `¿Con cuánto paga? (${bs ? "Bs" : "$"})`}<input class="vmonto" data-vp="${k}" data-f="monto" inputmode="decimal" value="${esc(String(x.monto || "").replace(".", ","))}"></label>
+      ${rapidos.length ? `<div class="chips">${rapidos.map(([l, n]) => `<button data-v="rapido" data-k="${k}" data-n="${n}">${l}</button>`).join("")}</div>` : ""}
+      ${x.forma === "Pago móvil" ? `<div class="fields"><label>Últimos 6 dígitos de la ref.<input data-vp="${k}" data-f="ref" inputmode="numeric" maxlength="6" value="${esc(x.ref || "")}"></label>
+        <label>Banco<input data-vp="${k}" data-f="banco" list="bancos" value="${esc(x.banco || "")}" placeholder="Ej. Banesco"></label></div>
+        <label class="chk"><input type="checkbox" data-vp="${k}" data-f="visto"${x.visto ? " checked" : ""}> Ya lo vi en el banco</label>` : ""}
+    </div>`;
+  };
+  const vuelto = c.vueltoUsd > 0.009;
+  return `<div class="vender cobrar">
+    <section class="vizq">
+      <div class="vbar"><button class="btn ghost" data-v="atras">‹ Volver a la factura</button></div>
+      <div class="vbig"><span>Total a cobrar</span><b>${fmt(c.tot)}</b>${t ? `<small>${fbs(c.tot * t)}</small>` : `<small class="bad">Sin tasa del día: solo efectivo $</small>`}</div>
+      <h3>¿Cómo paga?</h3>
+      <div class="vformas">${["Efectivo $", "Efectivo Bs", "Pago móvil"].map(f => `<button class="vprod" data-v="pago" data-f="${f}"><b>${{ "Efectivo $": "💵", "Efectivo Bs": "💴", "Pago móvil": "📱" }[f]} ${f}</b></button>`).join("")}</div>
+      ${c.pagos.map(pagoHTMLv).join("")}
+      <div id="vestado">${estadoCobro(c, errs)}</div>
+      <button class="btn brand big vcobrar" data-v="confirmar" id="vconfirmar"${errs.length ? " disabled" : ""}>✓ Cobrado${cfg.imprime ? " e imprimir" : ""}</button>
+    </section>
+    <aside class="card vfac">${facturaHTML(false)}</aside>
+  </div>`;
+}
+function estadoCobro(c, errs) {
+  const t = tasaHoy();
+  let h = "";
+  if (!venta.pagos.length) h = `<p class="msg w">Toca cómo paga el cliente.</p>`;
+  else if (c.falta > 0.01) h = `<p class="vfalta">Falta <b>${fmt(c.falta)}</b>${t ? ` · ${fbs(c.falta * t)}` : ""}</p>`;
+  else h = `<p class="msg ok">Pagado completo.</p>`;
+  if (c.vueltoUsd > 0.009) {
+    const enBs = venta.pagos.some(x => x.forma === "Efectivo Bs") && !venta.pagos.some(x => x.forma === "Efectivo $");
+    h += `<p class="vvuelto">VUELTO <b>${enBs && t ? fbs(c.vueltoUsd * t) : fmt(c.vueltoUsd)}</b>${t ? `<small>${enBs ? fmt(c.vueltoUsd) : fbs(c.vueltoUsd * t)}</small>` : ""}</p>`;
+  }
+  return h + errs.filter(Boolean).map(e => `<p class="msg bad">${esc(e)}</p>`).join("");
+}
+function refrescarCobro() {
+  if (!$("#vestado")) return;
+  const c = cuentaVenta(), errs = erroresCobro();
+  $("#vestado").innerHTML = estadoCobro(c, errs); $("#vconfirmar").disabled = errs.length > 0;
+}
+function vListo() {
+  const u = venta.ultima || {};
+  return `<section class="card vlisto">
+    <div class="vok">✓</div><h2>Venta lista</h2><p class="hint">${esc(u.id || "")} · ${fmt(u.total || 0)}</p>
+    ${u.vuelto > 0.009 ? `<p class="vvuelto">VUELTO <b>${esc(u.vueltoTxt)}</b></p>` : ""}
+    <button class="btn brand big vcobrar" data-v="nueva">Nueva venta</button>
+  </section>`;
+}
+function confirmarVenta() {
+  if (erroresCobro().length) return refrescarCobro();
+  const c = cuentaVenta(), ah = ahoraCaracas(), quien = cfg.equipo || "Sin nombre", t = tasaHoy();
+  const p = pedidoVacio("mostrador");
+  p.items = venta.items.map(i => ({ q: i.q, n: i.n, d: i.d, p: i.p }));
+  // Se guarda lo que queda en la caja: lo recibido menos el vuelto
+  p.pagos = c.pagos.filter(y => y.aplica > 0.004).map(({ x, aplica }) => ({ id: uid(), forma: x.forma, ref: x.ref || "", banco: x.banco || "",
+    bs: x.forma === "Efectivo $" ? 0 : Math.round(aplica * t * 100) / 100, tasa: t, usd: Math.round(aplica * 100) / 100, cobrado: true, quien, hora: ah.hora, fecha: ah.fecha }));
+  Object.assign(p, { creado: Date.now(), fecha: ah.fecha, hora: ah.hora, turno: turnoDe(ah.h), por: quien, estado: "cocina", impreso: false, rev: 1, actualizado: Date.now() });
+  pedidos[p.id] = p; cola.push(p.id); guardarTodo();
+  if (cfg.imprime) imprimir([p]);
+  sincronizar();
+  const enBs = venta.pagos.some(x => x.forma === "Efectivo Bs") && !venta.pagos.some(x => x.forma === "Efectivo $");
+  venta = { items: [], pagos: [], paso: "listo", cat: null, elegir: null,
+    ultima: { id: p.id, total: c.tot, vuelto: c.vueltoUsd, vueltoTxt: enBs && t ? fbs(c.vueltoUsd * t) : fmt(c.vueltoUsd) } };
+  guardarVenta(); pintar(); window.scrollTo(0, 0);
+}
+function agregarVenta(n, d, precio) {
+  const f = venta.items.find(i => i.n === n && i.d === d);
+  if (f) f.q++; else venta.items.push({ n, d, p: precio, q: 1 });
+}
+$("#main").addEventListener("click", e => {
+  const b = e.target.closest("button[data-v]"); if (!b || tab !== "vender") return;
+  const a = b.dataset.v, k = +b.dataset.k;
+  const c = venta.cat !== null ? catsVenta().find(x => x.cat === venta.cat) : null;
+  if (a === "cat") { venta.cat = b.dataset.c; venta.elegir = null; window.scrollTo(0, 0); }
+  if (a === "volver") { venta.cat = null; venta.elegir = null; }
+  if (a === "prod" && c) {
+    const ii = +b.dataset.ii, fi = +b.dataset.fi, it = c.items[ii], f = it.flavors && it.flavors.length ? it.flavors[fi] : null;
+    const op = opcionesVenta(it, f);
+    if (op.length === 1) { agregarVenta(nombreVenta(c, it), op[0].d, op[0].p); venta.elegir = null; toast(`+1 ${f || it.name}`); }
+    else { venta.elegir = { ii, fi }; window.scrollTo(0, 0); }
+  }
+  if (a === "addop" && c && venta.elegir) {
+    const it = c.items[venta.elegir.ii], f = it.flavors && it.flavors.length ? it.flavors[venta.elegir.fi] : null, o = opcionesVenta(it, f)[k];
+    agregarVenta(nombreVenta(c, it), o.d, o.p); venta.elegir = null; toast(`+1 ${f || it.name}`);
+  }
+  if (a === "cancelar") venta.elegir = null;
+  if (a === "mas") venta.items[k].q++;
+  if (a === "menos") { venta.items[k].q--; if (venta.items[k].q <= 0) venta.items.splice(k, 1); }
+  if (a === "vaciar") { if (!confirm("¿Vaciar la factura?")) return; venta.items = []; venta.pagos = []; }
+  if (a === "cobrar") { venta.paso = "cobrar"; window.scrollTo(0, 0); }
+  if (a === "atras") venta.paso = "agregar";
+  if (a === "pago") {
+    const cu = cuentaVenta(), t = tasaHoy(), forma = b.dataset.f;
+    if (forma !== "Efectivo $" && !t) { toast("Pon la tasa del día arriba."); return; }
+    venta.pagos.push({ forma, monto: forma === "Efectivo $" ? "" : forma === "Pago móvil" && cu.falta ? String(Math.round(cu.falta * t * 100) / 100).replace(".", ",") : "", ref: "", banco: "", visto: false });
+  }
+  if (a === "qpago") venta.pagos.splice(k, 1);
+  if (a === "rapido") {
+    const x = venta.pagos[k], t = tasaHoy();
+    const otros = cuentaVenta().pagos.filter((_, i) => i !== k).reduce((s, p) => s + p.aplica, 0), resta = Math.max(0, totalVenta() - otros);
+    x.monto = b.dataset.n ? b.dataset.n : String(x.forma === "Efectivo $" ? Math.round(resta * 100) / 100 : Math.round(resta * t * 100) / 100).replace(".", ",");
+  }
+  if (a === "confirmar") return confirmarVenta();
+  if (a === "nueva") venta = { items: [], pagos: [], paso: "agregar", cat: null, elegir: null };
+  guardarVenta(); pintar();
+});
+$("#main").addEventListener("input", e => {
+  const el = e.target; if (tab !== "vender" || el.dataset.vp === undefined) return;
+  const x = venta.pagos[+el.dataset.vp]; if (!x) return;
+  const f = el.dataset.f;
+  if (f === "visto") x.visto = el.checked;
+  else if (f === "ref") { x.ref = el.value.replace(/\D/g, "").slice(0, 6); if (el.value !== x.ref) el.value = x.ref; }
+  else x[f] = el.value;
+  guardarVenta(); refrescarCobro();
+});
+
 // eventos del panel
 $("#main").addEventListener("click", e => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const a = b.dataset.a;
   if (a === "leer") return leerTexto($("#pegar").value);
-  if (a === "mostrador") return abrirBorrador(pedidoVacio("mostrador"), "nuevo");
+  if (a === "mostrador") { tab = "vender"; LS.set("pa.tab", tab); pintar(); return; }
   if (borrador && ["menos", "mas", "quitar", "add", "pago", "qpago", "descartar", "guardar"].includes(a)) {
     const p = borrador.pedido;
     if (a === "menos" || a === "mas") { const it = p.items[+b.dataset.k]; it.q += a === "mas" ? 1 : -1; if (it.q <= 0) p.items.splice(+b.dataset.k, 1); }
