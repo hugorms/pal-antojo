@@ -45,7 +45,8 @@ const MENU_BASE = [
   {"id":"tequenos","name":"Tequeños de queso (6)","desc":"Con salsa","price":4}
  ]},
  {"id":"ensaladas","cat":"Ensaladas","icono":"🥗","foto":"ensaladas","turnos":["noche"], "items": [
-  {"id":"cesar","name":"Ensalada César","desc":"Lechuga romana, crutones, parmesano y aderezo","price":3.5,"extras":[{"label":"Con pollo","price":1.5}]}
+  {"id":"cesar","name":"Ensalada César","desc":"Lechuga romana, crutones, parmesano y aderezo","price":3.5},
+  {"id":"cesar-pollo","name":"Ensalada César con pollo","desc":"La César con pollo a la plancha","price":5}
  ]},
  {"id":"jugos","cat":"Jugos naturales","icono":"🧃","foto":"jugos","turnos":["dia","noche"], "items": [
   {"id":"jugoA","name":"Jugo natural","desc":"Parchita, Mango, Patilla, Melón, Piña, Lechosa, Tamarindo, Guayaba, Limonada, Papelón con limón","flavors":["Parchita","Mango","Patilla","Melón","Piña","Lechosa","Tamarindo","Guayaba","Limonada","Papelón con limón"],"sizes":[["12 oz",1],["16 oz",1.5]],"extras":[{"label":"Frapé","price":0.5}]},
