@@ -31,6 +31,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 var(--body); padding: 0 16px 120px; }
 .wrap { max-width: 720px; margin: 0 auto; }
+/* En PC el panel usa todo el ancho: lista de categorías a la izquierda y el editor a la derecha */
+.ancho .wrap { max-width: 1500px; }
 header { background: var(--brand); color: var(--ink); margin: 0 -16px; padding: 16px; }
 header .wrap { display: flex; gap: 12px; align-items: center; }
 header img { width: 44px; height: 44px; border-radius: 50%; }
@@ -38,7 +40,7 @@ header h1 { font: 700 1.5rem var(--display); margin: 0; line-height: 1; flex: 1;
 header small { display: block; font: 700 .85rem var(--body); }
 h2 { font: 600 1.3rem var(--display); margin: 22px 0 8px; }
 p.ayuda { color: var(--muted); font-size: .9rem; margin: 4px 0 12px; }
-label { display: grid; gap: 4px; font-weight: 800; font-size: .85rem; }
+label { display: grid; gap: 4px; align-content: start; font-weight: 800; font-size: .85rem; }
 input, textarea, select {
   font: 600 .95rem var(--body); color: var(--fg); background: var(--bg); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 9px 10px; width: 100%; min-width: 0;
@@ -98,6 +100,7 @@ label.chk input { width: auto; accent-color: var(--brand); width: 18px; height: 
 .lista { display: grid; gap: 6px; }
 .lista .li { display: grid; grid-template-columns: 1fr 90px auto; gap: 6px; align-items: center; }
 .x { border: 0; background: none; color: var(--danger); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; }
+.nota { color: var(--muted); font-weight: 600; font-size: .78rem; line-height: 1.3; }
 .sub { font: 800 .75rem var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 0; }
 .foto { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 input[type="file"] { display: none; }
@@ -113,6 +116,33 @@ input[type="file"] { display: none; }
   .barra .wrap > button, .barra .wrap > a { flex: 1 1 0; }
   .toast { bottom: 120px; }
 }
+/* PC: dos paneles. La lista queda fija al bajar; los productos van en rejilla */
+.mesa { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.mesa .lado { position: sticky; top: 10px; max-height: calc(100vh - 100px); max-height: calc(100dvh - 100px); overflow-y: auto; display: grid; gap: 10px; padding: 2px; }
+.mesa .cats { gap: 6px; }
+.mesa .cat { border-radius: 14px; }
+.mesa .ch { grid-template-columns: auto 1fr; padding: 8px 10px; gap: 10px; }
+.mesa .ch .ph { width: 44px; height: 44px; font-size: 1.4rem; border-radius: 10px; }
+.mesa .ch b { font-size: 1rem; }
+.mesa .ch:hover { background: var(--chip); }
+.mesa .lado .fila .btn { flex: 1 1 auto; }
+.editor { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+.editor .cb { border-top: 0; padding: 16px 18px 18px; gap: 16px; }
+.editor .ehead { display: flex; gap: 14px; align-items: center; padding: 16px 18px 0; }
+.editor .ehead h3 { font: 700 1.5rem var(--display); margin: 0; flex: 1; min-width: 0; }
+.editor .datos { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.editor .datos .foto { flex-direction: column; align-items: flex-start; }
+.editor .datos .ph.grande { width: 150px; height: 112px; }
+.editor .prods { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; align-items: start; }
+.editor .prod { background: var(--bg); }
+/* Pantalla mediana (tablet): la foto de la categoría va arriba, en fila con sus botones */
+@media (max-width: 1050px) {
+  .editor .datos { grid-template-columns: 1fr; }
+  .editor .datos .foto { flex-direction: row; align-items: center; }
+  .editor .datos .ph.grande { width: 120px; height: 90px; }
+}
+.editor .prodsCab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 /* Dentro de la app (menú lateral) no se repite el encabezado */
 .embebido header { background: none; padding: 10px 16px 0; }
 .embebido header img, .embebido header h1 small { display: none; }
@@ -358,7 +388,15 @@ const fotoCat = c => c.fotoUrl || `../fotos/${c.foto}.jpg`;
 const fotoProd = it => it.fotoUrl || `../fotos/${it.id}.jpg`;
 const precioCorto = it => it.sizes ? (it.sizes.length ? "desde " + fmt(Math.min(...it.sizes.map(s => s[1] || 0))) : "") : (it.price > 0 ? fmt(it.price) : "sin precio");
 
+// PC (o tablet acostada): dos paneles. Teléfono: acordeón como antes
+const mqAncho = matchMedia("(min-width: 760px)");
+const esAncho = () => mqAncho.matches;
+mqAncho.addEventListener("change", () => { if ($("#app .cats")) pintar(); });
+
 function pintar() {
+  const ancho = esAncho();
+  document.documentElement.classList.toggle("ancho", ancho);
+  if (ancho && (abierta === null || !menu[abierta]) && menu.length) abierta = 0;
   const html = menu.map((c, ci) => {
     const ab = abierta === ci;
     const agot = c.items.filter(it => it.agotado).length;
@@ -368,25 +406,39 @@ function pintar() {
         <span><b>${esc(c.cat || "Sin nombre")}</b>
           <span class="chips">${c.turnos.includes("dia") ? `<span class="chip">Día</span>` : ""}${c.turnos.includes("noche") ? `<span class="chip">Noche</span>` : ""}
           <small>${c.items.length} producto${c.items.length === 1 ? "" : "s"}</small>${agot ? `<span class="chip no">${agot} agotado${agot > 1 ? "s" : ""}</span>` : ""}${c.oculta ? `<span class="chip no">No sale</span>` : ""}</span></span>
-        <span aria-hidden="true">${ab ? "▴" : "▾"}</span>
+        ${ancho ? "" : `<span aria-hidden="true">${ab ? "▴" : "▾"}</span>`}
       </button>
-      ${ab ? pintarCat(c, ci) : ""}
+      ${ab && !ancho ? pintarCat(c, ci) : ""}
     </section>`;
   }).join("");
-  $("#app").innerHTML = `<h2>Menú del enlace</h2>
-    <p class="ayuda">Toca una categoría para cambiar sus productos, sabores, precios y foto. Los cambios se guardan aquí mientras trabajas; salen en el enlace cuando tocas <b>Publicar</b>.</p>
-    <div class="cats">${html}</div>
-    <div class="fila" style="margin-top:14px">
+  const acciones = `<div class="fila"${ancho ? "" : ` style="margin-top:14px"`}>
       <button class="btn" data-a="nuevaCat">+ Agregar categoría</button>
       <button class="btn peq malo" data-a="descartar" ${JSON.stringify(menu) === publicado ? "disabled" : ""}>Descartar cambios</button>
       <button class="btn peq" data-a="base">Volver al menú base</button>
     </div>`;
+  const ayuda = `<h2>Menú del enlace</h2>
+    <p class="ayuda">${ancho ? "Elige una categoría a la izquierda" : "Toca una categoría"} para cambiar sus productos, sabores, precios y foto. Los cambios se guardan aquí mientras trabajas; salen en el enlace cuando tocas <b>Publicar</b>.</p>`;
+  const c = menu[abierta];
+  $("#app").innerHTML = ancho
+    ? `${ayuda}<div class="mesa">
+        <aside class="lado"><div class="cats">${html}</div>${acciones}</aside>
+        <section class="editor">${c ? `<div class="ehead">${fotoHtml(fotoCat(c), c.icono)}<h3>${esc(c.cat || "Sin nombre")}</h3></div>${pintarCat(c, abierta)}`
+          : `<div class="cb"><p class="ayuda">Todavía no hay categorías. Agrega la primera.</p></div>`}</section>
+      </div>`
+    : `${ayuda}<div class="cats">${html}</div>${acciones}`;
   guardarBorrador();
 }
 
 function pintarCat(c, ci) {
   const prods = c.items.map((it, ii) => pintarProd(c, ci, it, ii)).join("");
+  const ancho = esAncho();
   return `<div class="cb">
+    ${ancho ? `<div class="datos"><div class="foto">
+      ${fotoHtml(fotoCat(c), c.icono, "grande")}
+      <div class="fila">
+        <button class="btn peq" data-a="fotoCat" data-c="${ci}">${c.fotoUrl ? "Cambiar foto" : "Subir foto"}</button>
+        ${c.fotoUrl ? `<button class="btn peq malo" data-a="quitarFotoCat" data-c="${ci}">Quitar</button>` : ""}
+      </div></div><div style="display:grid;gap:12px">` : ""}
     <div class="dos">
       <label>Nombre de la categoría<input data-c="${ci}" data-k="cat" value="${esc(c.cat)}"></label>
       <label>Dibujito (mientras no hay foto)<input data-c="${ci}" data-k="icono" value="${esc(c.icono)}" maxlength="4"></label>
@@ -397,15 +449,16 @@ function pintarCat(c, ci) {
       <label class="chk"><input type="checkbox" data-c="${ci}" data-turno="noche" ${c.turnos.includes("noche") ? "checked" : ""}> De noche</label>
       <label class="chk"><input type="checkbox" data-c="${ci}" data-k="oculta" ${c.oculta ? "checked" : ""}> No mostrar en el enlace</label>
     </div>
-    <div class="foto">
+    ${ancho ? `<label class="chk"><input type="checkbox" data-c="${ci}" data-k="fotoPorProducto" ${c.fotoPorProducto ? "checked" : ""}> Cada producto con su foto</label></div></div>`
+    : `<div class="foto">
       ${fotoHtml(fotoCat(c), c.icono, "grande")}
       <div class="fila">
         <button class="btn peq" data-a="fotoCat" data-c="${ci}">${c.fotoUrl ? "Cambiar foto" : "Subir foto"}</button>
         ${c.fotoUrl ? `<button class="btn peq malo" data-a="quitarFotoCat" data-c="${ci}">Quitar</button>` : ""}
         <label class="chk"><input type="checkbox" data-c="${ci}" data-k="fotoPorProducto" ${c.fotoPorProducto ? "checked" : ""}> Cada producto con su foto</label>
       </div>
-    </div>
-    <p class="sub">Productos</p>
+    </div>`}
+    ${ancho ? `<div class="prodsCab"><p class="sub">Productos (${c.items.length})</p><button class="btn peq" data-a="nuevoProd" data-c="${ci}">+ Agregar producto</button></div>` : `<p class="sub">Productos</p>`}
     <div class="prods">${prods || `<p class="ayuda">Todavía no tiene productos.</p>`}</div>
     <div class="fila">
       <button class="btn" data-a="nuevoProd" data-c="${ci}">+ Agregar producto</button>
@@ -430,7 +483,7 @@ function pintarProd(c, ci, it, ii) {
       <b>${esc(it.name || "Producto nuevo")}</b><span class="chip">${precioCorto(it)}</span>
     </div>
     <div class="dos">
-      <label>Nombre${c.prefijo ? ` <span class="ayuda" style="margin:0;font-weight:600">(en el pedido sale “${esc(c.prefijo)} …”)</span>` : ""}<input ${d} data-k="name" value="${esc(it.name)}"></label>
+      <label>Nombre<input ${d} data-k="name" value="${esc(it.name)}">${c.prefijo ? `<small class="nota">En el pedido sale “${esc(c.prefijo)} …”</small>` : ""}</label>
       <label>Descripción<input ${d} data-k="desc" value="${esc(it.desc || "")}" placeholder="Opcional"></label>
     </div>
     <div class="fila">
@@ -440,8 +493,9 @@ function pintarProd(c, ci, it, ii) {
     ${it.sizes
       ? `${lista(it.sizes, "size", "Tamaño (ej. 12 oz)")}<div><button class="btn peq" data-a="nuevo-size" ${d}>+ Tamaño</button></div>`
       : `<label style="max-width:160px">Precio ($)<input ${d} data-k="price" value="${esc(precioTxt(it.price))}" inputmode="decimal" placeholder="0,00"></label>`}
-    <label>Sabores o variedades <span class="ayuda" style="margin:0;font-weight:600">(uno por línea; cada uno sale aparte con el mismo precio. Vacío = no tiene)</span>
-      <textarea ${d} data-k="flavors" rows="${Math.min(8, Math.max(2, (it.flavors || []).length + 1))}">${esc((it.flavors || []).join("\n"))}</textarea></label>
+    <label>Sabores o variedades
+      <textarea ${d} data-k="flavors" rows="${Math.min(8, Math.max(2, (it.flavors || []).length + 1))}">${esc((it.flavors || []).join("\n"))}</textarea>
+      <small class="nota">Uno por línea; cada uno sale aparte con el mismo precio. Vacío = no tiene.</small></label>
     <div><p class="sub">Extras (se marcan aparte y suman)</p>
       ${(it.extras || []).length ? lista(it.extras, "extra", "Ej. Con pollo") : ""}
       <button class="btn peq" data-a="nuevo-extra" ${d} style="margin-top:6px">+ Extra</button></div>
@@ -490,7 +544,11 @@ $("#app").addEventListener("change", e => {
 });
 $("#app").addEventListener("click", e => {
   const ab = e.target.closest("[data-abrir]");
-  if (ab) { abierta = abierta === +ab.dataset.abrir ? null : +ab.dataset.abrir; pintar(); if (abierta !== null) ab.scrollIntoView({ block: "nearest" }); return; }
+  if (ab) {
+    const i = +ab.dataset.abrir;
+    if (esAncho()) { abierta = i; pintar(); window.scrollTo({ top: 0 }); return; }
+    abierta = abierta === i ? null : i; pintar(); if (abierta !== null) ab.scrollIntoView({ block: "nearest" }); return;
+  }
   const b = e.target.closest("[data-a]");
   if (!b) return;
   const a = b.dataset.a, ci = +b.dataset.c, ii = +b.dataset.i, c = menu[ci], it = c && c.items[ii];
