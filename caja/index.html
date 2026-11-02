@@ -154,7 +154,14 @@ textarea { font-weight: 600; resize: vertical; }
 .mov { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: center; }
 .mov:first-child { border-top: 0; }
 .mov b { font-weight: 800; } .mov .mq { font-weight: 800; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; }
-/* Llegó una factura: varias líneas de una vez */
+/* Llegó una factura: varias líneas de una vez, con su foto */
+.fotofac { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.fotofac img { width: 64px; height: 86px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--line); }
+.subir { position: relative; overflow: hidden; }
+.subir input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+#visor { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 50; display: grid; place-items: center; padding: 12px; }
+#visor img { max-width: 100%; max-height: calc(100vh - 80px); border-radius: 8px; background: #fff; }
+#visor button { position: absolute; top: 12px; right: 12px; }
 .fline { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
 .fline:first-of-type { border-top: 0; }
 .fline.fuera { opacity: .5; }
@@ -1089,7 +1096,62 @@ function vendibles() {
 let fac = Object.assign({ prov: "", lineas: [], hecho: null }, LS.get("pa.fac", {}));
 const lineaVacia = () => ({ ins: "", nombre: "", u: "g", c: "", en: "" });
 if (!fac.lineas.length) fac.lineas = [lineaVacia()];
-const guardarFac = () => LS.set("pa.fac", { prov: fac.prov, lineas: fac.lineas });
+const guardarFac = () => LS.set("pa.fac", { prov: fac.prov, lineas: fac.lineas, foto: fac.foto || "" });
+// Fotos de facturas: se guardan en el equipo hasta subirlas a la carpeta "facturas" de Supabase (solo usuarios de la tienda)
+let fotosPend = LS.get("pa.fotosPend", {}); // ruta → foto en data URL
+function achicarFoto(file) {
+  return new Promise((ok, mal) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+      ok(cv.toDataURL("image/jpeg", .8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error("foto")); };
+    img.src = url;
+  });
+}
+async function sesionViva() {
+  let s = LS.get("pa.admin.ses", null); if (!s || !s.refresh_token) return null;
+  if (Date.now() > (s.expira || 0) - 120000) {
+    const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: SB_KEY, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
+    if (!r.ok) return null;
+    const d = await r.json(); s = { ...s, access_token: d.access_token, refresh_token: d.refresh_token, expira: Date.now() + (d.expires_in || 3600) * 1000 }; LS.set("pa.admin.ses", s);
+  }
+  return s;
+}
+let subiendoFotos = false;
+async function subirFotos() {
+  if (subiendoFotos || !navigator.onLine || !Object.keys(fotosPend).length) return;
+  subiendoFotos = true;
+  try {
+    const s = await sesionViva(); if (!s) return;
+    for (const [ruta, d] of Object.entries(fotosPend)) {
+      const r = await fetch(SB_URL + "/storage/v1/object/facturas/" + ruta, { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + s.access_token, "content-type": "image/jpeg" }, body: await (await fetch(d)).blob() });
+      // 409: ya estaba subida
+      if (r.ok || r.status === 409) { delete fotosPend[ruta]; LS.set("pa.fotosPend", fotosPend); }
+    }
+  } catch (_) { } finally { subiendoFotos = false; }
+}
+async function verFoto(ruta) {
+  let src = fotosPend[ruta];
+  if (!src) {
+    try {
+      const s = await sesionViva(); if (!s) throw new Error("Entra con tu usuario para ver la foto.");
+      const r = await fetch(SB_URL + "/storage/v1/object/authenticated/facturas/" + ruta, { headers: { apikey: SB_KEY, authorization: "Bearer " + s.access_token } });
+      if (!r.ok) throw new Error(navigator.onLine ? "No se encontró la foto. Puede que el otro equipo no la haya subido todavía." : "Hace falta internet para ver la foto.");
+      src = URL.createObjectURL(await r.blob());
+    } catch (e) { toast(e.message || "No se pudo abrir la foto."); return; }
+  }
+  mostrarFoto(src);
+}
+function mostrarFoto(src) {
+  const v = document.createElement("div"); v.id = "visor";
+  v.innerHTML = `<img src="${src}" alt="Foto de la factura"><button class="btn">Cerrar</button>`;
+  v.addEventListener("click", () => { v.remove(); if (src.startsWith("blob:")) URL.revokeObjectURL(src); });
+  document.body.appendChild(v);
+}
 const MAYOR = { g: ["kg", 1000], ml: ["L", 1000] };
 // En qué se puede escribir la cantidad de un ingrediente: su unidad, la mayor (kg, L) y su presentación
 function formasDe(x, u) {
@@ -1109,7 +1171,7 @@ function resumenLinea(l) {
 const sumaHTML = l => { const r = resumenLinea(l); return r ? `Suma: <b>${cant(r.c)} ${esc(r.u)}</b> a ${esc(r.n)}${r.nuevo ? " (nuevo)" : ""}` : ""; };
 const resumenFac = () => fac.lineas.map(resumenLinea).filter(Boolean);
 function confirmarFactura() {
-  const nuevos = [], sumados = [], t = Date.now();
+  const nuevos = [], sumados = [], t = Date.now(), foto = fac.foto ? `${ahoraCaracas().fecha}/${uid()}${uid()}.jpg` : "";
   fac.lineas.forEach((l, i) => {
     if (!(num(l.c) > 0)) return;
     let x = insumoDe(l.ins);
@@ -1120,12 +1182,14 @@ function confirmarFactura() {
     }
     const forma = formasDe(x, x.u).find(f => f[0] === l.en) || [x.u, x.u, 1], c = num(l.c) * forma[2];
     const m = { id: uid() + uid(), ins: x.id, tipo: "entrada", c, t: t + i, nota: "Factura" + (fac.prov.trim() ? " " + fac.prov.trim() : ""), quien: cfg.equipo || "", rev: 1 };
+    if (foto) m.foto = foto;
     movs[m.id] = m; cola.push("mov:" + m.id); sumados.push({ n: x.n, c, u: x.u });
   });
   if (!sumados.length) { toast("Pon la cantidad de al menos una línea."); return; }
   if (nuevos.length) tocarInv();
+  if (foto) { fotosPend[foto] = fac.foto; LS.set("pa.fotosPend", fotosPend); }
   LS.set("pa.movs", movs); LS.set("pa.cola", cola); sincronizar();
-  fac = { prov: "", lineas: [lineaVacia()], hecho: { nuevos, sumados } }; guardarFac();
+  fac = { prov: "", lineas: [lineaVacia()], hecho: { nuevos, sumados, foto } }; guardarFac();
 }
 function compraHTML() {
   if (fac.hecho) {
@@ -1133,6 +1197,7 @@ function compraHTML() {
     return `<section class="card"><h3>Listo, se sumó la factura</h3>
       ${nuevos.length ? `<p><b>Ingredientes nuevos:</b> ${nuevos.map(esc).join(", ")}</p>` : ""}
       <div>${sumados.map(x => `<div class="mov"><div>${esc(x.n)}</div><div class="mq">+ ${cant(x.c)} ${esc(x.u)}</div></div>`).join("")}</div>
+      ${fac.hecho.foto ? `<p class="hint">La foto quedó guardada con la factura${navigator.onLine ? "" : " y se sube cuando vuelva el internet"}.</p>` : ""}
       ${nuevos.length ? `<p class="hint">A los ingredientes nuevos ponles su mínimo en Ingredientes y úsalos en las recetas.</p>` : ""}
       <div class="acts"><button class="btn brand" data-iv="flisto">Listo</button></div></section>`;
   }
@@ -1140,6 +1205,7 @@ function compraHTML() {
     const r = resumenFac();
     return `<section class="card" id="facRev"><h3>Revisa antes de sumar</h3>
       <p class="hint">Factura${fac.prov.trim() ? " de " + esc(fac.prov.trim()) : ""}. Si algo está mal, toca Corregir.</p>
+      ${fac.foto ? `<div class="fotofac"><img src="${fac.foto}" alt="Foto de la factura"><button class="btn ghost" data-iv="fverfoto">Ver foto grande</button></div>` : ""}
       <div>${r.map(x => `<div class="mov"><div>${esc(x.n)}${x.nuevo ? ` <span class="meta">(ingrediente nuevo)</span>` : ""}${x.como ? `<br><span class="meta">${esc(x.como)}</span>` : ""}</div><div class="mq">+ ${cant(x.c)} ${esc(x.u)}</div></div>`).join("")}</div>
       <div class="acts"><button class="btn brand" data-iv="fconfirmar">Está bien, sumar</button><button class="btn ghost" data-iv="fcorregir">Corregir</button></div></section>`;
   }
@@ -1147,6 +1213,9 @@ function compraHTML() {
   return `<section class="card" id="facRev"><h3>Llegó una factura</h3>
     <p class="hint">Anota todo lo que llegó y al final toca Revisar y sumar. Lo que no exista se crea como ingrediente nuevo.</p>
     <div class="fields"><label class="ancho">Proveedor<input data-fl="prov" value="${esc(fac.prov)}" placeholder="Opcional"></label></div>
+    ${fac.foto ? `<div class="fotofac"><img src="${fac.foto}" alt="Foto de la factura"><button class="x" data-iv="fsinfoto">× Quitar foto</button></div>`
+      : `<div class="acts"><label class="btn ghost subir">📷 Foto de la factura<input type="file" accept="image/*" capture="environment" data-fac="1"></label><label class="btn ghost subir">🖼️ Galería<input type="file" accept="image/*" data-fac="1"></label></div>
+      <p class="hint">Opcional. Queda guardada con lo que anotes, para revisarla después.</p>`}
     <div>${fac.lineas.map((l, k) => { const x = insumoDe(l.ins), u = x ? x.u : l.u, formas = formasDe(x, u); return `<div class="fline">
       <div class="fields">
         <label class="ancho">Ingrediente<select data-fl="ins" data-k="${k}"><option value=""${x ? "" : " selected"}>➕ Nuevo ingrediente</option>${opts(l.ins)}</select></label>
@@ -1195,7 +1264,7 @@ function invHay() {
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
     ${ult.length ? `<div>${ult.map(m => { const x = insumoDe(m.ins); return `<div class="mov"${m.anulado ? ` style="opacity:.45"` : ""}>
-      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span></div>
+      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span>${m.foto ? `<br><button class="x" style="color:var(--fg);padding:4px 0;font-size:.9rem" data-iv="verfoto" data-k="${esc(m.foto)}">📄 Ver factura</button>` : ""}</div>
       <div class="mq"><span>${cant(num(m.c))} ${x ? esc(x.u) : ""}</span>${m.anulado ? `<span class="meta">Anulado</span>` : `<button class="x" style="padding:4px 0;font-size:.9rem" data-iv="anular" data-k="${m.id}">Anular</button>`}</div></div>`; }).join("")}</div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
   </section>`;
 }
@@ -1274,6 +1343,9 @@ $("#main").addEventListener("click", e => {
     const m = { id: uid() + uid(), ins: $("#mv-ins").value, tipo, c, t: Date.now(), nota: $("#mv-nota").value.trim(), quien: cfg.equipo || "", rev: 1 };
     movs[m.id] = m; LS.set("pa.movs", movs); cola.push("mov:" + m.id); LS.set("pa.cola", cola); sincronizar(); toast("Anotado.");
   }
+  if (a === "fsinfoto") { fac.foto = ""; guardarFac(); }
+  if (a === "fverfoto") { mostrarFoto(fac.foto); return; }
+  if (a === "verfoto") { verFoto(k); return; }
   if (a === "flinea") { fac.lineas.push(lineaVacia()); guardarFac(); }
   if (a === "fquitar") { fac.lineas.splice(+k, 1); guardarFac(); }
   if (a === "frevisar") { if (!resumenFac().length) { toast("Pon el ingrediente y la cantidad de al menos una línea."); return; } fac.revisar = true; window.scrollTo(0, 0); }
@@ -1303,7 +1375,12 @@ $("#main").addEventListener("input", e => {
   tocarInv();
 });
 $("#main").addEventListener("change", e => { if (tab === "inventario" && e.target.tagName === "SELECT" && (e.target.dataset.ii || e.target.dataset.ip)) pintar(); });
-$("#main").addEventListener("change", e => {
+$("#main").addEventListener("change", async e => {
+  if (tab === "inventario" && e.target.dataset.fac) {
+    const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+    try { fac.foto = await achicarFoto(file); guardarFac(); } catch (_) { toast("No se pudo abrir la foto."); }
+    pintar(); return;
+  }
   const el = e.target, f = el.dataset.fl; if (tab !== "inventario" || !f || el.tagName !== "SELECT") return;
   const l = fac.lineas[+el.dataset.k]; l[f] = el.value;
   if (f === "ins" || f === "u") l.en = "";
@@ -1408,7 +1485,7 @@ async function conectarSolo() {
   } catch (_) { }
 }
 async function sincronizar(manual) {
-  await conectarSolo();
+  await conectarSolo(); subirFotos();
   if (!(cfg.url && cfg.key && cfg.clave)) { pintarSync(); if (manual) $("#cfgMsg").textContent = "Faltan datos de conexión."; return; }
   if (!navigator.onLine || sincronizando) { pintarSync(); return; }
   sincronizando = true;
