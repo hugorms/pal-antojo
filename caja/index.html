@@ -202,6 +202,21 @@ td input { width: 80px; padding: 4px 6px; }
 details summary { cursor: pointer; font-weight: 800; }
 #ticket { display: none; }
 /* ---------- Ajustes para cualquier pantalla (teléfono, tablet, PC) ---------- */
+/* Reportes */
+.rleyenda { font-size: .8rem; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rleyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 4px; }
+.rd { background: var(--brand); } .rn { background: var(--fg); } .rleyenda .rm { width: 3px; background: var(--bad); }
+.rbarras { display: grid; gap: 6px; }
+.rfila { display: grid; grid-template-columns: 92px minmax(0, 1fr) 74px; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+.rf { font-size: .82rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.rbar { position: relative; display: flex; height: 18px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+.rbar::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--meta); width: 2px; background: var(--bad); }
+.rbar i { display: block; height: 100%; }
+.rv { text-align: right; font-size: .9rem; }
+td.n { white-space: nowrap; }
+.kpis.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 400px) { .kpis.k3 .kpi { padding: 8px; } .kpis.k3 .kpi b { font-size: 1.05rem; } }
+@media (max-width: 400px) { .rfila { grid-template-columns: 70px minmax(0, 1fr) 64px; } .rf { font-size: .75rem; } }
 .reclista { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .reclista .vprod { min-height: 0; padding: 10px; }
 .pedidos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); align-items: start; }
@@ -386,7 +401,7 @@ let tab = LS.get("pa.tab", "nuevo");
 { const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
-  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["inventario", "Inventario", "📦", "Caja"],
+  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["reportes", "Reportes", "📈", "Caja"], ["inventario", "Inventario", "📦", "Caja"],
   ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
@@ -418,7 +433,7 @@ function pintar() {
     return;
   }
   $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina");
-  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, inventario: pInventario, ajustes: pAjustes }[tab];
+  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
@@ -1004,6 +1019,66 @@ function pCocina() {
   return html;
 }
 
+// ---------- Reportes: semana, mes o 30 días, con lo que ya guarda la caja ----------
+const META_DIA = 66;
+let repRango = LS.get("pa.repRango", "semana");
+const RANGOS = [["semana", "Esta semana"], ["pasada", "Semana pasada"], ["mes", "Este mes"], ["mesp", "Mes pasado"], ["30", "Últimos 30 días"]];
+function fechasRango(k) {
+  const hoy = ahoraCaracas().fecha, d0 = new Date(hoy + "T12:00:00Z");
+  const mas = (d, n) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; };
+  let ini, fin;
+  if (k === "semana" || k === "pasada") { ini = mas(d0, -((d0.getUTCDay() + 6) % 7) - (k === "pasada" ? 7 : 0)); fin = mas(ini, 6); }
+  else if (k === "mes" || k === "mesp") { ini = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - (k === "mesp" ? 1 : 0), 1, 12)); fin = new Date(Date.UTC(ini.getUTCFullYear(), ini.getUTCMonth() + 1, 0, 12)); }
+  else { ini = mas(d0, -29); fin = d0; }
+  const out = [];
+  for (let d = ini; d <= fin; d = mas(d, 1)) { const f = d.toISOString().slice(0, 10); if (f <= hoy) out.push(f); }
+  return out;
+}
+const diaCorto = f => new Date(f + "T12:00:00Z").toLocaleDateString("es-VE", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+function pReportes() {
+  const fechas = fechasRango(repRango), t = tasaHoy();
+  const filas = fechas.map(f => {
+    const c = cuentasDia(f), g = ((dias[f] || {}).gastos || []).reduce((a, x) => a + (x.mon === "$" ? num(x.m) : (t ? num(x.m) / t : 0)), 0);
+    return { f, c, g, n: pedidosDe(f).filter(p => !p.devuelto).length };
+  });
+  const S = k => filas.reduce((a, r) => a + r.c[k], 0);
+  const venta = S("venta"), gastos = filas.reduce((a, r) => a + r.g, 0), nPed = filas.reduce((a, r) => a + r.n, 0);
+  const conVenta = filas.filter(r => r.c.venta > 0.009), prom = conVenta.length ? venta / conVenta.length : 0;
+  const llegaron = conVenta.filter(r => r.c.venta >= META_DIA).length;
+  const prods = {};
+  fechas.forEach(f => pedidosDe(f).filter(p => !p.devuelto).forEach(p => p.items.forEach(i => { const x = prods[i.n] || (prods[i.n] = { n: i.n, q: 0, usd: 0 }); x.q += i.q; x.usd += i.q * i.p; })));
+  const top = Object.values(prods).sort((a, b) => b.usd - a.usd).slice(0, 12);
+  const tope = Math.max(META_DIA, ...filas.map(r => r.c.venta));
+  const pct = v => (v / tope * 100).toFixed(1) + "%";
+  const cab = `<h2>Reportes</h2><div class="chips seg">${RANGOS.map(([k, n]) => `<button data-rep="${k}"${k === repRango ? ` aria-pressed="true"` : ""}>${n}</button>`).join("")}</div>`;
+  if (!nPed) return cab + `<p class="empty">No hay ventas en ${esc(RANGOS.find(r => r[0] === repRango)[1].toLowerCase())}. Las ventas de Vender y los pedidos que llegan por WhatsApp aparecen aquí.</p>`;
+  return cab + `<div class="kpis">
+      <div class="kpi main"><small>Vendido (cobrado)</small><b>${fmt(venta)}</b></div>
+      <div class="kpi"><small>Promedio por día</small><b${prom < META_DIA ? ` class="low"` : ""}>${fmt(prom)}</b><span class="meta">Meta ${META_DIA} $</span></div>
+      <div class="kpi"><small>Pedidos</small><b>${nPed}</b><span class="meta">${S("enlace")} WhatsApp · ${S("mostrador")} mostrador</span></div>
+      <div class="kpi"><small>Ticket promedio</small><b>${fmt(nPed ? venta / nPed : 0)}</b></div>
+      <div class="kpi"><small>Gastos anotados</small><b>${fmt(gastos)}</b></div>
+      <div class="kpi"><small>Queda (venta − gastos)</small><b>${fmt(venta - gastos)}</b></div>
+    </div>
+    <p class="hint">Día ${fmt(S("dia"))} · Noche ${fmt(S("noche"))}. ${llegaron} de ${conVenta.length} día(s) con ventas llegaron a la meta de ${META_DIA} $. Sin sueldos ni gastos fijos; solo los gastos anotados en Cierre.</p>
+    <section class="card"><div class="oh"><h3>Venta por día</h3><span class="rleyenda"><i class="rd"></i>Día <i class="rn"></i>Noche <i class="rm"></i>Meta</span></div>
+      <div class="rbarras" style="--meta:${pct(META_DIA)}">${filas.slice().reverse().map(r => `<div class="rfila"><span class="rf">${esc(diaCorto(r.f))}</span>
+        <span class="rbar"><i class="rd" style="width:${pct(r.c.dia)}"></i><i class="rn" style="width:${pct(r.c.noche)}"></i></span>
+        <b class="rv${r.c.venta > 0.009 && r.c.venta < META_DIA ? " low" : ""}">${r.c.venta > 0.009 ? fmt(r.c.venta) : "—"}</b></div>`).join("")}</div>
+    </section>
+    <section class="card"><h3>Lo más vendido</h3><div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Cant.</th><th class="n">$</th></tr></thead><tbody>
+      ${top.map(x => `<tr><td>${esc(x.n)}</td><td class="n">${x.q}</td><td class="n">${fmt(x.usd)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hint">Sin el delivery. Ordenado por lo que deja en dólares.</p></section>
+    <section class="card"><h3>Cómo pagaron</h3><div class="kpis k3">
+      <div class="kpi"><small>Pago móvil</small><b>${fmt(S("pm"))}</b></div>
+      <div class="kpi"><small>Efectivo $</small><b>${fmt(S("ef"))}</b></div>
+      <div class="kpi"><small>Efectivo Bs (en $)</small><b>${fmt(S("efBs"))}</b></div></div></section>`;
+}
+$("#main").addEventListener("click", e => {
+  const b = e.target.closest("[data-rep]"); if (!b) return;
+  repRango = b.dataset.rep; LS.set("pa.repRango", repRango); pintar();
+});
+
 // ---------- Banco ----------
 function pBanco() {
   const filas = [];
@@ -1075,7 +1150,7 @@ function cierreNumeros(f) {
       <div class="kpi"><small>Gastos</small><b>${fmt(gTot)}</b></div>
       <div class="kpi"><small>Queda (venta − gastos)</small><b>${fmt(c.venta - gTot)}</b></div>
     </div>
-    <p class="hint">Día ${fmt(c.dia)} · Noche ${fmt(c.noche)} · ${c.enlace} pedidos por WhatsApp · ${c.mostrador} de mostrador · ${c.devueltos} devueltos${c.devol ? ` (${fmt(c.devol)} devueltos)` : ""}. Meta diaria: 66 $.</p>
+    <p class="hint">Día ${fmt(c.dia)} · Noche ${fmt(c.noche)} · ${c.enlace} pedidos por WhatsApp · ${c.mostrador} de mostrador · ${c.devueltos} devueltos${c.devol ? ` (${fmt(c.devol)} devueltos)` : ""}. Meta diaria: ${META_DIA} $.</p>
     ${pend.length ? `<p class="msg w">Efectivo por entregar: ${pend.map(([k, v]) => `${esc(k)} debe ${fmt(v.reduce((a, x) => a + x.usd, 0))} (${v.map(x => esc(x.id)).join(", ")})`).join(" · ")}</p>` : ""}
     ${c.sinRevisar ? `<p class="msg w">Hay ${c.sinRevisar} pagos móviles sin la segunda revisión en Banco.</p>` : ""}
     <section class="card"><h3>Cuadre del efectivo en dólares</h3>
