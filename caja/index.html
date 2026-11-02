@@ -1127,7 +1127,7 @@ function confirmarFactura() {
   LS.set("pa.movs", movs); LS.set("pa.cola", cola); sincronizar();
   fac = { prov: "", lineas: [lineaVacia()], hecho: { nuevos, sumados } }; guardarFac();
 }
-function facturaHTML() {
+function compraHTML() {
   if (fac.hecho) {
     const { nuevos, sumados } = fac.hecho;
     return `<section class="card"><h3>Listo, se sumó la factura</h3>
@@ -1174,7 +1174,7 @@ function invHay() {
   pedidosDe(ahoraCaracas().fecha).forEach(p => p.items.forEach(i => { if (!Object.keys(consumoDe(i.n, i.d)).length) sinReceta.add(i.n); }));
   const ult = Object.values(movs).sort((a, b) => b.t - a.t).slice(0, 15);
   const tipos = { entrada: "Llegó compra", conteo: "Conteo real", merma: "Se dañó o se botó" };
-  return facturaHTML() + `
+  return compraHTML() + `
   <section class="card"><h3>Anotar a mano</h3>
     <div class="fields">
       <label class="ancho">Ingrediente<select id="mv-ins">${inv.insumos.map(x => `<option value="${x.id}">${esc(x.n)} (${esc(x.u)})</option>`).join("")}</select></label>
