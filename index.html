@@ -311,7 +311,11 @@ let MENU = { dia: [], noche: [] };
 // Lo que se vende de día y de noche (bebidas, café, postres) se puede pedir a cualquier hora
 const siempre = g => g.turnos.includes("dia") && g.turnos.includes("noche");
 const menuValido = m => Array.isArray(m) && m.length > 0 && m.every(c => c && c.cat && Array.isArray(c.turnos) && Array.isArray(c.items));
+// El menú se limpia antes de mostrarlo: sin < > " en los textos (por si alguien llegara a meter código en el panel)
+const limpiarMenu = v => typeof v === "string" ? v.replace(/[<>"`]/g, "") : Array.isArray(v) ? v.map(limpiarMenu)
+  : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== "__proto__").map(([k, x]) => [k, limpiarMenu(x)])) : v;
 function usarMenu(cats) {
+  cats = limpiarMenu(cats);
   const visibles = cats.filter(c => !c.oculta && c.items.length);
   MENU = { dia: visibles.filter(c => c.turnos.includes("dia")), noche: visibles.filter(c => c.turnos.includes("noche")) };
 }

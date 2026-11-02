@@ -8,7 +8,14 @@ Para cambiar precios, productos, sabores o fotos usa el panel `/admin/` (ver aba
 
 ## Caja de la tienda
 
-La carpeta `caja/` es la app de la tienda (instalable en Android y PC), también en `/app/`. Tiene un menú lateral con los módulos: Caja (Vender, Recibir, Pedidos, Banco, Cierre) y Administración (Menú del enlace, que abre `/admin/` adentro, y Ajustes). Para sumar un módulo se agrega a `TABS` en `caja/index.html`. **Vender** es la venta de mostrador: tocar productos (del mismo menú del panel), Cobrar (efectivo con vuelto, Bs, pago móvil o mixto) y listo. Recibe los pedidos ya pagados que se comparten desde WhatsApp o se pegan desde WhatsApp Web, imprime el ticket y lleva el cierre e inventario del día. Queda en `/caja/`. Para que los equipos se vean entre ellos usa Supabase: corre `caja/supabase.sql` y pon los datos en Ajustes.
+La carpeta `caja/` es la app de la tienda (instalable en Android y PC), también en `/app/`. Tiene un menú lateral con los módulos: Caja (Vender, Recibir, Pedidos, Banco, Cierre) y Administración (Menú del enlace, que abre `/admin/` adentro, y Ajustes). Para sumar un módulo se agrega a `TABS` en `caja/index.html`. **Vender** es la venta de mostrador: tocar productos (del mismo menú del panel), Cobrar (efectivo con vuelto, Bs, pago móvil o mixto) y listo. Recibe los pedidos ya pagados que se comparten desde WhatsApp o se pegan desde WhatsApp Web, imprime el ticket y lleva el cierre e inventario del día. Queda en `/caja/`. Para que los equipos se vean entre ellos usa Supabase: corre `caja/supabase.sql` y después `caja/supabase-seguridad.sql`. Cada equipo se conecta solo al entrar con un usuario de la tienda.
+
+## Seguridad
+
+- Solo los usuarios de `public.administradores` o `public.personal` (correo confirmado) leen o guardan datos de la caja. Nadie puede borrar desde afuera.
+- Guardar compara la versión (`rev`): si dos equipos cambian lo mismo, la app une los dos cambios campo por campo (pagos y gastos no se pierden).
+- `vercel.json` pone las cabeceras de seguridad (CSP, sin iframes de otros sitios). Si se agrega un servicio externo nuevo (otra API, otra fuente), hay que sumarlo ahí.
+- Lo que llega de afuera (mensaje del pedido, menú, datos de otros equipos) se limpia antes de mostrarlo.
 
 ## Fotos del menú
 
