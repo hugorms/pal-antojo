@@ -201,6 +201,68 @@ td input { width: 80px; padding: 4px 6px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--surface); padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: .9rem; max-width: calc(100% - 32px); z-index: 9; }
 details summary { cursor: pointer; font-weight: 800; }
 #ticket { display: none; }
+/* ---------- Ajustes para cualquier pantalla (teléfono, tablet, PC) ---------- */
+/* Reportes */
+.rleyenda { font-size: .8rem; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rleyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 4px; }
+.rd { background: var(--brand); } .rn { background: var(--fg); } .rleyenda .rm { width: 3px; background: var(--bad); }
+.rbarras { display: grid; gap: 6px; }
+.rfila { display: grid; grid-template-columns: 92px minmax(0, 1fr) 74px; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+.rf { font-size: .82rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.rbar { position: relative; display: flex; height: 18px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+.rbar::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--meta); width: 2px; background: var(--bad); }
+.rbar i { display: block; height: 100%; }
+.rv { text-align: right; font-size: .9rem; }
+td.n { white-space: nowrap; }
+.kpis.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 400px) { .kpis.k3 .kpi { padding: 8px; } .kpis.k3 .kpi b { font-size: 1.05rem; } }
+@media (max-width: 400px) { .rfila { grid-template-columns: 70px minmax(0, 1fr) 64px; } .rf { font-size: .75rem; } }
+.reclista { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.reclista .vprod { min-height: 0; padding: 10px; }
+.pedidos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); align-items: start; }
+.kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.vcard { grid-template-rows: auto 1fr; }
+.vcard b { align-self: center; }
+.vph { aspect-ratio: 16 / 10; }
+.vprods:has(.vph.mini) { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.vpie > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 759px) { body:has(.vpie) .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
+@media (min-width: 760px) and (max-width: 1099px) { .vgrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } .vgrid .vph { font-size: 2.1rem; } .vcard b { font-size: .95rem; padding: 7px 9px 9px; } }
+.vcard b { overflow-wrap: anywhere; hyphens: auto; }
+@media (max-width: 599px) {
+  .top { gap: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+  .top h1 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .top .izq { min-width: 0; flex: 1 1 auto; }
+  .top .r { gap: 6px 8px; flex-wrap: nowrap; }
+  .top .lt { display: none; }
+  .top input { width: 74px; }
+  #syncTxt.calma .stx { display: none; }
+  #syncTxt.calma .dot { margin-right: 0; }
+  .vph { aspect-ratio: 2 / 1; font-size: 2.1rem; }
+  .vcard b { font-size: .98rem; padding: 7px 10px 9px; }
+  main { gap: 12px; padding-top: 12px; }
+  .card { padding: 12px 11px; }
+}
+/* Dedos: botones pequeños más grandes en pantallas táctiles */
+@media (pointer: coarse) {
+  .q button { width: 34px; height: 34px; }
+  .x { padding: 8px 10px; }
+  .chips button { padding: 7px 12px; }
+}
+/* Tablas que en el teléfono se vuelven tarjetas (para que el botón de la fila no quede escondido a la derecha) */
+@media (max-width: 639px) {
+  .tbl.apilar thead { display: none; }
+  .tbl.apilar table, .tbl.apilar tbody { display: block; }
+  .tbl.apilar tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; padding: 12px; margin-bottom: 10px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); }
+  .tbl.apilar td { border: 0; padding: 0; text-align: left; }
+  .tbl.apilar td[data-l]::before { content: attr(data-l); display: block; font: 800 .7rem var(--body); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .tbl.apilar td.tpri { grid-column: 1 / -1; order: -1; font: 700 1rem var(--display); }
+  .tbl.apilar td.tpri br { display: none; }
+  .tbl.apilar td.tpri .meta { margin-left: 8px; font: 600 .9rem var(--body); }
+  .tbl.apilar td.tact { grid-column: 1 / -1; margin-top: 6px; }
+  .tbl.apilar td.tact .btn { width: 100%; padding: 10px; }
+}
 @media print {
   @page { size: 58mm auto; margin: 2mm; }
   body { background: #fff; color: #000; }
@@ -220,7 +282,7 @@ details summary { cursor: pointer; font-weight: 800; }
 <header class="top" id="top">
   <div class="izq"><button class="menuBtn" id="menuBtn" aria-label="Abrir el menú" aria-controls="lado" aria-expanded="false">☰</button><h1 id="titulo">Caja Pa'l Antojo</h1></div>
   <div class="r">
-    <label for="tasaTop">Tasa Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
+    <label for="tasaTop"><span class="lt">Tasa </span>Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
     <span id="tasaInfo" class="tinfo"></span>
     <span id="syncTxt"><span class="dot"></span>…</span>
   </div>
@@ -339,7 +401,7 @@ let tab = LS.get("pa.tab", "nuevo");
 { const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
-  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["inventario", "Inventario", "📦", "Caja"],
+  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["reportes", "Reportes", "📈", "Caja"], ["inventario", "Inventario", "📦", "Caja"],
   ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
@@ -357,7 +419,8 @@ function pintarTabs() {
     return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
   }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a><button onclick="salirApp()"><span class="ico" aria-hidden="true">🚪</span>Cerrar sesión</button></div>`;
   const actual = TABS.find(t => t[0] === tab);
-  $("#titulo").textContent = actual[3] === "Caja" ? "Caja Pa'l Antojo" : actual[1];
+  $("#titulo").textContent = actual[1];
+  document.title = `${actual[1]} · Pa'l Antojo`;
 }
 function pintar() {
   pintarTabs();
@@ -369,8 +432,8 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  $("#main").classList.toggle("ancho", tab === "vender");
-  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, inventario: pInventario, ajustes: pAjustes }[tab];
+  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina");
+  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
@@ -391,7 +454,7 @@ function pintarTasa() {
   const fecha = d && !isNaN(d) ? d.toLocaleDateString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short" }) : "";
   $("#tasaInfo").innerHTML = cfg.tasaAuto
     ? (fecha ? `BCV · ${esc(fecha)}` : "Buscando BCV…")
-    : `A mano <button type="button" id="tasaBcv">Usar BCV</button>`;
+    : `<span class="lt">A mano</span> <button type="button" id="tasaBcv" title="La tasa está escrita a mano. Toca para volver a la del BCV.">Usar BCV</button>`;
 }
 async function buscarTasa() {
   if (!cfg.tasaAuto) return;
@@ -883,6 +946,13 @@ $("#main").addEventListener("input", e => {
     LS.set("pa.cfg", cfg); if (k === "url" || k === "key" || k === "clave") pintarSync(); return;
   }
 });
+// Recetas: buscar dentro de la lista larga de productos (sin volver a pintar)
+$("#main").addEventListener("input", e => {
+  if (e.target.id !== "recBuscar") return;
+  const q = norm(e.target.value), l = $(".reclista"); if (!l) return;
+  l.querySelectorAll("button[data-nm]").forEach(b => b.hidden = !!q && !b.dataset.nm.includes(q));
+  l.querySelectorAll("h3").forEach(h => { let n = h.nextElementSibling, ver = false; while (n && n.tagName !== "H3") { if (!n.hidden) ver = true; n = n.nextElementSibling; } h.hidden = !ver; });
+});
 $("#main").addEventListener("toggle", e => { if (e.target.id === "agregar") verAgregar = e.target.open; }, true);
 $("#main").addEventListener("change", e => { if (e.target.id === "e-entrega" || e.target.dataset.f === "cobrado") e.target.dispatchEvent(new Event("input", { bubbles: true })); });
 
@@ -943,11 +1013,71 @@ function pCocina() {
   const lista = pedidosDe(ahoraCaracas().fecha);
   const activos = lista.filter(p => p.estado === "cocina" || p.estado === "listo"), resto = lista.filter(p => !activos.includes(p)).reverse();
   const html = `<h2>Pedidos de hoy</h2>
-    ${activos.length ? activos.map(pedidoCard).join("") : `<p class="empty">No hay pedidos por preparar. Los pedidos pagados que se compartan desde WhatsApp aparecen aquí.</p>`}
-    ${resto.length ? `<details><summary>Entregados y devueltos (${resto.length})</summary><div style="display:grid;gap:10px;margin-top:10px">${resto.map(pedidoCard).join("")}</div></details>` : ""}`;
+    ${activos.length ? `<div class="pedidos">${activos.map(pedidoCard).join("")}</div>` : `<p class="empty">No hay pedidos por preparar. Los pedidos pagados que se compartan desde WhatsApp aparecen aquí.</p>`}
+    ${resto.length ? `<details><summary>Entregados y devueltos (${resto.length})</summary><div class="pedidos" style="margin-top:10px">${resto.map(pedidoCard).join("")}</div></details>` : ""}`;
   recienLlego = "";
   return html;
 }
+
+// ---------- Reportes: semana, mes o 30 días, con lo que ya guarda la caja ----------
+const META_DIA = 66;
+let repRango = LS.get("pa.repRango", "semana");
+const RANGOS = [["semana", "Esta semana"], ["pasada", "Semana pasada"], ["mes", "Este mes"], ["mesp", "Mes pasado"], ["30", "Últimos 30 días"]];
+function fechasRango(k) {
+  const hoy = ahoraCaracas().fecha, d0 = new Date(hoy + "T12:00:00Z");
+  const mas = (d, n) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; };
+  let ini, fin;
+  if (k === "semana" || k === "pasada") { ini = mas(d0, -((d0.getUTCDay() + 6) % 7) - (k === "pasada" ? 7 : 0)); fin = mas(ini, 6); }
+  else if (k === "mes" || k === "mesp") { ini = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - (k === "mesp" ? 1 : 0), 1, 12)); fin = new Date(Date.UTC(ini.getUTCFullYear(), ini.getUTCMonth() + 1, 0, 12)); }
+  else { ini = mas(d0, -29); fin = d0; }
+  const out = [];
+  for (let d = ini; d <= fin; d = mas(d, 1)) { const f = d.toISOString().slice(0, 10); if (f <= hoy) out.push(f); }
+  return out;
+}
+const diaCorto = f => new Date(f + "T12:00:00Z").toLocaleDateString("es-VE", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+function pReportes() {
+  const fechas = fechasRango(repRango), t = tasaHoy();
+  const filas = fechas.map(f => {
+    const c = cuentasDia(f), g = ((dias[f] || {}).gastos || []).reduce((a, x) => a + (x.mon === "$" ? num(x.m) : (t ? num(x.m) / t : 0)), 0);
+    return { f, c, g, n: pedidosDe(f).filter(p => !p.devuelto).length };
+  });
+  const S = k => filas.reduce((a, r) => a + r.c[k], 0);
+  const venta = S("venta"), gastos = filas.reduce((a, r) => a + r.g, 0), nPed = filas.reduce((a, r) => a + r.n, 0);
+  const conVenta = filas.filter(r => r.c.venta > 0.009), prom = conVenta.length ? venta / conVenta.length : 0;
+  const llegaron = conVenta.filter(r => r.c.venta >= META_DIA).length;
+  const prods = {};
+  fechas.forEach(f => pedidosDe(f).filter(p => !p.devuelto).forEach(p => p.items.forEach(i => { const x = prods[i.n] || (prods[i.n] = { n: i.n, q: 0, usd: 0 }); x.q += i.q; x.usd += i.q * i.p; })));
+  const top = Object.values(prods).sort((a, b) => b.usd - a.usd).slice(0, 12);
+  const tope = Math.max(META_DIA, ...filas.map(r => r.c.venta));
+  const pct = v => (v / tope * 100).toFixed(1) + "%";
+  const cab = `<h2>Reportes</h2><div class="chips seg">${RANGOS.map(([k, n]) => `<button data-rep="${k}"${k === repRango ? ` aria-pressed="true"` : ""}>${n}</button>`).join("")}</div>`;
+  if (!nPed) return cab + `<p class="empty">No hay ventas en ${esc(RANGOS.find(r => r[0] === repRango)[1].toLowerCase())}. Las ventas de Vender y los pedidos que llegan por WhatsApp aparecen aquí.</p>`;
+  return cab + `<div class="kpis">
+      <div class="kpi main"><small>Vendido (cobrado)</small><b>${fmt(venta)}</b></div>
+      <div class="kpi"><small>Promedio por día</small><b${prom < META_DIA ? ` class="low"` : ""}>${fmt(prom)}</b><span class="meta">Meta ${META_DIA} $</span></div>
+      <div class="kpi"><small>Pedidos</small><b>${nPed}</b><span class="meta">${S("enlace")} WhatsApp · ${S("mostrador")} mostrador</span></div>
+      <div class="kpi"><small>Ticket promedio</small><b>${fmt(nPed ? venta / nPed : 0)}</b></div>
+      <div class="kpi"><small>Gastos anotados</small><b>${fmt(gastos)}</b></div>
+      <div class="kpi"><small>Queda (venta − gastos)</small><b>${fmt(venta - gastos)}</b></div>
+    </div>
+    <p class="hint">Día ${fmt(S("dia"))} · Noche ${fmt(S("noche"))}. ${llegaron} de ${conVenta.length} día(s) con ventas llegaron a la meta de ${META_DIA} $. Sin sueldos ni gastos fijos; solo los gastos anotados en Cierre.</p>
+    <section class="card"><div class="oh"><h3>Venta por día</h3><span class="rleyenda"><i class="rd"></i>Día <i class="rn"></i>Noche <i class="rm"></i>Meta</span></div>
+      <div class="rbarras" style="--meta:${pct(META_DIA)}">${filas.slice().reverse().map(r => `<div class="rfila"><span class="rf">${esc(diaCorto(r.f))}</span>
+        <span class="rbar"><i class="rd" style="width:${pct(r.c.dia)}"></i><i class="rn" style="width:${pct(r.c.noche)}"></i></span>
+        <b class="rv${r.c.venta > 0.009 && r.c.venta < META_DIA ? " low" : ""}">${r.c.venta > 0.009 ? fmt(r.c.venta) : "—"}</b></div>`).join("")}</div>
+    </section>
+    <section class="card"><h3>Lo más vendido</h3><div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Cant.</th><th class="n">$</th></tr></thead><tbody>
+      ${top.map(x => `<tr><td>${esc(x.n)}</td><td class="n">${x.q}</td><td class="n">${fmt(x.usd)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hint">Sin el delivery. Ordenado por lo que deja en dólares.</p></section>
+    <section class="card"><h3>Cómo pagaron</h3><div class="kpis k3">
+      <div class="kpi"><small>Pago móvil</small><b>${fmt(S("pm"))}</b></div>
+      <div class="kpi"><small>Efectivo $</small><b>${fmt(S("ef"))}</b></div>
+      <div class="kpi"><small>Efectivo Bs (en $)</small><b>${fmt(S("efBs"))}</b></div></div></section>`;
+}
+$("#main").addEventListener("click", e => {
+  const b = e.target.closest("[data-rep]"); if (!b) return;
+  repRango = b.dataset.rep; LS.set("pa.repRango", repRango); pintar();
+});
 
 // ---------- Banco ----------
 function pBanco() {
@@ -955,10 +1085,10 @@ function pBanco() {
   pedidosDe(ahoraCaracas().fecha).forEach(p => vivos(p).forEach(x => { if (x.forma === "Pago móvil" || (x.forma === "Devolución" && x.medio === "Pago móvil")) filas.push({ p, x }); }));
   return `<h2>Pagos móviles de hoy</h2>
   <p class="hint">Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
-  ${filas.length ? `<div class="tbl"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
-  ${filas.map(({ p, x }) => `<tr><td>${x.hora || ""}</td><td>${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td>${esc(x.ref)}</td><td>${esc(x.banco || "")}</td>
-    <td class="n">${x.bs ? fbs(x.bs) : ""}</td><td class="n">${fmt(x.usd)}</td><td>${esc(x.quien || "")}</td>
-    <td><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${x.id}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
+  ${filas.length ? `<div class="tbl apilar"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
+  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${x.hora || ""}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
+    <td class="n" data-l="Bs">${x.bs ? fbs(x.bs) : ""}</td><td class="n" data-l="$">${fmt(x.usd)}</td><td data-l="Lo vio">${esc(x.quien || "")}</td>
+    <td class="tact"><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${x.id}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
   </tbody></table></div>` : `<p class="empty">Todavía no hay pagos móviles hoy.</p>`}`;
 }
 
@@ -1020,7 +1150,7 @@ function cierreNumeros(f) {
       <div class="kpi"><small>Gastos</small><b>${fmt(gTot)}</b></div>
       <div class="kpi"><small>Queda (venta − gastos)</small><b>${fmt(c.venta - gTot)}</b></div>
     </div>
-    <p class="hint">Día ${fmt(c.dia)} · Noche ${fmt(c.noche)} · ${c.enlace} pedidos por WhatsApp · ${c.mostrador} de mostrador · ${c.devueltos} devueltos${c.devol ? ` (${fmt(c.devol)} devueltos)` : ""}. Meta diaria: 66 $.</p>
+    <p class="hint">Día ${fmt(c.dia)} · Noche ${fmt(c.noche)} · ${c.enlace} pedidos por WhatsApp · ${c.mostrador} de mostrador · ${c.devueltos} devueltos${c.devol ? ` (${fmt(c.devol)} devueltos)` : ""}. Meta diaria: ${META_DIA} $.</p>
     ${pend.length ? `<p class="msg w">Efectivo por entregar: ${pend.map(([k, v]) => `${esc(k)} debe ${fmt(v.reduce((a, x) => a + x.usd, 0))} (${v.map(x => esc(x.id)).join(", ")})`).join(" · ")}</p>` : ""}
     ${c.sinRevisar ? `<p class="msg w">Hay ${c.sinRevisar} pagos móviles sin la segunda revisión en Banco.</p>` : ""}
     <section class="card"><h3>Cuadre del efectivo en dólares</h3>
@@ -1277,11 +1407,11 @@ function invRecetas() {
     const cab = f.g !== g ? `<h3 style="margin-top:6px;grid-column:1/-1">${esc(f.g)}</h3>` : ""; g = f.g;
     const partes = f.k.startsWith("prep:") ? (prepDe(f.k.slice(5)) || {}).partes : (inv.recetas[f.k] || {}).partes;
     const n = (partes || []).filter(x => num(x.c)).length;
-    return cab + `<button class="vprod" data-iv="sel" data-k="${esc(f.k)}" style="text-align:left"${f.k === invSel ? ` aria-pressed="true"` : ""}><b>${esc(f.n)}</b><small>${n ? `${n} ingrediente(s)` : "Sin receta"}</small></button>`;
+    return cab + `<button class="vprod" data-nm="${esc(norm(f.n))}" data-iv="sel" data-k="${esc(f.k)}" style="text-align:left"${f.k === invSel ? ` aria-pressed="true"` : ""}><b>${esc(f.n)}</b><small>${n ? `${n} ingrediente(s)` : "Sin receta"}</small></button>`;
   }).join("");
   return `<p class="hint">Toca un producto y anota cuánto lleva de cada ingrediente para una unidad. Las preparaciones (ej. carne mechada) se arman en Ingredientes y se usan aquí como un ingrediente más.</p>
   ${invSel ? invEditorReceta() : ""}
-  <section class="card"><div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">${lista}</div></section>`;
+  <section class="card"><input type="search" id="recBuscar" placeholder="Buscar producto o sabor…" aria-label="Buscar en recetas"><div class="reclista">${lista}</div></section>`;
 }
 function partesHTML(partes, conPreps) {
   const ops = [...inv.insumos.map(x => [x.id, x.n]), ...(conPreps ? inv.preps.map(p => [p.id, p.n]) : [])];
@@ -1468,7 +1598,8 @@ function pintarSync(txt, tipo) {
     else if (!navigator.onLine) { txt = `Sin internet${pend ? ` · ${pend} por enviar` : ""}`; tipo = "w"; }
     else { txt = pend ? `${pend} por enviar` : "Al día"; tipo = pend ? "w" : "ok"; }
   }
-  $("#syncTxt").innerHTML = `<span class="dot ${tipo || ""}"></span>${esc(txt)}`;
+  $("#syncTxt").innerHTML = `<span class="dot ${tipo || ""}"></span><span class="stx">${esc(txt)}</span>`;
+  $("#syncTxt").title = txt; $("#syncTxt").classList.toggle("calma", !tipo || tipo === "ok");
 }
 // Al entrar con el usuario de la tienda, el equipo se conecta solo: la clave la da Supabase (función clave_tienda) a quien puede entrar
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";

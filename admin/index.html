@@ -106,6 +106,13 @@ input[type="file"] { display: none; }
   background: var(--ink); color: var(--brand); padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: .9rem;
 }
 @media (max-width: 420px) { .dos { grid-template-columns: 1fr; } }
+/* Teléfono: el aviso de la barra va arriba y los botones abajo, a lo ancho */
+@media (max-width: 480px) {
+  .barra .wrap { flex-wrap: wrap; gap: 6px 10px; }
+  .barra .msg { flex: 1 1 100%; font-size: .85rem; }
+  .barra .wrap > button, .barra .wrap > a { flex: 1 1 0; }
+  .toast { bottom: 120px; }
+}
 /* Dentro de la app (menú lateral) no se repite el encabezado */
 .embebido header { background: none; padding: 10px 16px 0; }
 .embebido header img, .embebido header h1 small { display: none; }
