@@ -201,6 +201,53 @@ td input { width: 80px; padding: 4px 6px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--surface); padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: .9rem; max-width: calc(100% - 32px); z-index: 9; }
 details summary { cursor: pointer; font-weight: 800; }
 #ticket { display: none; }
+/* ---------- Ajustes para cualquier pantalla (teléfono, tablet, PC) ---------- */
+.reclista { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.reclista .vprod { min-height: 0; padding: 10px; }
+.pedidos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); align-items: start; }
+.kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.vcard { grid-template-rows: auto 1fr; }
+.vcard b { align-self: center; }
+.vph { aspect-ratio: 16 / 10; }
+.vprods:has(.vph.mini) { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.vpie > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 759px) { body:has(.vpie) .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
+@media (min-width: 760px) and (max-width: 1099px) { .vgrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } .vgrid .vph { font-size: 2.1rem; } .vcard b { font-size: .95rem; padding: 7px 9px 9px; } }
+.vcard b { overflow-wrap: anywhere; hyphens: auto; }
+@media (max-width: 599px) {
+  .top { gap: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+  .top h1 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .top .izq { min-width: 0; flex: 1 1 auto; }
+  .top .r { gap: 6px 8px; flex-wrap: nowrap; }
+  .top .lt { display: none; }
+  .top input { width: 74px; }
+  #syncTxt.calma .stx { display: none; }
+  #syncTxt.calma .dot { margin-right: 0; }
+  .vph { aspect-ratio: 2 / 1; font-size: 2.1rem; }
+  .vcard b { font-size: .98rem; padding: 7px 10px 9px; }
+  main { gap: 12px; padding-top: 12px; }
+  .card { padding: 12px 11px; }
+}
+/* Dedos: botones pequeños más grandes en pantallas táctiles */
+@media (pointer: coarse) {
+  .q button { width: 34px; height: 34px; }
+  .x { padding: 8px 10px; }
+  .chips button { padding: 7px 12px; }
+}
+/* Tablas que en el teléfono se vuelven tarjetas (para que el botón de la fila no quede escondido a la derecha) */
+@media (max-width: 639px) {
+  .tbl.apilar thead { display: none; }
+  .tbl.apilar table, .tbl.apilar tbody { display: block; }
+  .tbl.apilar tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; padding: 12px; margin-bottom: 10px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); }
+  .tbl.apilar td { border: 0; padding: 0; text-align: left; }
+  .tbl.apilar td[data-l]::before { content: attr(data-l); display: block; font: 800 .7rem var(--body); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .tbl.apilar td.tpri { grid-column: 1 / -1; order: -1; font: 700 1rem var(--display); }
+  .tbl.apilar td.tpri br { display: none; }
+  .tbl.apilar td.tpri .meta { margin-left: 8px; font: 600 .9rem var(--body); }
+  .tbl.apilar td.tact { grid-column: 1 / -1; margin-top: 6px; }
+  .tbl.apilar td.tact .btn { width: 100%; padding: 10px; }
+}
 @media print {
   @page { size: 58mm auto; margin: 2mm; }
   body { background: #fff; color: #000; }
@@ -220,7 +267,7 @@ details summary { cursor: pointer; font-weight: 800; }
 <header class="top" id="top">
   <div class="izq"><button class="menuBtn" id="menuBtn" aria-label="Abrir el menú" aria-controls="lado" aria-expanded="false">☰</button><h1 id="titulo">Caja Pa'l Antojo</h1></div>
   <div class="r">
-    <label for="tasaTop">Tasa Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
+    <label for="tasaTop"><span class="lt">Tasa </span>Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
     <span id="tasaInfo" class="tinfo"></span>
     <span id="syncTxt"><span class="dot"></span>…</span>
   </div>
@@ -357,7 +404,8 @@ function pintarTabs() {
     return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
   }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a><button onclick="salirApp()"><span class="ico" aria-hidden="true">🚪</span>Cerrar sesión</button></div>`;
   const actual = TABS.find(t => t[0] === tab);
-  $("#titulo").textContent = actual[3] === "Caja" ? "Caja Pa'l Antojo" : actual[1];
+  $("#titulo").textContent = actual[1];
+  document.title = `${actual[1]} · Pa'l Antojo`;
 }
 function pintar() {
   pintarTabs();
@@ -369,7 +417,7 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  $("#main").classList.toggle("ancho", tab === "vender");
+  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina");
   const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, inventario: pInventario, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
@@ -391,7 +439,7 @@ function pintarTasa() {
   const fecha = d && !isNaN(d) ? d.toLocaleDateString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short" }) : "";
   $("#tasaInfo").innerHTML = cfg.tasaAuto
     ? (fecha ? `BCV · ${esc(fecha)}` : "Buscando BCV…")
-    : `A mano <button type="button" id="tasaBcv">Usar BCV</button>`;
+    : `<span class="lt">A mano</span> <button type="button" id="tasaBcv" title="La tasa está escrita a mano. Toca para volver a la del BCV.">Usar BCV</button>`;
 }
 async function buscarTasa() {
   if (!cfg.tasaAuto) return;
@@ -883,6 +931,13 @@ $("#main").addEventListener("input", e => {
     LS.set("pa.cfg", cfg); if (k === "url" || k === "key" || k === "clave") pintarSync(); return;
   }
 });
+// Recetas: buscar dentro de la lista larga de productos (sin volver a pintar)
+$("#main").addEventListener("input", e => {
+  if (e.target.id !== "recBuscar") return;
+  const q = norm(e.target.value), l = $(".reclista"); if (!l) return;
+  l.querySelectorAll("button[data-nm]").forEach(b => b.hidden = !!q && !b.dataset.nm.includes(q));
+  l.querySelectorAll("h3").forEach(h => { let n = h.nextElementSibling, ver = false; while (n && n.tagName !== "H3") { if (!n.hidden) ver = true; n = n.nextElementSibling; } h.hidden = !ver; });
+});
 $("#main").addEventListener("toggle", e => { if (e.target.id === "agregar") verAgregar = e.target.open; }, true);
 $("#main").addEventListener("change", e => { if (e.target.id === "e-entrega" || e.target.dataset.f === "cobrado") e.target.dispatchEvent(new Event("input", { bubbles: true })); });
 
@@ -943,8 +998,8 @@ function pCocina() {
   const lista = pedidosDe(ahoraCaracas().fecha);
   const activos = lista.filter(p => p.estado === "cocina" || p.estado === "listo"), resto = lista.filter(p => !activos.includes(p)).reverse();
   const html = `<h2>Pedidos de hoy</h2>
-    ${activos.length ? activos.map(pedidoCard).join("") : `<p class="empty">No hay pedidos por preparar. Los pedidos pagados que se compartan desde WhatsApp aparecen aquí.</p>`}
-    ${resto.length ? `<details><summary>Entregados y devueltos (${resto.length})</summary><div style="display:grid;gap:10px;margin-top:10px">${resto.map(pedidoCard).join("")}</div></details>` : ""}`;
+    ${activos.length ? `<div class="pedidos">${activos.map(pedidoCard).join("")}</div>` : `<p class="empty">No hay pedidos por preparar. Los pedidos pagados que se compartan desde WhatsApp aparecen aquí.</p>`}
+    ${resto.length ? `<details><summary>Entregados y devueltos (${resto.length})</summary><div class="pedidos" style="margin-top:10px">${resto.map(pedidoCard).join("")}</div></details>` : ""}`;
   recienLlego = "";
   return html;
 }
@@ -955,10 +1010,10 @@ function pBanco() {
   pedidosDe(ahoraCaracas().fecha).forEach(p => vivos(p).forEach(x => { if (x.forma === "Pago móvil" || (x.forma === "Devolución" && x.medio === "Pago móvil")) filas.push({ p, x }); }));
   return `<h2>Pagos móviles de hoy</h2>
   <p class="hint">Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
-  ${filas.length ? `<div class="tbl"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
-  ${filas.map(({ p, x }) => `<tr><td>${x.hora || ""}</td><td>${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td>${esc(x.ref)}</td><td>${esc(x.banco || "")}</td>
-    <td class="n">${x.bs ? fbs(x.bs) : ""}</td><td class="n">${fmt(x.usd)}</td><td>${esc(x.quien || "")}</td>
-    <td><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${x.id}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
+  ${filas.length ? `<div class="tbl apilar"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
+  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${x.hora || ""}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
+    <td class="n" data-l="Bs">${x.bs ? fbs(x.bs) : ""}</td><td class="n" data-l="$">${fmt(x.usd)}</td><td data-l="Lo vio">${esc(x.quien || "")}</td>
+    <td class="tact"><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${x.id}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
   </tbody></table></div>` : `<p class="empty">Todavía no hay pagos móviles hoy.</p>`}`;
 }
 
@@ -1277,11 +1332,11 @@ function invRecetas() {
     const cab = f.g !== g ? `<h3 style="margin-top:6px;grid-column:1/-1">${esc(f.g)}</h3>` : ""; g = f.g;
     const partes = f.k.startsWith("prep:") ? (prepDe(f.k.slice(5)) || {}).partes : (inv.recetas[f.k] || {}).partes;
     const n = (partes || []).filter(x => num(x.c)).length;
-    return cab + `<button class="vprod" data-iv="sel" data-k="${esc(f.k)}" style="text-align:left"${f.k === invSel ? ` aria-pressed="true"` : ""}><b>${esc(f.n)}</b><small>${n ? `${n} ingrediente(s)` : "Sin receta"}</small></button>`;
+    return cab + `<button class="vprod" data-nm="${esc(norm(f.n))}" data-iv="sel" data-k="${esc(f.k)}" style="text-align:left"${f.k === invSel ? ` aria-pressed="true"` : ""}><b>${esc(f.n)}</b><small>${n ? `${n} ingrediente(s)` : "Sin receta"}</small></button>`;
   }).join("");
   return `<p class="hint">Toca un producto y anota cuánto lleva de cada ingrediente para una unidad. Las preparaciones (ej. carne mechada) se arman en Ingredientes y se usan aquí como un ingrediente más.</p>
   ${invSel ? invEditorReceta() : ""}
-  <section class="card"><div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">${lista}</div></section>`;
+  <section class="card"><input type="search" id="recBuscar" placeholder="Buscar producto o sabor…" aria-label="Buscar en recetas"><div class="reclista">${lista}</div></section>`;
 }
 function partesHTML(partes, conPreps) {
   const ops = [...inv.insumos.map(x => [x.id, x.n]), ...(conPreps ? inv.preps.map(p => [p.id, p.n]) : [])];
@@ -1468,7 +1523,8 @@ function pintarSync(txt, tipo) {
     else if (!navigator.onLine) { txt = `Sin internet${pend ? ` · ${pend} por enviar` : ""}`; tipo = "w"; }
     else { txt = pend ? `${pend} por enviar` : "Al día"; tipo = pend ? "w" : "ok"; }
   }
-  $("#syncTxt").innerHTML = `<span class="dot ${tipo || ""}"></span>${esc(txt)}`;
+  $("#syncTxt").innerHTML = `<span class="dot ${tipo || ""}"></span><span class="stx">${esc(txt)}</span>`;
+  $("#syncTxt").title = txt; $("#syncTxt").classList.toggle("calma", !tipo || tipo === "ok");
 }
 // Al entrar con el usuario de la tienda, el equipo se conecta solo: la clave la da Supabase (función clave_tienda) a quien puede entrar
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
