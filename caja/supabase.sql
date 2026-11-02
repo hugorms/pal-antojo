@@ -37,3 +37,12 @@ create or replace function public.clave_tienda() returns text
 as $$ select case when public.puede_entrar() then 'CAMBIA-ESTA-CLAVE' end; $$;
 revoke all on function public.clave_tienda() from public, anon;
 grant execute on function public.clave_tienda() to authenticated;
+
+-- Fotos de facturas de compra (Inventario › Llegó una factura). Carpeta privada: solo la ven y suben los usuarios de la tienda.
+insert into storage.buckets (id, name, public) values ('facturas', 'facturas', false) on conflict (id) do nothing;
+drop policy if exists "facturas: ver la tienda" on storage.objects;
+create policy "facturas: ver la tienda" on storage.objects for select to authenticated
+  using (bucket_id = 'facturas' and public.puede_entrar());
+drop policy if exists "facturas: subir la tienda" on storage.objects;
+create policy "facturas: subir la tienda" on storage.objects for insert to authenticated
+  with check (bucket_id = 'facturas' and public.puede_entrar());
