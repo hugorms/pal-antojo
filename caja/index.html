@@ -280,6 +280,14 @@ td.n { white-space: nowrap; }
   #ticket .tk { page-break-after: always; }
 }
 @media (prefers-reduced-motion: reduce) { .card.new { animation: none; } }
+/* Barras de desplazamiento: ocultas (se sigue bajando con el dedo, la rueda o el touchpad).
+   Donde el contenido se corta de lado (tablas) o se escribe (cuadros de texto) quedan delgadas y suaves. */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.tbl, textarea { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
+.tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
+.tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
+.tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
 </style>
 <script src="acceso.js"></script>
 </head>
