@@ -396,6 +396,7 @@ const TABS = [
   ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
+let ultimoTab = tab === "menu" ? "nuevo" : tab; // a dónde vuelve el teléfono desde un módulo abierto aparte
 function abrirLado(si) {
   $("#lado").classList.toggle("abierto", si); $("#velo").hidden = !si; $("#menuBtn").setAttribute("aria-expanded", String(si));
 }
@@ -418,6 +419,13 @@ function pintar() {
   // Los módulos de administración son páginas aparte dentro de la app; no se recargan con cada sincronización
   const MODULOS = { menu: "../admin/?app=1" };
   $("#main").classList.toggle("modulo", !!MODULOS[tab]);
+  if (MODULOS[tab] && matchMedia("(max-width: 759px)").matches) {
+    // Teléfono: el módulo se abre en pantalla completa (dentro del cuadro algunos Android no lo cargan); trae "Volver a la app"
+    LS.set("pa.tab", ultimoTab);
+    location.href = MODULOS[tab];
+    return;
+  }
+  if (!MODULOS[tab]) ultimoTab = tab;
   if (MODULOS[tab]) {
     if (!$("#main iframe") && !$("#main .moduloFallo")) {
       $("#main").innerHTML = `<iframe src="${MODULOS[tab]}" title="${TABS.find(t => t[0] === tab)[1]}"></iframe>`;
