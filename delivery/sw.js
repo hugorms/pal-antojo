@@ -1,5 +1,5 @@
 // App del repartidor: abre sin internet y muestra los avisos de pedidos aunque la app esté cerrada (Web Push)
-const CACHE = "delivery-v2";
+const CACHE = "delivery-v3";
 const ARCHIVOS = ["./", "./index.html", "./manifest.webmanifest", "../caja/acceso.js", "../caja/icono-192.png", "../caja/icono-512.png"];
 
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting())); });
