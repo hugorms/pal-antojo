@@ -53,7 +53,9 @@ p { margin: 0; }
   padding: 9px 10px; font: 800 .95rem var(--body); color: var(--fg); cursor: pointer; text-decoration: none; }
 .lado button:hover, .lado a:hover { background: var(--warnbg); }
 .lado button[aria-current="page"] { background: var(--brand); color: var(--onbrand); }
-.lado .ico { width: 22px; text-align: center; }
+.lado .ico { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lado .ico .a { fill: var(--brand); stroke: none; }
+.lado button[aria-current="page"] .ico .a { fill: #FFFFFF; }
 .lado .pie { margin-top: auto; padding-top: 12px; }
 .velo { position: fixed; inset: 0; z-index: 4; background: rgba(0,0,0,.35); }
 @media (min-width: 900px) {
@@ -414,9 +416,27 @@ let tab = LS.get("pa.tab", "nuevo");
 { const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
-  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["reportes", "Reportes", "📈", "Caja"], ["inventario", "Inventario", "📦", "Caja"], ["delivery", "Delivery", "🛵", "Caja"],
-  ["personal", "Personal y sueldos", "👥", "Administración"], ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
+  ["vender", "Vender", "vender", "Caja"], ["nuevo", "Recibir", "recibir", "Caja"], ["cocina", "Pedidos", "cocina", "Caja"], ["banco", "Banco", "banco", "Caja"], ["cierre", "Cierre", "cierre", "Caja"], ["reportes", "Reportes", "reportes", "Caja"], ["inventario", "Inventario", "inventario", "Caja"], ["delivery", "Delivery", "delivery", "Caja"],
+  ["personal", "Personal y sueldos", "personal", "Administración"], ["menu", "Menú del enlace", "menu", "Administración"], ["ajustes", "Ajustes", "ajustes", "Administración"],
 ];
+// Íconos propios del menú lateral: trazo redondeado en el color del texto + un detalle relleno en amarillo de la marca (clase "a").
+// Para un módulo nuevo, se dibuja aquí en una cuadrícula de 24×24 y se pone su nombre en TABS.
+const ICONOS = {
+  vender: '<path class="a" d="M6.4 7h13.1l-1.8 7.5H8z"/><path d="M3 4h2.4l2.6 10.5h9.7L19.5 7H6.4"/><circle cx="9.5" cy="19" r="1.6"/><circle cx="16.5" cy="19" r="1.6"/>',
+  recibir: '<path class="a" d="M4 14h4.2a3.8 3.8 0 0 0 7.6 0H20v4.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 14l2-8h2.5M15.5 6H18l2 8v4.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5V14h4.2a3.8 3.8 0 0 0 7.6 0H20M12 3v8M9 8l3 3 3-3"/>',
+  cocina: '<path class="a" d="M5 11h14v5.5a3.5 3.5 0 0 1-3.5 3.5h-7A3.5 3.5 0 0 1 5 16.5z"/><path d="M5 11h14v5.5a3.5 3.5 0 0 1-3.5 3.5h-7A3.5 3.5 0 0 1 5 16.5zM3 11h18M9.5 3.5c-1 1.2 1 2.3 0 4M14.5 3.5c-1 1.2 1 2.3 0 4"/>',
+  banco: '<path class="a" d="M3.5 9.5L12 4.5l8.5 5z"/><path d="M3.5 9.5L12 4.5l8.5 5zM6 12.5v5M10 12.5v5M14 12.5v5M18 12.5v5M3.5 20.5h17"/>',
+  cierre: '<path class="a" d="M6 3h12v18l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4L6 21z"/><path d="M6 3h12v18l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4L6 21zM9 8h6M9 11.5h6M9 15h3"/>',
+  reportes: '<rect class="a" x="15" y="5" width="4" height="14" rx="1"/><path d="M3.5 20h17M5 19v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5M10 19v-9a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v9"/><rect x="15" y="5" width="4" height="14" rx="1"/>',
+  inventario: '<path class="a" d="M3.5 7.5L12 3.5l8.5 4L12 11.5z"/><path d="M3.5 7.5L12 3.5l8.5 4v9L12 20.5l-8.5-4zM3.5 7.5L12 11.5l8.5-4M12 11.5v9"/>',
+  delivery: '<rect class="a" x="3.5" y="6" width="7" height="5.6" rx="1"/><rect x="3.5" y="6" width="7" height="5.6" rx="1"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="18" cy="17.5" r="2.5"/><path d="M9 17.5h6.5M18 17.5L15.4 6H18M15.9 11.6H3.5"/>',
+  personal: '<circle class="a" cx="16.5" cy="8.5" r="2.5"/><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 13.5c2.8 0 5 2.2 5 5"/><circle cx="16.5" cy="8.5" r="2.5"/>',
+  menu: '<rect x="5" y="4" width="14" height="17" rx="2"/><rect class="a" x="8.2" y="2" width="7.6" height="4.6" rx="1.2"/><path d="M8.2 3.2a1.2 1.2 0 0 1 1.2-1.2h5.2a1.2 1.2 0 0 1 1.2 1.2v2.2a1.2 1.2 0 0 1-1.2 1.2H9.4a1.2 1.2 0 0 1-1.2-1.2zM9 11h6M9 14.5h6M9 18h3.5"/>',
+  ajustes: '<path d="M4 7h16M4 12h16M4 17h16"/><circle class="a" cx="9" cy="7" r="2.2"/><circle class="a" cx="15.5" cy="12" r="2.2"/><circle class="a" cx="7" cy="17" r="2.2"/><circle cx="9" cy="7" r="2.2"/><circle cx="15.5" cy="12" r="2.2"/><circle cx="7" cy="17" r="2.2"/>',
+  enlace: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/><circle class="a" cx="12" cy="12" r="1.6"/>',
+  salir: '<path class="a" d="M5 4h8v16H5z"/><path d="M13 4H5v16h8M10 12h10.5M17.5 9l3 3-3 3"/>',
+};
+const icono = k => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONOS[k] || ""}</svg>`;
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
 let ultimoTab = tab === "menu" ? "nuevo" : tab; // a dónde vuelve el teléfono desde un módulo abierto aparte
 function abrirLado(si) {
@@ -430,8 +450,8 @@ function pintarTabs() {
   let grupo = "";
   $("#lado").innerHTML = `<div class="marca"><img src="icono-192.png" alt="">Pa'l Antojo</div>` + TABS.map(([k, t, ico, g]) => {
     const cab = g !== grupo ? `<div class="grupo">${g}</div>` : ""; grupo = g;
-    return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" || k === "delivery" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
-  }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a><button onclick="salirApp()"><span class="ico" aria-hidden="true">🚪</span>Cerrar sesión</button></div>`;
+    return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}>${icono(ico)}${t}${n[k] ? `<span class="badge${k === "banco" || k === "delivery" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
+  }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener">${icono("enlace")}Enlace de pedidos ↗</a><button onclick="salirApp()">${icono("salir")}Cerrar sesión</button></div>`;
   const actual = TABS.find(t => t[0] === tab);
   $("#titulo").textContent = actual[1];
   document.title = `${actual[1]} · Pa'l Antojo`;
