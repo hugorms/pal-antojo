@@ -317,6 +317,8 @@ function ahoraCaracas(d = new Date()) {
     .formatToParts(d).map(x => [x.type, x.value]));
   return { fecha: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}`, h: +p.hour, mmdd: p.month + p.day, hhmm: p.hour + p.minute };
 }
+// Hora para mostrar en am/pm (se guarda en 24 h, ej. "20:15" → "8:15 pm")
+const h12 = t => { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); if (!m) return t || ""; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? "am" : "pm"}`; };
 const turnoDe = h => h < 15 ? "Día" : "Noche";
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3200); }
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -975,7 +977,7 @@ function pedidoCard(p) {
   const pagos = vivos(p).map(x => `${esc(x.forma)}${x.ref ? ` ${esc(x.ref)}` : ""}${x.cobrado ? "" : " (por cobrar)"}`).join(" · ");
   return `<article class="card${p.id === recienLlego ? " new" : ""}">
     <div class="oh"><span class="id">${esc(p.id)}${p.cambio ? ` <span class="pill w">Cambio ${p.cambio}</span>` : ""}</span>${estado}</div>
-    <div class="oh"><b>${esc(p.cliente)}</b><span class="meta">${esc(p.hora || "")} · ${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""} · lo mandó ${esc(p.por || "")}</span></div>
+    <div class="oh"><b>${esc(p.cliente)}</b><span class="meta">${esc(h12(p.hora))} · ${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""} · lo mandó ${esc(p.por || "")}</span></div>
     ${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}${p.nota ? `<p class="note">Nota: ${esc(p.nota)}</p>` : ""}
     <div class="lines">${p.items.map(i => `<div class="ln"><b>${i.q} ×</b><span class="nm">${esc(i.n)}${i.d ? `<small>${esc(i.d)}</small>` : ""}</span><span>${fmt(i.q * i.p)}</span><span></span></div>`).join("")}
     ${p.delivery ? `<div class="ln"><span></span><span class="nm">Delivery</span><span>${fmt(p.delivery)}</span><span></span></div>` : ""}</div>
@@ -1066,7 +1068,7 @@ function pBanco() {
   pedidosDe(ahoraCaracas().fecha).forEach(p => vivos(p).forEach(x => { if (x.forma === "Pago móvil" || (x.forma === "Devolución" && x.medio === "Pago móvil")) filas.push({ p, x }); }));
   return `<p class="hint"><b>Pagos móviles de hoy.</b> Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
   ${filas.length ? `<div class="tbl apilar"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
-  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${esc(x.hora || "")}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
+  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${esc(h12(x.hora))}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
     <td class="n" data-l="Bs">${x.bs ? fbs(x.bs) : ""}</td><td class="n" data-l="$">${fmt(x.usd)}</td><td data-l="Lo vio">${esc(x.quien || "")}</td>
     <td class="tact"><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${esc(x.id)}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
   </tbody></table></div>` : `<p class="empty">Todavía no hay pagos móviles hoy.</p>`}`;
@@ -1385,7 +1387,7 @@ function invHay() {
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
     ${ult.length ? `<div>${ult.map(m => { const x = insumoDe(m.ins); return `<div class="mov"${m.anulado ? ` style="opacity:.45"` : ""}>
-      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span>${m.foto ? `<br><button class="x" style="color:var(--fg);padding:4px 0;font-size:.9rem" data-iv="verfoto" data-k="${esc(m.foto)}">📄 Ver factura</button>` : ""}</div>
+      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span>${m.foto ? `<br><button class="x" style="color:var(--fg);padding:4px 0;font-size:.9rem" data-iv="verfoto" data-k="${esc(m.foto)}">📄 Ver factura</button>` : ""}</div>
       <div class="mq"><span>${cant(num(m.c))} ${x ? esc(x.u) : ""}</span>${m.anulado ? `<span class="meta">Anulado</span>` : `<button class="x" style="padding:4px 0;font-size:.9rem" data-iv="anular" data-k="${m.id}">Anular</button>`}</div></div>`; }).join("")}</div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
   </section>`;
 }
@@ -1562,7 +1564,7 @@ function ticketHTML(p) {
   const tot = p.items.reduce((a, i) => a + i.q * i.p, 0) + (p.delivery || 0), pc = porCobrarDe(p);
   return `<div class="tk"><div class="t">PA'L ANTOJO</div><div style="text-align:center">Calle Urdaneta, local 16 H</div><hr>
     ${p.cambio ? `<div class="big">CAMBIO ${p.cambio}</div>` : ""}
-    <div class="row"><b>${esc(p.id)}</b><span>${esc(p.hora || ahoraCaracas().hora)}</span></div>
+    <div class="row"><b>${esc(p.id)}</b><span>${esc(h12(p.hora || ahoraCaracas().hora))}</span></div>
     <div>${esc(p.cliente)}${p.telefono ? ` · ${esc(p.telefono)}` : ""}</div><div>${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""}</div>
     ${p.direccion ? `<div>${esc(p.direccion)}</div>` : ""}${p.nota ? `<div>Nota: ${esc(p.nota)}</div>` : ""}<hr>
     ${p.items.map(i => `<div class="row"><span>${i.q} ${esc(i.n)}${i.d ? ` (${esc(i.d)})` : ""}</span><span>${fmt(i.q * i.p)}</span></div>`).join("")}
