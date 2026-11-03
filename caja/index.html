@@ -233,6 +233,11 @@ td.n { white-space: nowrap; }
 @media (max-width: 400px) { .rfila { grid-template-columns: 70px minmax(0, 1fr) 64px; } .rf { font-size: .75rem; } }
 .reclista { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .reclista .vprod { min-height: 0; padding: 10px; }
+/* Delivery: filas de pedidos por despachar y el selector para asignar a mano */
+.dlvFila { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.dlvFila:first-of-type { border-top: 0; }
+.dlvAsig { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.dlvAsig select { max-width: 200px; }
 .pedidos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); align-items: start; }
 .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 640px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -409,7 +414,7 @@ let tab = LS.get("pa.tab", "nuevo");
 { const m = new URLSearchParams(location.search).get("modulo"); if (m) { tab = m; history.replaceState(null, "", location.pathname); } }
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
-  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["reportes", "Reportes", "📈", "Caja"], ["inventario", "Inventario", "📦", "Caja"],
+  ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["reportes", "Reportes", "📈", "Caja"], ["inventario", "Inventario", "📦", "Caja"], ["delivery", "Delivery", "🛵", "Caja"],
   ["personal", "Personal y sueldos", "👥", "Administración"], ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
@@ -421,11 +426,11 @@ function pedidosDe(fecha) { return Object.values(pedidos).filter(p => p.fecha ==
 function pintarTabs() {
   const hoy = ahoraCaracas().fecha, lista = pedidosDe(hoy);
   const n = { cocina: lista.filter(p => p.estado === "cocina" || p.estado === "listo").length,
-    banco: lista.reduce((a, p) => a + vivos(p).filter(x => x.forma === "Pago móvil" && !x.revisado).length, 0) };
+    banco: lista.reduce((a, p) => a + vivos(p).filter(x => x.forma === "Pago móvil" && !x.revisado).length, 0), delivery: dlvPendientes() };
   let grupo = "";
   $("#lado").innerHTML = `<div class="marca"><img src="icono-192.png" alt="">Pa'l Antojo</div>` + TABS.map(([k, t, ico, g]) => {
     const cab = g !== grupo ? `<div class="grupo">${g}</div>` : ""; grupo = g;
-    return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
+    return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}><span class="ico" aria-hidden="true">${ico}</span>${t}${n[k] ? `<span class="badge${k === "banco" || k === "delivery" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
   }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">🔗</span>Enlace de pedidos ↗</a><button onclick="salirApp()"><span class="ico" aria-hidden="true">🚪</span>Cerrar sesión</button></div>`;
   const actual = TABS.find(t => t[0] === tab);
   $("#titulo").textContent = actual[1];
@@ -463,8 +468,8 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina" || tab === "ajustes" || tab === "personal");
-  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, personal: pPersonal, ajustes: pAjustes }[tab];
+  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina" || tab === "ajustes" || tab === "personal" || tab === "delivery");
+  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, delivery: pDelivery, personal: pPersonal, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
@@ -1047,6 +1052,7 @@ function pedidoCard(p) {
     <div class="tot"><span>Total</span><span>${fmt(p.items.reduce((a, i) => a + i.q * i.p, 0) + (p.delivery || 0))}</span></div>
     <p class="note">${esc(pagos)}</p>
     ${pc > 0.01 ? `<p class="msg w">Cobrar ${fmt(pc)} al entregar.</p>` : ""}
+    ${dlvLinea(p)}
     ${p.estado === "devuelto" ? "" : `<div class="acts">
       ${p.estado === "cocina" ? `<button class="btn brand" data-a="listo" data-id="${esc(p.id)}">Listo</button>` : ""}
       ${p.estado === "listo" ? `<button class="btn" data-a="entregar" data-id="${esc(p.id)}">${pc > 0.01 ? (p.entrega === "Delivery" ? "Llegó el mototaxi · cobrado" : "Cobrado y entregado") : "Entregado"}</button>` : ""}
@@ -1651,7 +1657,7 @@ function siguienteImpresion() {
 
 // ---------- sincronización con Supabase ----------
 // Cada cosa (pedido, día, inventario, movimiento) es una fila en la tabla registros con su número de versión (rev).
-// Con la base de datos blindada (caja/supabase-seguridad.sql) se entra con el usuario de la tienda y guardar compara la rev:
+// Con la base de datos blindada (base-de-datos/3-seguridad.sql) se entra con el usuario de la tienda y guardar compara la rev:
 // si otro equipo guardó algo más nuevo, la base de datos lo devuelve y aquí se unen los dos cambios, sin perder ninguno.
 // Mientras no se corra ese SQL, sigue funcionando como antes con la clave de la tienda.
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
@@ -1884,6 +1890,194 @@ window.addEventListener("online", () => sincronizar());
 window.addEventListener("offline", () => pintarSync());
 setInterval(sincronizar, 5000);
 
+// ---------- Delivery: buscar repartidor (el más cerca del local primero), seguir el pedido y las cuentas de envíos ----------
+// La regla vive en la base de datos (base-de-datos/4-delivery.sql). Los repartidores usan la app /delivery/.
+let dlv = { datos: LS.get("pa.dlv", null), error: "", sinSQL: false, rango: LS.get("pa.dlvRango", "hoy"), vuelta: 0, antes: {} };
+async function dlvRpc(f, cuerpo) {
+  const s = await sesionViva(); if (!s) throw new Error("Entra con tu usuario de la tienda.");
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${f}`, { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + s.access_token, "content-type": "application/json" }, body: JSON.stringify(cuerpo || {}) });
+  const d = await r.json().catch(() => null);
+  if (r.status === 404 && d && /function|Could not find/i.test(d.message || "")) { dlv.sinSQL = true; throw new Error("Falta instalar el delivery en la base de datos."); }
+  if (!r.ok) throw new Error((d && d.message) || "Error " + r.status);
+  dlv.sinSQL = false; return d;
+}
+const dlvEntrega = id => ((dlv.datos && dlv.datos.entregas) || []).find(e => e.id === id);
+const dlvNombre = email => { const r = ((dlv.datos && dlv.datos.repartidores) || []).find(x => x.email === email); return r ? r.nombre : (email || "").split("@")[0]; };
+const dlvActivas = () => ((dlv.datos && dlv.datos.entregas) || []).filter(e => ["buscando", "asignado", "en_camino", "sin_repartidor"].includes(e.estado));
+// Pedidos de delivery de hoy que todavía no tienen repartidor buscado
+const dlvPorDespachar = () => pedidosDe(ahoraCaracas().fecha).filter(p => p.entrega === "Delivery" && (p.estado === "cocina" || p.estado === "listo") && (!dlvEntrega(p.id) || dlvEntrega(p.id).estado === "cancelado") && !p.mototaxi);
+const dlvPendientes = () => dlv.datos ? dlvPorDespachar().length + dlvActivas().filter(e => e.estado === "sin_repartidor").length : 0;
+let dlvSegCorriendo = false;
+async function dlvTraer(forzar) {
+  if (!navigator.onLine || dlvSegCorriendo) return;
+  // Rápido (cada 5 s) con el módulo abierto o con entregas en curso; si no, cada 30 s
+  dlv.vuelta++;
+  if (!forzar && tab !== "delivery" && !dlvActivas().some(e => e.estado === "buscando" || e.estado === "asignado" || e.estado === "en_camino") && dlv.vuelta % 6) return;
+  dlvSegCorriendo = true;
+  try {
+    const d = await dlvRpc("dlv_tablero", { dias: 35 });
+    dlv.desfase = Date.parse(d.ahora) - Date.now();
+    // Avisos en la caja cuando cambia algo
+    (d.entregas || []).forEach(e => {
+      const a = dlv.antes[e.id];
+      if (a && a !== e.estado) {
+        const n = dlvNombreDe(d, e.repartidor);
+        if (e.estado === "asignado") { toast(`${n} aceptó el pedido de ${e.cliente || ""}.`); avisar(); }
+        if (e.estado === "sin_repartidor") { toast(`Nadie aceptó el pedido de ${e.cliente || ""}. Ofrécelo de nuevo o asígnalo a mano.`); avisar(); }
+        if (e.estado === "entregado") toast(`${n} entregó el pedido de ${e.cliente || ""}.`);
+      }
+      dlv.antes[e.id] = e.estado;
+      // El pedido de la caja se entera de quién lo lleva, y si ya estaba pagado se marca entregado cuando el repartidor lo entrega
+      const p = pedidos[e.id];
+      if (p && e.repartidor && ["asignado", "en_camino", "entregado"].includes(e.estado)) {
+        const n = dlvNombreDe(d, e.repartidor);
+        const entregar = e.estado === "entregado" && (p.estado === "cocina" || p.estado === "listo") && porCobrarDe(p) <= 0.01;
+        if (p.mototaxi !== n || entregar) cambiarEstadoCallado(e.id, x => { x.mototaxi = n; if (entregar) x.estado = "entregado"; });
+      }
+    });
+    dlv.datos = d; dlv.error = ""; LS.set("pa.dlv", d);
+  } catch (e) { dlv.error = e.message; }
+  finally { dlvSegCorriendo = false; }
+  pintarTabs();
+  if (tab === "delivery" && !escribiendo()) pintar();
+}
+const dlvNombreDe = (d, email) => { const r = (d.repartidores || []).find(x => x.email === email); return r ? r.nombre : (email || "").split("@")[0]; };
+const escribiendo = () => { const a = document.activeElement; return a && $("#main").contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName); };
+function cambiarEstadoCallado(id, f) {
+  const p = pedidos[id]; if (!p) return; f(p); p.rev = (p.rev || 0) + 1; p.actualizado = Date.now(); cola.push(id); guardarTodo();
+  if (tab !== "delivery") pintar();
+}
+function dlvDatosPedido(p, quien) {
+  return { id: p.id, cliente: p.cliente, telefono: p.telefono, direccion: p.direccion, ubicacion: p.ubicacion, nota: p.nota,
+    resumen: p.items.map(i => `${i.q}× ${i.n}${i.d ? ` (${i.d})` : ""}`).join(", ").slice(0, 600),
+    envio: p.delivery || 0, cobrar: Math.round(porCobrarDe(p) * 100) / 100, segundos: +cfg.dlvSeg || 45, repartidor: quien || "" };
+}
+async function dlvPedir(id, quien, b) {
+  const p = pedidos[id], e = dlvEntrega(id);
+  const datosP = p ? dlvDatosPedido(p, quien) : e ? { id, cliente: e.cliente, telefono: e.telefono, direccion: e.direccion, ubicacion: e.ubicacion, nota: e.nota, resumen: e.resumen, envio: e.envio, cobrar: e.cobrar, segundos: +cfg.dlvSeg || 45, repartidor: quien || "" } : null;
+  if (!datosP) return;
+  if (b) b.disabled = true;
+  try {
+    const r = await dlvRpc("dlv_pedir", { p: datosP });
+    toast(r.estado === "buscando" ? `Se le ofreció a ${dlvNombre(r.oferta_a)} (el más cerca).` : r.estado === "asignado" ? `Asignado a ${dlvNombre(r.repartidor)}.` : "No hay repartidores disponibles ahora.");
+  } catch (x) { toast(x.message); }
+  await dlvTraer(true); pintar();
+}
+const dlvKm = k => k == null ? "—" : String(k).replace(".", ",") + " km";
+const dlvHace = t => { if (!t) return "nunca"; const m = Math.round((Date.now() + (dlv.desfase || 0) - Date.parse(t)) / 60000); return m < 1 ? "ahora" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+function dlvSelect(id, actual) {
+  const rs = ((dlv.datos && dlv.datos.repartidores) || []).filter(r => r.activo);
+  if (!rs.length) return "";
+  return `<span class="dlvAsig"><select data-dlvsel="${esc(id)}" aria-label="Asignar a"><option value="">Asignar a…</option>${rs.map(r => `<option value="${esc(r.email)}"${r.email === actual ? " disabled" : ""}>${esc(r.nombre)}${r.disponible ? (r.ocupado ? " (ocupado)" : " (disponible)") : ""}</option>`).join("")}</select><button class="btn ghost" data-a="dlvAsignar" data-id="${esc(id)}">Asignar</button></span>`;
+}
+// Línea del delivery dentro de la tarjeta del pedido (módulo Pedidos)
+function dlvLinea(p) {
+  if (p.entrega !== "Delivery" || !dlv.datos || p.estado === "devuelto") return "";
+  const e = dlvEntrega(p.id);
+  if (!e || e.estado === "cancelado") return p.estado === "entregado" || p.mototaxi ? "" : `<div class="acts"><button class="btn brand" data-a="dlvPedir" data-id="${esc(p.id)}">🛵 Buscar repartidor</button></div>`;
+  if (e.estado === "buscando") return `<p class="msg w">🛵 Buscando repartidor: se le ofreció a ${esc(dlvNombre(e.oferta_a))} <span data-hasta="${esc(e.oferta_hasta)}"></span></p>`;
+  if (e.estado === "sin_repartidor") return `<p class="msg bad">🛵 Nadie aceptó. <button class="btn link" style="padding:0" data-a="dlvPedir" data-id="${esc(p.id)}">Ofrecer de nuevo</button></p>`;
+  return "";
+}
+function dlvTarjeta(e) {
+  const r = ((dlv.datos && dlv.datos.repartidores) || []).find(x => x.email === e.repartidor);
+  const pill = { buscando: `<span class="pill w">Buscando</span>`, asignado: `<span class="pill g">Va a buscarlo</span>`, en_camino: `<span class="pill g">En camino</span>`, sin_repartidor: `<span class="pill r">Sin repartidor</span>` }[e.estado] || "";
+  const vistos = (e.ofrecidos || []).length;
+  return `<article class="card">
+    <div class="oh"><b>${esc(e.cliente || "Cliente")}</b>${pill}</div>
+    ${e.direccion ? `<p class="note">${esc(e.direccion)}</p>` : ""}
+    <p class="note">Envío ${fmt(+e.envio)}${+e.cobrar > 0 ? ` · cobrar ${fmt(+e.cobrar)} en efectivo` : " · pagado"}</p>
+    ${e.estado === "buscando" ? `<p class="msg w">Se le ofreció a <b>${esc(dlvNombre(e.oferta_a))}</b> <span data-hasta="${esc(e.oferta_hasta)}"></span>${vistos > 1 ? ` · ya van ${vistos} repartidores` : ""}</p>` : ""}
+    ${e.estado === "sin_repartidor" ? `<p class="msg bad">Se le ofreció a ${vistos} repartidor${vistos === 1 ? "" : "es"} y nadie aceptó${vistos ? "" : " (no había nadie disponible)"}.</p>` : ""}
+    ${e.repartidor && (e.estado === "asignado" || e.estado === "en_camino") ? `<p><b>${esc(dlvNombre(e.repartidor))}</b>${r && r.telefono ? ` · <a href="tel:${esc(r.telefono)}">${esc(r.telefono)}</a>` : ""} · ${e.estado === "en_camino" ? `salió ${esc(dlvHace(e.salio))}` : `aceptó ${esc(dlvHace(e.aceptado))}`}</p>` : ""}
+    <div class="acts">
+      ${e.estado === "sin_repartidor" ? `<button class="btn brand" data-a="dlvPedir" data-id="${esc(e.id)}">Ofrecer de nuevo</button>` : ""}
+      ${dlvSelect(e.id, e.repartidor)}
+      <button class="btn link" data-a="dlvCancelar" data-id="${esc(e.id)}">Cancelar delivery</button>
+    </div>
+  </article>`;
+}
+function pDelivery() {
+  if (dlv.sinSQL) return `<section class="card"><h3>Falta un paso</h3><p>Para usar el delivery, corre <b>base-de-datos/4-delivery.sql</b> en Supabase › SQL Editor (una sola vez). Después vuelve aquí.</p><button class="btn" data-a="dlvRecargar">Ya lo corrí</button></section>`;
+  if (!dlv.datos) return `<p class="empty">${dlv.error ? esc(dlv.error) : "Cargando el delivery…"}</p>`;
+  const d = dlv.datos, rs = d.repartidores || [], por = dlvPorDespachar(), act = dlvActivas();
+  const libres = rs.filter(r => r.activo && r.disponible && !r.ocupado).length, enCalle = rs.filter(r => r.activo && r.ocupado).length;
+  // Cuentas por repartidor en el rango elegido
+  const fechas = new Set(dlv.rango === "hoy" ? [ahoraCaracas().fecha] : fechasRango(dlv.rango));
+  const hechas = (d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && fechas.has(ahoraCaracas(new Date(e.entregado)).fecha));
+  const cuentas = rs.map(r => {
+    const mias = hechas.filter(e => e.repartidor === r.email), sinPagar = (d.entregas || []).filter(e => e.repartidor === r.email && e.estado === "entregado" && !e.liquidado);
+    return { r, n: mias.length, envios: mias.reduce((a, e) => a + +e.envio, 0), efectivo: mias.reduce((a, e) => a + +(e.cobrado || 0), 0), debe: sinPagar.reduce((a, e) => a + +e.envio, 0), nDebe: sinPagar.length };
+  }).filter(c => c.n || c.debe || c.r.activo);
+  const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
+  return `
+  ${dlv.error ? `<p class="msg bad">${esc(dlv.error)}</p>` : ""}
+  <div class="kpis"><div class="kpi main"><small>Disponibles</small><b>${libres}</b></div><div class="kpi"><small>Llevando pedido</small><b>${enCalle}</b></div><div class="kpi"><small>Envíos hoy</small><b>${fmt((d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && ahoraCaracas(new Date(e.entregado)).fecha === ahoraCaracas().fecha).reduce((a, e) => a + +e.envio, 0))}</b></div></div>
+  <section class="card"><h3>Por despachar</h3>
+    ${por.length ? por.map(p => `<div class="dlvFila"><div><b>${esc(p.cliente || "Cliente")}</b> <span class="note">${esc(h12(p.hora))} · ${p.estado === "listo" ? "listo" : "en cocina"} · envío ${fmt(p.delivery || 0)}</span>${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}</div>
+      <div class="acts"><button class="btn brand" data-a="dlvPedir" data-id="${esc(p.id)}">🛵 Buscar repartidor</button>${dlvSelect(p.id)}</div></div>`).join("")
+      : `<p class="note">No hay pedidos de delivery esperando repartidor.</p>`}
+  </section>
+  ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : ""}
+  <section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
+    ${cuentas.length ? `<div class="tbl apilar"><table><thead><tr><th>Repartidor</th><th>Pedidos</th><th>Envíos</th><th>Efectivo cobrado</th><th>Sin pagarle</th><th></th></tr></thead><tbody>
+      ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
+        <td class="tact">${c.debe > 0 ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</td></tr>`).join("")}
+    </tbody></table></div>` : `<p class="note">Todavía no hay entregas.</p>`}
+    <p class="hint">Envíos = lo que se le cobró al cliente por el delivery. "Sin pagarle" son los envíos que todavía no se le han pagado al repartidor. El efectivo cobrado lo trae al local.</p>
+  </section>
+  <section class="card"><h3>Repartidores</h3>
+    ${rs.length ? `<div class="tbl apilar"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Del local</th><th>Avisos</th><th>Última vez</th><th></th></tr></thead><tbody>
+      ${rs.map(r => `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
+        <td data-l="Del local">${r.disponible ? (r.gps ? dlvKm(r.km) : "Sin GPS") : "—"}</td><td data-l="Avisos">${r.avisos ? "Activados" : "Solo con la app abierta"}</td><td data-l="Última vez">${esc(dlvHace(r.visto))}</td>
+        <td class="tact">${d.admin ? `<button class="btn ghost" data-a="dlvActivo" data-email="${esc(r.email)}">${r.activo ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`).join("")}
+    </tbody></table></div>` : `<p class="note">Todavía no hay repartidores.</p>`}
+    ${d.admin ? `<details${rs.length ? "" : " open"}><summary>Agregar repartidor</summary>
+      <div class="fields" style="margin-top:10px"><label>Nombre<input id="dr-nombre" autocomplete="off"></label><label>Teléfono<input id="dr-tel" inputmode="tel" autocomplete="off"></label><label class="ancho">Correo<input id="dr-email" type="email" autocomplete="off"></label>
+      <button class="btn brand" data-a="dlvRep">Agregar</button></div>
+      <p class="hint" style="margin-top:8px">Antes, crea su usuario en Supabase › Authentication › Users › Add user (con Auto Confirm), con ese correo y una contraseña. Él entra en <b>${esc(location.origin)}/delivery/</b>, la instala en el teléfono y acepta la ubicación y las notificaciones.</p></details>` : ""}
+  </section>
+  <section class="card"><h3>Regla para repartir</h3>
+    <p class="note">El pedido le llega primero al repartidor disponible más cerca del local. Si no acepta a tiempo o dice "No puedo", pasa al siguiente más cerca, y así. Los que ya llevan un pedido van de últimos; los que no tienen GPS, después de los que sí. Si nadie acepta, aquí sale "Sin repartidor".</p>
+    <label style="max-width:220px">Segundos para aceptar<input id="dlvSeg" inputmode="numeric" value="${+cfg.dlvSeg || 45}"></label>
+  </section>`;
+}
+// Cuenta regresiva de las ofertas, sin repintar todo
+setInterval(() => {
+  document.querySelectorAll("[data-hasta]").forEach(el => { const s = Math.max(0, Math.round((Date.parse(el.dataset.hasta) - Date.now() - (dlv.desfase || 0)) / 1000)); el.textContent = `(le quedan ${s} s)`; });
+}, 1000);
+$("#main").addEventListener("click", async e => {
+  const ch = e.target.closest("[data-dlvrango]");
+  if (ch) { dlv.rango = ch.dataset.dlvrango; LS.set("pa.dlvRango", dlv.rango); pintar(); return; }
+  const b = e.target.closest("button[data-a]"); if (!b || !/^dlv/.test(b.dataset.a)) return;
+  const a = b.dataset.a, id = b.dataset.id;
+  try {
+    if (a === "dlvRecargar") { await dlvTraer(true); pintar(); }
+    if (a === "dlvPedir") await dlvPedir(id, "", b);
+    if (a === "dlvAsignar") { const sel = document.querySelector(`[data-dlvsel="${CSS.escape(id)}"]`); if (!sel || !sel.value) { toast("Elige a quién se lo asignas."); return; } await dlvPedir(id, sel.value, b); }
+    if (a === "dlvCancelar") { if (!confirm("¿Cancelar el delivery de este pedido? Al repartidor le llega el aviso.")) return; await dlvRpc("dlv_cancelar", { eid: id }); toast("Delivery cancelado."); await dlvTraer(true); }
+    if (a === "dlvLiquidar") {
+      if (!confirm(`¿Ya le pagaste ${fmt(+b.dataset.monto)} de envíos a ${dlvNombre(b.dataset.email)} (${b.dataset.n} entregas)?`)) return;
+      await dlvRpc("dlv_liquidar", { quien: b.dataset.email }); toast("Anotado: envíos pagados."); await dlvTraer(true);
+    }
+    if (a === "dlvRep") {
+      const email = $("#dr-email").value.trim(), nombre = $("#dr-nombre").value.trim();
+      if (!email || !nombre) { toast("Pon el nombre y el correo."); return; }
+      await dlvRpc("dlv_guardar_repartidor", { p: { email, nombre, telefono: $("#dr-tel").value.trim(), activo: true } }); toast(`${nombre} agregado.`); await dlvTraer(true);
+    }
+    if (a === "dlvActivo") {
+      const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email); if (!r) return;
+      await dlvRpc("dlv_guardar_repartidor", { p: { email: r.email, nombre: r.nombre, telefono: r.telefono, activo: !r.activo } }); await dlvTraer(true);
+    }
+  } catch (x) { toast(x.message); }
+  pintar();
+});
+$("#main").addEventListener("change", e => {
+  if (e.target.id === "dlvSeg") { const v = Math.min(300, Math.max(15, Math.round(num(e.target.value)) || 45)); cfg.dlvSeg = v; LS.set("pa.cfg", cfg); e.target.value = v; toast(`Cada repartidor tiene ${v} segundos para aceptar.`); }
+});
+setInterval(dlvTraer, 5000);
+setTimeout(() => dlvTraer(true), 1500);
+
 // ---------- pegar y arrastrar (PC con WhatsApp Web) ----------
 function agregarImagen(file) { if (!file || !file.type.startsWith("image/")) return false; capturas.push(URL.createObjectURL(file)); return true; }
 document.addEventListener("paste", e => {
@@ -1956,6 +2150,15 @@ const AYUDA = {
   "a:imprimir": "Imprime el ticket de este pedido.",
   "a:editar": "Cambia los productos del pedido. Si cuesta más, pide el pago de la diferencia.",
   "a:devolver": "Cancela el pedido y anota cuánto dinero se le devuelve al cliente.",
+  // Delivery
+  "a:dlvPedir": "Le ofrece el pedido al repartidor disponible más cerca del local. Si no acepta a tiempo, pasa al siguiente.",
+  "a:dlvAsignar": "Le da el pedido directo a la persona elegida, sin preguntarle a los demás.",
+  "a:dlvCancelar": "Quita el repartidor de este pedido. Al repartidor le llega el aviso.",
+  "a:dlvLiquidar": "Anota que ya le pagaste los envíos pendientes a este repartidor.",
+  "a:dlvRep": "Agrega un repartidor. Primero crea su usuario en Supabase.",
+  "a:dlvActivo": "Desactivado, no le llegan pedidos ni puede entrar a la app del delivery.",
+  "a:dlvRecargar": "Vuelve a revisar si el delivery ya está instalado.",
+  "id:dlvSeg": "Cuánto tiempo tiene cada repartidor para aceptar antes de pasar al siguiente.",
   // Banco
   "a:revisado": "Marca que ya viste este pago en la cuenta del banco. Es la segunda revisión, para el cierre.",
   // Cierre

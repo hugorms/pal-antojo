@@ -8,7 +8,18 @@ Para cambiar precios, productos, sabores o fotos usa el panel `/admin/` (ver aba
 
 ## Caja de la tienda
 
-La carpeta `caja/` es la app de la tienda (instalable en Android y PC), también en `/app/`. Tiene un menú lateral con los módulos: Caja (Vender, Recibir, Pedidos, Banco, Cierre) y Administración (Menú del enlace, que abre `/admin/` adentro, y Ajustes). Para sumar un módulo se agrega a `TABS` en `caja/index.html`. **Vender** es la venta de mostrador: tocar productos (del mismo menú del panel), Cobrar (efectivo con vuelto, Bs, pago móvil o mixto) y listo. Recibe los pedidos ya pagados que se comparten desde WhatsApp o se pegan desde WhatsApp Web, imprime el ticket y lleva el cierre e inventario del día. Queda en `/caja/`. Para que los equipos se vean entre ellos usa Supabase: corre `caja/supabase.sql` y después `caja/supabase-seguridad.sql`. Cada equipo se conecta solo al entrar con un usuario de la tienda.
+La carpeta `caja/` es la app de la tienda (instalable en Android y PC), también en `/app/`. Tiene un menú lateral con los módulos: Caja (Vender, Recibir, Pedidos, Banco, Cierre) y Administración (Menú del enlace, que abre `/admin/` adentro, y Ajustes). Para sumar un módulo se agrega a `TABS` en `caja/index.html`. **Vender** es la venta de mostrador: tocar productos (del mismo menú del panel), Cobrar (efectivo con vuelto, Bs, pago móvil o mixto) y listo. Recibe los pedidos ya pagados que se comparten desde WhatsApp o se pegan desde WhatsApp Web, imprime el ticket y lleva el cierre e inventario del día. Queda en `/caja/`. Para que los equipos se vean entre ellos usa Supabase: corre `base-de-datos/2-caja.sql` y después `base-de-datos/3-seguridad.sql`. Cada equipo se conecta solo al entrar con un usuario de la tienda.
+
+## Delivery (repartidores)
+
+- **En la caja**, el módulo Delivery muestra los pedidos por despachar, los que van en camino, los repartidores (disponible, ocupado, a cuántos km del local) y las cuentas de envíos de cada uno (con "Pagué sus envíos").
+- **Los repartidores** usan `/delivery/`, una app aparte (instalable) donde solo ven sus pedidos. Al abrirla por primera vez piden permiso de ubicación y de notificaciones.
+- **La regla:** el pedido le llega primero al repartidor disponible más cerca del local. Tiene 45 segundos (se cambia en la caja) para aceptar. Si no acepta, pasa al siguiente más cerca, y así sucesivamente. Los que ya llevan un pedido van de últimos y los que no tienen GPS van después de los que sí. Si nadie acepta, en la caja sale "Sin repartidor".
+- **Base de datos:** `base-de-datos/4-delivery.sql` (obligatorio). `base-de-datos/5-delivery-avisos.sql` y `supabase/functions/avisar-repartidor` sirven para que el aviso llegue aunque la app esté cerrada (Web Push, gratis). Las llaves privadas no van en el repo.
+
+## Base de datos
+
+Todos los SQL de Supabase y la función de avisos están en `base-de-datos/`, numerados en el orden en que se corren. Ver `base-de-datos/LEEME.md`. Esa carpeta no se publica en la página.
 
 ## Seguridad
 
@@ -28,4 +39,4 @@ Las fotos van en la carpeta `fotos/`, en `.jpg` y cuadradas o 4:3. Mientras una 
 
 Vive dentro de la app (Administración › Menú del enlace); abrir `/admin/` suelto lleva ahí. Con correo y contraseña, el dueño cambia categorías, productos, sabores, tamaños, extras, precios, agotados, qué sale de día o de noche, y sube las fotos (una por categoría, o una por producto si se marca "Cada producto con su foto"). Al tocar **Publicar** se guarda `menu.json` en Supabase Storage y el enlace lo lee de ahí; si no carga, el enlace usa `menu.js`.
 
-Una sola vez: correr `admin/supabase-panel.sql` (con tu correo) y crear el usuario en Supabase > Authentication > Users > Add user.
+Una sola vez: correr `base-de-datos/1-panel-menu.sql` (con tu correo) y crear el usuario en Supabase > Authentication > Users > Add user.
