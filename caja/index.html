@@ -205,6 +205,9 @@ td input { width: 80px; padding: 4px 6px; }
 .low { color: var(--bad); font-weight: 800; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--surface); padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: .9rem; max-width: calc(100% - 32px); z-index: 9; }
 details summary { cursor: pointer; font-weight: 800; }
+#globo { position: fixed; z-index: 60; max-width: min(260px, calc(100vw - 16px)); padding: 6px 10px; border-radius: 8px; background: var(--fg); color: var(--surface);
+  font: 600 .8rem/1.35 var(--body); box-shadow: 0 4px 14px rgba(0,0,0,.18); pointer-events: none; opacity: .96; }
+@media print { #globo { display: none !important; } }
 #ticket { display: none; }
 /* ---------- Ajustes para cualquier pantalla (teléfono, tablet, PC) ---------- */
 /* Reportes */
@@ -440,7 +443,7 @@ function pintarTasa() {
   const fecha = d && !isNaN(d) ? d.toLocaleDateString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short" }) : "";
   $("#tasaInfo").innerHTML = cfg.tasaAuto
     ? (fecha ? `BCV · ${esc(fecha)}` : "Buscando BCV…")
-    : `<span class="lt">A mano</span> <button type="button" id="tasaBcv" title="La tasa está escrita a mano. Toca para volver a la del BCV.">Usar BCV</button>`;
+    : `<span class="lt">A mano</span> <button type="button" id="tasaBcv">Usar BCV</button>`;
 }
 async function buscarTasa() {
   if (!cfg.tasaAuto) return;
@@ -1877,6 +1880,117 @@ if (new URLSearchParams(location.search).has("compartido")) { history.replaceSta
 leerCompartidos();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { leerCompartidos(); sincronizar(); } });
 sincronizar();
+// ---------- Ayuda de cada botón: en PC al pasar el ratón, en el teléfono al dejar el dedo presionado ----------
+const AYUDA = {
+  // Recibir
+  "a:leer": "Lee el mensaje pegado de WhatsApp y llena el pedido solo.",
+  "a:mostrador": "Arma un pedido a mano, sin mensaje de WhatsApp.",
+  "a:add": "Suma este producto al pedido.",
+  "a:mas": "Uno más de este producto.", "a:menos": "Uno menos de este producto.", "a:quitar": "Quita este producto del pedido.",
+  "a:pago": "Agrega otra forma de pago. Sirve si el cliente pagó con dos (pago mixto).",
+  "f:Devolución": "Anota el dinero que se le devuelve al cliente.",
+  "a:qpago": "Quita esta forma de pago.",
+  "a:guardar": "Guarda el pedido y lo manda a Pedidos para que cocina lo prepare.",
+  "a:descartar": "Borra lo que estabas llenando. No guarda nada.",
+  // Pedidos
+  "a:listo": "La comida ya está lista para entregar o para que la busque el mototaxi.",
+  "a:entregar": "El pedido salió y el dinero ya está en la caja. Se pasa a Entregados.",
+  "a:imprimir": "Imprime el ticket de este pedido.",
+  "a:editar": "Cambia los productos del pedido. Si cuesta más, pide el pago de la diferencia.",
+  "a:devolver": "Cancela el pedido y anota cuánto dinero se le devuelve al cliente.",
+  // Banco
+  "a:revisado": "Marca que ya viste este pago en la cuenta del banco. Es la segunda revisión, para el cierre.",
+  // Cierre
+  "a:gasto": "Anota algo que se pagó hoy con dinero de la caja (hielo, gas…).",
+  "a:qgasto": "Quita este gasto.",
+  // Ajustes
+  "a:probar": "Revisa si este equipo se conecta con la caja de la tienda.",
+  "a:probarImpresion": "Imprime un ticket de prueba para ver si la impresora funciona.",
+  "a:respaldo": "Descarga un archivo con todos los datos de este equipo, por si acaso.",
+  "a:irMenu": "Abre el módulo donde se cambian productos, precios y fotos del enlace.",
+  // Vender
+  "v:cat": "Abre esta categoría para elegir el producto.",
+  "v:prod": "Suma este producto a la factura.",
+  "v:addop": "Suma esta opción a la factura.",
+  "v:cancelar": "Cierra las opciones sin sumar nada.",
+  "v:volver": "Vuelve a la lista de categorías.",
+  "v:mas": "Uno más de este producto.", "v:menos": "Uno menos de este producto.",
+  "v:vaciar": "Borra todo lo de la factura para empezar de nuevo.",
+  "v:cobrar": "Pasa a cobrar: eliges cómo paga el cliente.",
+  "v:atras": "Vuelve a la factura para cambiar productos.",
+  "v:pago": "El cliente paga así. Puedes tocar dos si paga una parte con cada uno.",
+  "v:qpago": "Quita esta forma de pago.",
+  "v:rapido": "Llena el monto con lo que entregó el cliente. La caja calcula el vuelto.",
+  "v:confirmar": "Guarda la venta. Se activa cuando el pago cubre el total.",
+  "v:nueva": "Empieza una venta nueva.",
+  // Reportes
+  "rep:semana": "Ventas de lunes a hoy.", "rep:pasada": "Ventas de la semana anterior, de lunes a domingo.",
+  "rep:mes": "Ventas desde el día 1 de este mes.", "rep:mesp": "Ventas de todo el mes anterior.", "rep:30": "Ventas de los últimos 30 días, hasta hoy.",
+  // Inventario
+  "iv:vista": "Cambia de sección del inventario.",
+  "iv:frevisar": "Muestra un resumen de la factura antes de sumarla al inventario.",
+  "iv:fconfirmar": "Suma todo lo de la factura a lo que hay en el inventario.",
+  "iv:fcorregir": "Vuelve atrás para corregir la factura.",
+  "iv:flinea": "Agrega otro producto de la misma factura.",
+  "iv:fquitar": "Quita esta línea de la factura.",
+  "iv:fsinfoto": "Quita la foto de la factura.", "iv:fverfoto": "Abre la foto de la factura en grande.",
+  "iv:flisto": "Termina y deja el formulario limpio para otra factura.",
+  "iv:mov": "Guarda el movimiento: compra, conteo real o algo que se dañó.",
+  "iv:anular": "Deshace este movimiento. Queda anotado quién lo anuló.",
+  "iv:verfoto": "Abre la foto de la factura de esta compra.",
+  "iv:sel": "Abre la receta: cuánto lleva de cada ingrediente.",
+  "iv:cerrar": "Cierra la receta. Lo que anotaste ya quedó guardado.",
+  "iv:ins": "Agrega un ingrediente nuevo a la lista.", "iv:qins": "Quita este ingrediente de la lista.",
+  "iv:parte": "Agrega otro ingrediente a esta receta.", "iv:qparte": "Quita este ingrediente de la receta.",
+  "iv:prep": "Agrega una preparación (ej. carne mechada) que rinde varias porciones.", "iv:qprep": "Quita esta preparación.",
+  // Arriba
+  "id:tasaBcv": "La tasa está escrita a mano. Toca para volver a la del BCV automática.",
+};
+function ayudaDe(el) {
+  if (el.dataset.ayuda) return el.dataset.ayuda;
+  if (el.id && AYUDA["id:" + el.id]) return AYUDA["id:" + el.id];
+  if (el.dataset.f && AYUDA["f:" + el.dataset.f]) return AYUDA["f:" + el.dataset.f];
+  for (const k of ["a", "v", "iv", "rep"]) if (el.dataset[k] && AYUDA[k + ":" + el.dataset[k]]) return AYUDA[k + ":" + el.dataset[k]];
+  return "";
+}
+const SEL_AYUDA = "button[data-a], button[data-v], button[data-iv], button[data-rep], button[data-ayuda], #tasaBcv";
+const globo = document.createElement("div"); globo.id = "globo"; globo.setAttribute("role", "tooltip"); globo.hidden = true; document.body.appendChild(globo);
+function mostrarGlobo(el) {
+  const t = ayudaDe(el); if (!t) return false;
+  globo.textContent = t; globo.hidden = false;
+  const r = el.getBoundingClientRect(), g = globo.getBoundingClientRect();
+  const x = Math.min(Math.max(8, r.left + r.width / 2 - g.width / 2), innerWidth - g.width - 8);
+  const arriba = r.top - g.height - 8;
+  globo.style.left = x + "px"; globo.style.top = (arriba > 8 ? arriba : r.bottom + 8) + "px";
+  return true;
+}
+const ocultarGlobo = () => { globo.hidden = true; clearTimeout(ocultarGlobo.t); };
+// PC: al pasar el ratón medio segundo
+let tGlobo;
+document.addEventListener("mouseover", e => {
+  const el = e.target.closest && e.target.closest(SEL_AYUDA); clearTimeout(tGlobo);
+  if (!el) return ocultarGlobo();
+  tGlobo = setTimeout(() => mostrarGlobo(el), 500);
+});
+document.addEventListener("mousedown", () => { clearTimeout(tGlobo); ocultarGlobo(); });
+// Teléfono: dejar el dedo presionado. Si sale la ayuda, ese toque no ejecuta el botón.
+let tToque, ayudaVista = false;
+document.addEventListener("touchstart", e => {
+  const el = e.target.closest && e.target.closest(SEL_AYUDA); ayudaVista = false; clearTimeout(tToque); ocultarGlobo();
+  if (el) tToque = setTimeout(() => { ayudaVista = mostrarGlobo(el); if (ayudaVista && navigator.vibrate) navigator.vibrate(15); }, 450);
+}, { passive: true });
+document.addEventListener("touchmove", () => clearTimeout(tToque), { passive: true });
+document.addEventListener("touchend", e => {
+  clearTimeout(tToque);
+  if (ayudaVista) { e.preventDefault(); ocultarGlobo.t = setTimeout(() => globo.hidden = true, 2600); }
+});
+document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest(SEL_AYUDA)) e.preventDefault(); });
+addEventListener("scroll", ocultarGlobo, { passive: true });
+// Una sola vez por equipo: avisar que existe la ayuda
+if (!LS.get("pa.ayudaVista", false)) setTimeout(() => {
+  toast(matchMedia("(pointer: coarse)").matches ? "Consejo: deja el dedo presionado sobre un botón para ver qué hace." : "Consejo: pasa el ratón sobre un botón para ver qué hace.");
+  LS.set("pa.ayudaVista", true);
+}, 1500);
 </script>
 </body>
 </html>
