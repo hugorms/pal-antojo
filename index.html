@@ -203,7 +203,7 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
   main.wrap > * { grid-column: 1; }
   main.wrap > #pedido {
     grid-column: 2; grid-row: 1 / -1; align-self: start; position: sticky; top: 16px; margin-top: 18px;
-    max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+    max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain;
   }
   .tabs { max-width: 560px; }
   .tab { padding: 8px 12px; }
@@ -215,6 +215,14 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
   footer { text-align: left; }
 }
 @media (prefers-reduced-motion: no-preference) { .bump { animation: bump .25s ease; } @keyframes bump { 50% { transform: scale(1.08); } } }
+/* Barras de desplazamiento: ocultas (se sigue bajando con el dedo, la rueda o el touchpad).
+   Donde el contenido se corta de lado (tablas) o se escribe (cuadros de texto) quedan delgadas y suaves. */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.tbl, textarea { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
+.tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
+.tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
+.tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
 </style>
 </head>
 <body>
