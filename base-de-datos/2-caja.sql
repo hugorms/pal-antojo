@@ -1,5 +1,5 @@
 -- Caja Pa'l Antojo: tabla compartida entre el teléfono y la PC de la tienda.
--- IMPORTANTE: después de este, corre caja/supabase-seguridad.sql. Ese quita la clave de la tienda y deja entrar solo a los usuarios con permiso.
+-- IMPORTANTE: después de este, corre base-de-datos/3-seguridad.sql. Ese quita la clave de la tienda y deja entrar solo a los usuarios con permiso.
 -- Pegar todo esto en Supabase > SQL Editor > Run.
 -- ANTES de correrlo, cambia CAMBIA-ESTA-CLAVE (las dos veces) por una clave tuya, la misma que pones en Ajustes de la caja.
 
@@ -32,7 +32,7 @@ create policy "clave de la tienda" on public.registros for all to anon
 grant select, insert, update on public.registros to anon;
 
 -- Para que cada equipo se conecte solo al entrar con su usuario (sin el enlace de configuración).
--- Necesita la función puede_entrar() del panel (admin/supabase-panel.sql). Cambia CAMBIA-ESTA-CLAVE por la misma clave de arriba.
+-- Necesita la función puede_entrar() del panel (base-de-datos/1-panel-menu.sql). Cambia CAMBIA-ESTA-CLAVE por la misma clave de arriba.
 create or replace function public.clave_tienda() returns text
   language sql stable security definer set search_path to 'public'
 as $$ select case when public.puede_entrar() then 'CAMBIA-ESTA-CLAVE' end; $$;

@@ -1,5 +1,5 @@
 -- Pa'l Antojo · Delivery (repartidores). Correr UNA vez en Supabase > SQL Editor > Run. Se puede correr otra vez sin problema.
--- Necesita que ya esté corrido caja/supabase-seguridad.sql (usa puede_entrar() y es_admin()).
+-- Necesita que ya esté corrido base-de-datos/3-seguridad.sql (usa puede_entrar() y es_admin()).
 --
 -- Cómo funciona la regla:
 -- 1. La tienda pide repartidor para un pedido. Se le ofrece SOLO al repartidor disponible más cerca del local (GPS del teléfono).
@@ -80,7 +80,7 @@ $$;
 create or replace function public.dlv_km_local(la double precision, lo double precision) returns double precision
 language sql immutable set search_path = '' as $$ select public.dlv_km(10.0148284, -68.1568891, la, lo); $$;
 
--- Aviso al teléfono (solo si se configuró el paso 2: caja/supabase-delivery-avisos.sql). Si no, no hace nada.
+-- Aviso al teléfono (solo si se configuró el paso 2: base-de-datos/5-delivery-avisos.sql). Si no, no hace nada.
 create table if not exists public.dlv_privado (id int primary key default 1 check (id = 1), url text, secreto text);
 alter table public.dlv_privado enable row level security;
 revoke all on public.dlv_privado from anon, authenticated;

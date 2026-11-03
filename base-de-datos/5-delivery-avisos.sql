@@ -2,7 +2,7 @@
 -- Sin este paso todo funciona igual, pero el aviso solo suena con la app abierta.
 -- Antes de correrlo:
 --   a) Supabase > Edge Functions > Deploy a new function > Via Editor. Nombre: avisar-repartidor.
---      Pegar supabase/functions/avisar-repartidor/index.ts y Deploy. En los ajustes de la función, APAGAR "Verify JWT".
+--      Pegar base-de-datos/funciones/avisar-repartidor/index.ts y Deploy. En los ajustes de la función, APAGAR "Verify JWT".
 --   b) Edge Functions > Secrets: agregar VAPID_PUBLICA, VAPID_PRIVADA y SECRETO (los valores están en la guía de Hugo, fuera del repo).
 --   c) Cambiar abajo CAMBIA-EL-SECRETO por el mismo SECRETO. Pegar todo en SQL Editor > Run.
 

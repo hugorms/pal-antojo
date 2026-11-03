@@ -231,7 +231,7 @@ async function esAdmin() {
   const r = await fetch(`${SB_URL}/rest/v1/rpc/es_admin`, {
     method: "POST", headers: { apikey: clave, authorization: "Bearer " + await token(), "content-type": "application/json" }, body: "{}",
   });
-  if (r.status === 404) throw new Error("Falta correr en Supabase el SQL del panel (admin/supabase-panel.sql).");
+  if (r.status === 404) throw new Error("Falta correr en Supabase el SQL del panel (base-de-datos/1-panel-menu.sql).");
   if (!r.ok) throw new Error("No se pudo revisar el permiso (" + r.status + ").");
   return (await r.json()) === true;
 }

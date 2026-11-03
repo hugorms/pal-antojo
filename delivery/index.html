@@ -118,7 +118,7 @@ async function rpc(f, cuerpo) {
   const r = await fetch(`${SB_URL}/rest/v1/rpc/${f}`, { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + s.access_token, "content-type": "application/json" }, body: JSON.stringify(cuerpo || {}) });
   const d = await r.json().catch(() => null);
   if (!r.ok) {
-    const e = new Error(r.status === 404 ? "Falta instalar el delivery en la base de datos (supabase-delivery.sql)." : (d && d.message) || "Error " + r.status);
+    const e = new Error(r.status === 404 ? "Falta instalar el delivery en la base de datos (base-de-datos/4-delivery.sql)." : (d && d.message) || "Error " + r.status);
     if (r.status === 401 || r.status === 403) e.sesion = true; throw e;
   }
   return d;

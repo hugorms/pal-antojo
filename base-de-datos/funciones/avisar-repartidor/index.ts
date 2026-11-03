@@ -2,7 +2,7 @@
 // Pa'l Antojo · Aviso al teléfono del repartidor (Web Push), para que le llegue aunque tenga la app cerrada o el teléfono bloqueado.
 // Va en Supabase > Edge Functions > nueva función "avisar-repartidor" (pegar este archivo completo).
 // Al crearla, APAGAR "Verify JWT" (la llama la base de datos con su propio secreto, x-secreto).
-// Secretos (Edge Functions > Secrets): VAPID_PUBLICA, VAPID_PRIVADA, SECRETO. Ver caja/supabase-delivery-avisos.sql.
+// Secretos (Edge Functions > Secrets): VAPID_PUBLICA, VAPID_PRIVADA, SECRETO. Ver base-de-datos/5-delivery-avisos.sql.
 // No usa librerías de afuera: todo con el cifrado que trae el servidor (WebCrypto), según el estándar Web Push (RFC 8291 y 8292).
 
 const enc = new TextEncoder();

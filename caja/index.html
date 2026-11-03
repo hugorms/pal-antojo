@@ -1657,7 +1657,7 @@ function siguienteImpresion() {
 
 // ---------- sincronización con Supabase ----------
 // Cada cosa (pedido, día, inventario, movimiento) es una fila en la tabla registros con su número de versión (rev).
-// Con la base de datos blindada (caja/supabase-seguridad.sql) se entra con el usuario de la tienda y guardar compara la rev:
+// Con la base de datos blindada (base-de-datos/3-seguridad.sql) se entra con el usuario de la tienda y guardar compara la rev:
 // si otro equipo guardó algo más nuevo, la base de datos lo devuelve y aquí se unen los dos cambios, sin perder ninguno.
 // Mientras no se corra ese SQL, sigue funcionando como antes con la clave de la tienda.
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
@@ -1891,7 +1891,7 @@ window.addEventListener("offline", () => pintarSync());
 setInterval(sincronizar, 5000);
 
 // ---------- Delivery: buscar repartidor (el más cerca del local primero), seguir el pedido y las cuentas de envíos ----------
-// La regla vive en la base de datos (caja/supabase-delivery.sql). Los repartidores usan la app /delivery/.
+// La regla vive en la base de datos (base-de-datos/4-delivery.sql). Los repartidores usan la app /delivery/.
 let dlv = { datos: LS.get("pa.dlv", null), error: "", sinSQL: false, rango: LS.get("pa.dlvRango", "hoy"), vuelta: 0, antes: {} };
 async function dlvRpc(f, cuerpo) {
   const s = await sesionViva(); if (!s) throw new Error("Entra con tu usuario de la tienda.");
@@ -1998,7 +1998,7 @@ function dlvTarjeta(e) {
   </article>`;
 }
 function pDelivery() {
-  if (dlv.sinSQL) return `<section class="card"><h3>Falta un paso</h3><p>Para usar el delivery, corre <b>caja/supabase-delivery.sql</b> en Supabase › SQL Editor (una sola vez). Después vuelve aquí.</p><button class="btn" data-a="dlvRecargar">Ya lo corrí</button></section>`;
+  if (dlv.sinSQL) return `<section class="card"><h3>Falta un paso</h3><p>Para usar el delivery, corre <b>base-de-datos/4-delivery.sql</b> en Supabase › SQL Editor (una sola vez). Después vuelve aquí.</p><button class="btn" data-a="dlvRecargar">Ya lo corrí</button></section>`;
   if (!dlv.datos) return `<p class="empty">${dlv.error ? esc(dlv.error) : "Cargando el delivery…"}</p>`;
   const d = dlv.datos, rs = d.repartidores || [], por = dlvPorDespachar(), act = dlvActivas();
   const libres = rs.filter(r => r.activo && r.disponible && !r.ocupado).length, enCalle = rs.filter(r => r.activo && r.ocupado).length;
