@@ -8,10 +8,11 @@
 -- 3. Si ya se le ofreció a todos y nadie aceptó, queda "sin repartidor": la tienda lo vuelve a ofrecer o lo asigna a mano.
 -- 4. Un repartidor que no abre la app en 10 minutos deja de contar como disponible.
 --
--- Para dar de alta un repartidor:
--- 1) Supabase > Authentication > Users > Add user (con Auto Confirm), con su correo y una contraseña.
--- 2) En la app de la tienda: Delivery > Repartidores > Agregar (o aquí: insert into public.repartidores (email, nombre, telefono) values ('correo', 'Nombre', '0412...');)
--- El repartidor entra en /delivery/ con ese correo. Los repartidores NO ven la caja, solo sus pedidos.
+-- Para dar de alta un repartidor (dos formas):
+-- a) Él mismo: abre /delivery/, toca "Crear mi cuenta" y llena su perfil. Le llega a la tienda como solicitud y el dueño la aprueba en Delivery > Repartidores.
+--    (En Supabase > Authentication > Sign In / Providers > Email: "Allow new users to sign up" ENCENDIDO y "Confirm email" APAGADO.)
+-- b) El dueño: Supabase > Authentication > Users > Add user (con Auto Confirm) y después Delivery > Repartidores > Agregar.
+-- Los repartidores NO ven la caja, solo sus pedidos. El dueño puede editarlos, desactivarlos o borrarlos.
 
 -- ---------- tablas ----------
 create table if not exists public.repartidores (
@@ -46,6 +47,11 @@ create table if not exists public.entregas (
   pedido_por text,
   actualizado timestamptz not null default now()
 );
+-- Solicitudes: el repartidor que se registra solo queda sin aprobar hasta que el dueño lo acepte
+alter table public.repartidores add column if not exists aprobado boolean not null default true;
+alter table public.repartidores add column if not exists borrado boolean not null default false;
+alter table public.repartidores add column if not exists solicitado timestamptz;
+
 create index if not exists entregas_estado on public.entregas (estado);
 create index if not exists entregas_repartidor on public.entregas (repartidor, creado);
 
@@ -64,10 +70,31 @@ revoke all on function public.correo_confirmado() from public, anon;
 
 create or replace function public.es_repartidor() returns boolean
 language sql stable security definer set search_path = public as $$
-  select public.correo_confirmado() and exists (select 1 from public.repartidores where email = lower(auth.jwt() ->> 'email') and activo);
+  select public.correo_confirmado() and exists (select 1 from public.repartidores where email = lower(auth.jwt() ->> 'email') and activo and aprobado and not borrado);
 $$;
 revoke all on function public.es_repartidor() from public, anon;
 grant execute on function public.es_repartidor() to authenticated;
+
+-- La app del delivery deja entrar a cualquier usuario con cuenta: adentro ve su solicitud o sus pedidos según lo que diga dlv_quien_soy()
+create or replace function public.dlv_puedo_entrar() returns boolean
+language sql stable security definer set search_path = public as $$ select public.correo_confirmado(); $$;
+revoke all on function public.dlv_puedo_entrar() from public, anon;
+grant execute on function public.dlv_puedo_entrar() to authenticated;
+
+-- Protección: como cualquiera puede crearse una cuenta (para pedir ser repartidor), nadie puede registrarse con un correo
+-- que ya esté en administradores o personal. Por eso, al dar de alta personal: PRIMERO crear el usuario y DESPUÉS ponerlo en la lista.
+create or replace function public.proteger_correos_equipo() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from public.administradores where email = lower(new.email))
+     or exists (select 1 from public.personal where email = lower(new.email)) then
+    raise exception 'Ese correo es del equipo de la tienda. El dueño crea ese usuario desde Supabase.' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+revoke all on function public.proteger_correos_equipo() from public, anon, authenticated;
+drop trigger if exists proteger_correos_equipo on auth.users;
+create trigger proteger_correos_equipo before insert on auth.users for each row execute function public.proteger_correos_equipo();
 
 -- ---------- cuentas ----------
 -- Distancia en línea recta, en km
@@ -109,7 +136,7 @@ begin
   if not found or e.estado <> 'buscando' then return; end if;
   select x.email, x.nombre into r
   from public.repartidores x
-  where x.activo and x.disponible and x.visto > now() - interval '10 minutes'
+  where x.activo and x.aprobado and not x.borrado and x.disponible and x.visto > now() - interval '10 minutes'
     and not (x.email = any (e.ofrecidos))
   order by
     exists (select 1 from public.entregas o where o.repartidor = x.email and o.estado in ('asignado', 'en_camino')),  -- libres primero
@@ -215,7 +242,7 @@ begin
     'entregas', coalesce((select jsonb_agg(to_jsonb(e) - 'dlat' - 'dlng' order by e.creado desc) from public.entregas e
                           where e.creado > now() - make_interval(days => least(greatest(dias, 1), 120)) or e.estado in ('buscando', 'asignado', 'en_camino')), '[]'),
     'repartidores', coalesce((select jsonb_agg(jsonb_build_object(
-        'email', x.email, 'nombre', x.nombre, 'telefono', x.telefono, 'activo', x.activo,
+        'email', x.email, 'nombre', x.nombre, 'telefono', x.telefono, 'activo', x.activo, 'aprobado', x.aprobado, 'borrado', x.borrado, 'solicitado', x.solicitado,
         'disponible', x.disponible and x.visto > now() - interval '10 minutes',
         'gps', x.lat is not null and x.gps_visto > now() - interval '3 minutes',
         'km', round(public.dlv_km_local(x.lat, x.lng)::numeric, 1),
@@ -238,20 +265,74 @@ end $$;
 revoke all on function public.dlv_liquidar(text) from public, anon;
 grant execute on function public.dlv_liquidar(text) to authenticated;
 
--- Agregar o cambiar un repartidor (solo el dueño). El usuario (correo y contraseña) se crea aparte en Supabase > Authentication.
+-- Agregar, cambiar o aprobar un repartidor (solo el dueño). Guardar desde la caja también aprueba la solicitud.
 create or replace function public.dlv_guardar_repartidor(p jsonb) returns void
 language plpgsql security definer set search_path = public as $$
 declare correo text := lower(trim(p ->> 'email'));
 begin
   if not public.es_admin() then raise exception 'solo el dueño' using errcode = '42501'; end if;
   if correo !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or coalesce(trim(p ->> 'nombre'), '') = '' then raise exception 'falta correo o nombre' using errcode = '22023'; end if;
-  insert into public.repartidores (email, nombre, telefono, activo)
-  values (correo, left(trim(p ->> 'nombre'), 60), left(p ->> 'telefono', 30), coalesce((p ->> 'activo')::boolean, true))
-  on conflict (email) do update set nombre = excluded.nombre, telefono = excluded.telefono, activo = excluded.activo,
+  insert into public.repartidores (email, nombre, telefono, activo, aprobado, borrado)
+  values (correo, left(trim(p ->> 'nombre'), 60), left(p ->> 'telefono', 30), coalesce((p ->> 'activo')::boolean, true), true, false)
+  on conflict (email) do update set nombre = excluded.nombre, telefono = excluded.telefono, activo = excluded.activo, aprobado = true, borrado = false,
     disponible = case when excluded.activo then repartidores.disponible else false end;
 end $$;
 revoke all on function public.dlv_guardar_repartidor(jsonb) from public, anon;
 grant execute on function public.dlv_guardar_repartidor(jsonb) to authenticated;
+
+-- Borrar un repartidor o rechazar su solicitud (solo el dueño). Si ya hizo entregas, se esconde pero sus cuentas quedan.
+create or replace function public.dlv_borrar_repartidor(quien text) returns void
+language plpgsql security definer set search_path = public as $$
+declare correo text := lower(trim(quien));
+begin
+  if not public.es_admin() then raise exception 'solo el dueño' using errcode = '42501'; end if;
+  if exists (select 1 from public.entregas where repartidor = correo and estado in ('asignado', 'en_camino')) then
+    raise exception 'Lleva un pedido ahora. Reasígnalo o espera que lo entregue.' using errcode = '22023';
+  end if;
+  update public.entregas set oferta_a = null, oferta_hasta = null where oferta_a = correo and estado = 'buscando';
+  if exists (select 1 from public.entregas where repartidor = correo) then
+    update public.repartidores set borrado = true, activo = false, disponible = false, push = null where email = correo;
+  else
+    delete from public.repartidores where email = correo;
+  end if;
+end $$;
+revoke all on function public.dlv_borrar_repartidor(text) from public, anon;
+grant execute on function public.dlv_borrar_repartidor(text) to authenticated;
+
+-- El repartidor nuevo manda su perfil (nombre y teléfono). Queda como solicitud hasta que el dueño lo apruebe.
+create or replace function public.dlv_registrarme(p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare yo text := lower(auth.jwt() ->> 'email'); r public.repartidores; nom text := left(trim(coalesce(p ->> 'nombre', '')), 60); tel text := left(trim(coalesce(p ->> 'telefono', '')), 30);
+begin
+  if not public.correo_confirmado() or yo is null then raise exception 'sin permiso' using errcode = '42501'; end if;
+  if nom = '' or length(regexp_replace(tel, '\D', '', 'g')) < 7 then raise exception 'Pon tu nombre y tu teléfono.' using errcode = '22023'; end if;
+  select * into r from public.repartidores where email = yo;
+  if found and r.borrado then raise exception 'La tienda te quitó del delivery. Habla con la tienda.' using errcode = '42501'; end if;
+  if found then
+    update public.repartidores set nombre = nom, telefono = tel where email = yo;
+  else
+    if (select count(*) from public.repartidores where not aprobado and not borrado) >= 30 then
+      raise exception 'Hay muchas solicitudes pendientes. Avísale a la tienda.' using errcode = '22023';
+    end if;
+    insert into public.repartidores (email, nombre, telefono, activo, aprobado, solicitado) values (yo, nom, tel, true, false, now());
+  end if;
+  return public.dlv_quien_soy();
+end $$;
+revoke all on function public.dlv_registrarme(jsonb) from public, anon;
+grant execute on function public.dlv_registrarme(jsonb) to authenticated;
+
+-- En qué va la cuenta del que abrió la app del delivery
+create or replace function public.dlv_quien_soy() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare yo text := lower(auth.jwt() ->> 'email'); r public.repartidores;
+begin
+  if not public.correo_confirmado() then raise exception 'sin permiso' using errcode = '42501'; end if;
+  select * into r from public.repartidores where email = yo;
+  return jsonb_build_object('email', yo, 'registrado', r.email is not null, 'nombre', r.nombre, 'telefono', r.telefono,
+    'aprobado', coalesce(r.aprobado, false), 'activo', coalesce(r.activo, false), 'borrado', coalesce(r.borrado, false));
+end $$;
+revoke all on function public.dlv_quien_soy() from public, anon;
+grant execute on function public.dlv_quien_soy() to authenticated;
 
 -- ---------- para el repartidor (app /delivery/) ----------
 -- Cada pocos segundos: dice si está disponible y dónde está, y recibe su oferta, sus pedidos y sus cuentas.
