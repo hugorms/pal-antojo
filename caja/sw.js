@@ -1,5 +1,5 @@
 // Caja Pa'l Antojo: funciona sin internet y recibe lo que se comparte desde WhatsApp (Android)
-const CACHE = "caja-v7";
+const CACHE = "caja-v8";
 const ARCHIVOS = ["./", "./index.html", "./acceso.js", "./personal.js", "../menu.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png"];
 
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting())); });

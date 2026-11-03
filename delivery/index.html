@@ -80,7 +80,7 @@ input { font: 700 1.1rem var(--body); padding: 10px 12px; border: 1.5px solid va
 details summary { cursor: pointer; font-weight: 800; }
 #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
 </style>
-<script src="../caja/acceso.js" data-permiso="es_repartidor" data-texto="Para los repartidores de Pa'l Antojo. Entra con el correo y la contraseña que te dio la tienda."></script>
+<script src="../caja/acceso.js" data-permiso="dlv_puedo_entrar" data-registro="1" data-texto="Para los repartidores de Pa'l Antojo. Entra con tu correo y contraseña, o crea tu cuenta si eres nuevo."></script>
 </head>
 <body>
 <header class="top">
@@ -119,7 +119,7 @@ async function rpc(f, cuerpo) {
   const d = await r.json().catch(() => null);
   if (!r.ok) {
     const e = new Error(r.status === 404 ? "Falta instalar el delivery en la base de datos (base-de-datos/4-delivery.sql)." : (d && d.message) || "Error " + r.status);
-    if (r.status === 401 || r.status === 403) e.sesion = true; throw e;
+    if (r.status === 401) e.sesion = true; if (r.status === 403) e.permiso = true; throw e;
   }
   return d;
 }
@@ -129,6 +129,38 @@ function salir() { if (disponible) { disponible = false; LS.set("dlv.disponible"
 let disponible = LS.get("dlv.disponible", false);
 let datos = null, error = "", gps = null, gpsError = "", vigia = null, ultimaOferta = LS.get("dlv.ultimaOferta", ""), avisoPermiso = typeof Notification !== "undefined" ? Notification.permission : "no";
 let entregando = {}, ocupado = false, pantalla = null;
+// Cuenta del repartidor: registrado (mandó su perfil), aprobado (la tienda lo aceptó), activo, borrado
+let cuenta = null, corrigiendo = false;
+const cuentaOk = () => cuenta && cuenta.registrado && cuenta.aprobado && cuenta.activo && !cuenta.borrado;
+async function revisarCuenta() {
+  cuenta = await rpc("dlv_quien_soy");
+  // Si acaba de crear la cuenta, se manda solo el perfil que llenó
+  const pend = LS.get("dlv.registro", null);
+  if (!cuenta.registrado && pend && pend.nombre) { try { cuenta = await rpc("dlv_registrarme", { p: pend }); } catch (e) { error = e.message; } LS.set("dlv.registro", null); }
+  $("#quien").textContent = cuenta.nombre || "";
+}
+async function mandarPerfil(b) {
+  const p = { nombre: $("#pf-nombre").value.trim(), telefono: $("#pf-tel").value.trim() };
+  if (!p.nombre || (p.telefono.match(/\d/g) || []).length < 7) { toast("Pon tu nombre y tu teléfono completo."); return; }
+  b.disabled = true;
+  try { cuenta = await rpc("dlv_registrarme", { p }); corrigiendo = false; error = ""; toast("Listo. La tienda ya tiene tu solicitud."); } catch (e) { toast(e.message); }
+  b.disabled = false; pintar();
+}
+function pantallaCuenta() {
+  const c = cuenta || {};
+  if (c.borrado) return `<section class="card"><h2>Ya no estás en el delivery</h2><p>La tienda te quitó de la lista de repartidores. Si es un error, habla con la tienda.</p></section>`;
+  if (!c.registrado || corrigiendo) return `<section class="card"><h2>Tu perfil</h2>
+    <p class="hint">Con estos datos la tienda te reconoce y te llama si hace falta.</p>
+    <label>Nombre y apellido<input id="pf-nombre" maxlength="60" value="${esc(c.nombre || "")}"></label>
+    <label>Teléfono (WhatsApp)<input id="pf-tel" type="tel" inputmode="tel" value="${esc(c.telefono || "")}" placeholder="0412-1234567"></label>
+    <button class="btn brand big" onclick="mandarPerfil(this)">${c.registrado ? "Guardar" : "Enviar solicitud"}</button>
+    ${c.registrado ? `<button class="btn ghost" onclick="corrigiendo=false;pintar()">Cancelar</button>` : ""}</section>`;
+  if (!c.aprobado) return `<section class="card"><h2>Solicitud enviada ✓</h2>
+    <p>La tienda ya tiene tu solicitud. Cuando te aprueben, esta pantalla cambia sola y empiezas a recibir pedidos.</p>
+    <div class="datos" style="grid-template-columns:1fr 1fr"><div><small>Nombre</small><b>${esc(c.nombre)}</b></div><div><small>Teléfono</small><b>${esc(c.telefono)}</b></div></div>
+    <button class="btn ghost" onclick="corrigiendo=true;pintar()">Corregir mis datos</button></section>`;
+  return `<section class="card"><h2>Estás desactivado</h2><p>La tienda te desactivó por ahora, así que no te llegan pedidos. Habla con la tienda.</p></section>`;
+}
 
 // GPS: solo mientras está disponible. Sirve para darle el pedido al que está más cerca del local.
 function vigilarGps() {
@@ -142,13 +174,18 @@ function soltarGps() { if (vigia !== null) navigator.geolocation.clearWatch(vigi
 async function latido() {
   if (ocupado) return; ocupado = true;
   try {
+    if (!cuentaOk()) { await revisarCuenta(); if (!cuentaOk()) return; }
     const p = { disponible };
     if (disponible && gps && Date.now() - gps.t < 120000) Object.assign(p, { lat: gps.lat, lng: gps.lng, precision: gps.precision });
     datos = await rpc("dlv_yo", { p }); error = "";
     if (datos.yo) $("#quien").textContent = datos.yo.nombre || "";
     const o = datos.oferta;
     if (o && o.id !== ultimaOferta) { ultimaOferta = o.id; LS.set("dlv.ultimaOferta", o.id); avisarOferta(o); }
-  } catch (e) { error = e.message; if (e.sesion && window.salirApp) window.salirApp(); }
+  } catch (e) {
+    error = e.message;
+    if (e.sesion && window.salirApp) window.salirApp();
+    if (e.permiso) { cuenta = null; datos = null; error = ""; } // lo desactivaron o lo borraron: se revisa la cuenta en la próxima vuelta
+  }
   finally { ocupado = false; pintar(); }
 }
 
@@ -250,6 +287,7 @@ function mapa(m) {
   return m.direccion ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(m.direccion + ", Campo de Carabobo, Valencia") : "";
 }
 function pintar() {
+  if (cuenta && !cuentaOk()) { if (!document.activeElement || !/^pf-/.test(document.activeElement.id || "")) $("#app").innerHTML = (error ? `<p class="msg bad">${esc(error)}</p>` : "") + pantallaCuenta(); return; }
   if (!datos && error) { $("#app").innerHTML = `<p class="msg bad">${esc(error)}</p><button class="btn ghost" onclick="latido()">Intentar de nuevo</button>`; return; }
   if (!datos) return;
   if (faltanPermisos()) { $("#app").innerHTML = pantallaPermisos(); return; }

@@ -1906,7 +1906,8 @@ const dlvNombre = email => { const r = ((dlv.datos && dlv.datos.repartidores) ||
 const dlvActivas = () => ((dlv.datos && dlv.datos.entregas) || []).filter(e => ["buscando", "asignado", "en_camino", "sin_repartidor"].includes(e.estado));
 // Pedidos de delivery de hoy que todavía no tienen repartidor buscado
 const dlvPorDespachar = () => pedidosDe(ahoraCaracas().fecha).filter(p => p.entrega === "Delivery" && (p.estado === "cocina" || p.estado === "listo") && (!dlvEntrega(p.id) || dlvEntrega(p.id).estado === "cancelado") && !p.mototaxi);
-const dlvPendientes = () => dlv.datos ? dlvPorDespachar().length + dlvActivas().filter(e => e.estado === "sin_repartidor").length : 0;
+const dlvSolicitudes = () => ((dlv.datos && dlv.datos.repartidores) || []).filter(r => !r.aprobado && !r.borrado);
+const dlvPendientes = () => dlv.datos ? dlvPorDespachar().length + dlvActivas().filter(e => e.estado === "sin_repartidor").length + (dlv.datos.admin ? dlvSolicitudes().length : 0) : 0;
 let dlvSegCorriendo = false;
 async function dlvTraer(forzar) {
   if (!navigator.onLine || dlvSegCorriendo) return;
@@ -1935,6 +1936,10 @@ async function dlvTraer(forzar) {
         if (p.mototaxi !== n || entregar) cambiarEstadoCallado(e.id, x => { x.mototaxi = n; if (entregar) x.estado = "entregado"; });
       }
     });
+    // Aviso de solicitudes nuevas de repartidores
+    const antes = new Set(dlvSolicitudes().map(r => r.email));
+    const nuevas = (d.repartidores || []).filter(r => !r.aprobado && !r.borrado && !antes.has(r.email));
+    if (dlv.datos && d.admin && nuevas.length) { toast(`${nuevas.map(r => r.nombre).join(", ")} pidió ser repartidor. Apruébalo en Delivery.`); avisar(); }
     dlv.datos = d; dlv.error = ""; LS.set("pa.dlv", d);
   } catch (e) { dlv.error = e.message; }
   finally { dlvSegCorriendo = false; }
@@ -1966,7 +1971,7 @@ async function dlvPedir(id, quien, b) {
 const dlvKm = k => k == null ? "—" : String(k).replace(".", ",") + " km";
 const dlvHace = t => { if (!t) return "nunca"; const m = Math.round((Date.now() + (dlv.desfase || 0) - Date.parse(t)) / 60000); return m < 1 ? "ahora" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
 function dlvSelect(id, actual) {
-  const rs = ((dlv.datos && dlv.datos.repartidores) || []).filter(r => r.activo);
+  const rs = ((dlv.datos && dlv.datos.repartidores) || []).filter(r => r.activo && r.aprobado && !r.borrado);
   if (!rs.length) return "";
   return `<span class="dlvAsig"><select data-dlvsel="${esc(id)}" aria-label="Asignar a"><option value="">Asignar a…</option>${rs.map(r => `<option value="${esc(r.email)}"${r.email === actual ? " disabled" : ""}>${esc(r.nombre)}${r.disponible ? (r.ocupado ? " (ocupado)" : " (disponible)") : ""}</option>`).join("")}</select><button class="btn ghost" data-a="dlvAsignar" data-id="${esc(id)}">Asignar</button></span>`;
 }
@@ -2000,19 +2005,24 @@ function dlvTarjeta(e) {
 function pDelivery() {
   if (dlv.sinSQL) return `<section class="card"><h3>Falta un paso</h3><p>Para usar el delivery, corre <b>base-de-datos/4-delivery.sql</b> en Supabase › SQL Editor (una sola vez). Después vuelve aquí.</p><button class="btn" data-a="dlvRecargar">Ya lo corrí</button></section>`;
   if (!dlv.datos) return `<p class="empty">${dlv.error ? esc(dlv.error) : "Cargando el delivery…"}</p>`;
-  const d = dlv.datos, rs = d.repartidores || [], por = dlvPorDespachar(), act = dlvActivas();
+  const d = dlv.datos, todos = d.repartidores || [], rs = todos.filter(r => r.aprobado && !r.borrado), soli = todos.filter(r => !r.aprobado && !r.borrado), por = dlvPorDespachar(), act = dlvActivas();
   const libres = rs.filter(r => r.activo && r.disponible && !r.ocupado).length, enCalle = rs.filter(r => r.activo && r.ocupado).length;
   // Cuentas por repartidor en el rango elegido
   const fechas = new Set(dlv.rango === "hoy" ? [ahoraCaracas().fecha] : fechasRango(dlv.rango));
   const hechas = (d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && fechas.has(ahoraCaracas(new Date(e.entregado)).fecha));
-  const cuentas = rs.map(r => {
+  const cuentas = todos.filter(r => r.aprobado).map(r => {
     const mias = hechas.filter(e => e.repartidor === r.email), sinPagar = (d.entregas || []).filter(e => e.repartidor === r.email && e.estado === "entregado" && !e.liquidado);
     return { r, n: mias.length, envios: mias.reduce((a, e) => a + +e.envio, 0), efectivo: mias.reduce((a, e) => a + +(e.cobrado || 0), 0), debe: sinPagar.reduce((a, e) => a + +e.envio, 0), nDebe: sinPagar.length };
-  }).filter(c => c.n || c.debe || c.r.activo);
+  }).filter(c => c.n || c.debe || (c.r.activo && !c.r.borrado));
   const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
   return `
   ${dlv.error ? `<p class="msg bad">${esc(dlv.error)}</p>` : ""}
   <div class="kpis"><div class="kpi main"><small>Disponibles</small><b>${libres}</b></div><div class="kpi"><small>Llevando pedido</small><b>${enCalle}</b></div><div class="kpi"><small>Envíos hoy</small><b>${fmt((d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && ahoraCaracas(new Date(e.entregado)).fecha === ahoraCaracas().fecha).reduce((a, e) => a + +e.envio, 0))}</b></div></div>
+  ${soli.length ? `<section class="card"><h3>Solicitudes nuevas (${soli.length})</h3>
+    ${soli.map(r => `<div class="dlvFila"><div><b>${esc(r.nombre)}</b> <span class="note">${esc(r.telefono || "")} · ${esc(r.email)} · ${esc(dlvHace(r.solicitado))}</span></div>
+      <div class="acts">${d.admin ? `<button class="btn brand" data-a="dlvAprobar" data-email="${esc(r.email)}">Aprobar</button><button class="btn link" data-a="dlvRechazar" data-email="${esc(r.email)}">Rechazar</button>` : `<span class="note">La aprueba el dueño.</span>`}</div></div>`).join("")}
+    <p class="hint">Se registraron solos desde la app del delivery. Hasta que los apruebes no les llegan pedidos.</p>
+  </section>` : ""}
   <section class="card"><h3>Por despachar</h3>
     ${por.length ? por.map(p => `<div class="dlvFila"><div><b>${esc(p.cliente || "Cliente")}</b> <span class="note">${esc(h12(p.hora))} · ${p.estado === "listo" ? "listo" : "en cocina"} · envío ${fmt(p.delivery || 0)}</span>${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}</div>
       <div class="acts"><button class="btn brand" data-a="dlvPedir" data-id="${esc(p.id)}">🛵 Buscar repartidor</button>${dlvSelect(p.id)}</div></div>`).join("")
@@ -2021,21 +2031,22 @@ function pDelivery() {
   ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : ""}
   <section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
     ${cuentas.length ? `<div class="tbl apilar"><table><thead><tr><th>Repartidor</th><th>Pedidos</th><th>Envíos</th><th>Efectivo cobrado</th><th>Sin pagarle</th><th></th></tr></thead><tbody>
-      ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
+      ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}${c.r.borrado ? ` <small class="note">(ya no está)</small>` : ""}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
         <td class="tact">${c.debe > 0 ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</td></tr>`).join("")}
     </tbody></table></div>` : `<p class="note">Todavía no hay entregas.</p>`}
     <p class="hint">Envíos = lo que se le cobró al cliente por el delivery. "Sin pagarle" son los envíos que todavía no se le han pagado al repartidor. El efectivo cobrado lo trae al local.</p>
   </section>
   <section class="card"><h3>Repartidores</h3>
     ${rs.length ? `<div class="tbl apilar"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Del local</th><th>Avisos</th><th>Última vez</th><th></th></tr></thead><tbody>
-      ${rs.map(r => `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
+      ${rs.map(r => dlv.editando === r.email ? `<tr><td class="tpri" colspan="6"><div class="fields"><label>Nombre<input id="ed-nombre" value="${esc(r.nombre)}" maxlength="60"></label><label>Teléfono<input id="ed-tel" inputmode="tel" value="${esc(r.telefono || "")}"></label>
+          <button class="btn brand" data-a="dlvGuardarEd" data-email="${esc(r.email)}">Guardar</button><button class="btn ghost" data-a="dlvCancelarEd">Cancelar</button></div><small class="note">${esc(r.email)}</small></td></tr>` : `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
         <td data-l="Del local">${r.disponible ? (r.gps ? dlvKm(r.km) : "Sin GPS") : "—"}</td><td data-l="Avisos">${r.avisos ? "Activados" : "Solo con la app abierta"}</td><td data-l="Última vez">${esc(dlvHace(r.visto))}</td>
-        <td class="tact">${d.admin ? `<button class="btn ghost" data-a="dlvActivo" data-email="${esc(r.email)}">${r.activo ? "Desactivar" : "Activar"}</button>` : ""}</td></tr>`).join("")}
+        <td class="tact">${d.admin ? `<span class="dlvAsig"><button class="btn ghost" data-a="dlvEditar" data-email="${esc(r.email)}">Editar</button><button class="btn ghost" data-a="dlvActivo" data-email="${esc(r.email)}">${r.activo ? "Desactivar" : "Activar"}</button><button class="btn link" data-a="dlvBorrar" data-email="${esc(r.email)}">Borrar</button></span>` : ""}</td></tr>`).join("")}
     </tbody></table></div>` : `<p class="note">Todavía no hay repartidores.</p>`}
     ${d.admin ? `<details${rs.length ? "" : " open"}><summary>Agregar repartidor</summary>
       <div class="fields" style="margin-top:10px"><label>Nombre<input id="dr-nombre" autocomplete="off"></label><label>Teléfono<input id="dr-tel" inputmode="tel" autocomplete="off"></label><label class="ancho">Correo<input id="dr-email" type="email" autocomplete="off"></label>
       <button class="btn brand" data-a="dlvRep">Agregar</button></div>
-      <p class="hint" style="margin-top:8px">Antes, crea su usuario en Supabase › Authentication › Users › Add user (con Auto Confirm), con ese correo y una contraseña. Él entra en <b>${esc(location.origin)}/delivery/</b>, la instala en el teléfono y acepta la ubicación y las notificaciones.</p></details>` : ""}
+      <p class="hint" style="margin-top:8px">Lo más fácil: que el repartidor abra <b>${esc(location.origin)}/delivery/</b>, toque "Crea tu cuenta" y tú lo apruebes aquí arriba. Para agregarlo tú, primero crea su usuario en Supabase › Authentication › Users › Add user (con Auto Confirm).</p></details>` : ""}
   </section>
   <section class="card"><h3>Regla para repartir</h3>
     <p class="note">El pedido le llega primero al repartidor disponible más cerca del local. Si no acepta a tiempo o dice "No puedo", pasa al siguiente más cerca, y así. Los que ya llevan un pedido van de últimos; los que no tienen GPS, después de los que sí. Si nadie acepta, aquí sale "Sin repartidor".</p>
@@ -2064,6 +2075,22 @@ $("#main").addEventListener("click", async e => {
       const email = $("#dr-email").value.trim(), nombre = $("#dr-nombre").value.trim();
       if (!email || !nombre) { toast("Pon el nombre y el correo."); return; }
       await dlvRpc("dlv_guardar_repartidor", { p: { email, nombre, telefono: $("#dr-tel").value.trim(), activo: true } }); toast(`${nombre} agregado.`); await dlvTraer(true);
+    }
+    if (a === "dlvAprobar") {
+      const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email); if (!r) return;
+      await dlvRpc("dlv_guardar_repartidor", { p: { email: r.email, nombre: r.nombre, telefono: r.telefono, activo: true } }); toast(`${r.nombre} aprobado. Ya le pueden llegar pedidos.`); await dlvTraer(true);
+    }
+    if (a === "dlvRechazar" || a === "dlvBorrar") {
+      const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email); if (!r) return;
+      if (!confirm(a === "dlvRechazar" ? `¿Rechazar la solicitud de ${r.nombre}?` : `¿Borrar a ${r.nombre} del delivery? Sus cuentas de envíos se quedan guardadas.`)) return;
+      await dlvRpc("dlv_borrar_repartidor", { quien: r.email }); toast(a === "dlvRechazar" ? "Solicitud rechazada." : `${r.nombre} ya no está en el delivery.`); await dlvTraer(true);
+    }
+    if (a === "dlvEditar") dlv.editando = b.dataset.email;
+    if (a === "dlvCancelarEd") dlv.editando = "";
+    if (a === "dlvGuardarEd") {
+      const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email); if (!r) return;
+      const nombre = $("#ed-nombre").value.trim(); if (!nombre) { toast("Pon el nombre."); return; }
+      await dlvRpc("dlv_guardar_repartidor", { p: { email: r.email, nombre, telefono: $("#ed-tel").value.trim(), activo: r.activo } }); dlv.editando = ""; toast("Guardado."); await dlvTraer(true);
     }
     if (a === "dlvActivo") {
       const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email); if (!r) return;
@@ -2157,6 +2184,11 @@ const AYUDA = {
   "a:dlvLiquidar": "Anota que ya le pagaste los envíos pendientes a este repartidor.",
   "a:dlvRep": "Agrega un repartidor. Primero crea su usuario en Supabase.",
   "a:dlvActivo": "Desactivado, no le llegan pedidos ni puede entrar a la app del delivery.",
+  "a:dlvAprobar": "Acepta a este repartidor. Desde ya le pueden llegar pedidos.",
+  "a:dlvRechazar": "Rechaza la solicitud. No le llegan pedidos.",
+  "a:dlvEditar": "Cambia el nombre o el teléfono del repartidor.",
+  "a:dlvBorrar": "Quita al repartidor del delivery. Lo que ya cobró y entregó queda guardado en las cuentas.",
+  "a:dlvGuardarEd": "Guarda los cambios del repartidor.",
   "a:dlvRecargar": "Vuelve a revisar si el delivery ya está instalado.",
   "id:dlvSeg": "Cuánto tiempo tiene cada repartidor para aceptar antes de pasar al siguiente.",
   // Banco
