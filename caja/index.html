@@ -62,6 +62,11 @@ p { margin: 0; }
 }
 /* Vender: productos a la izquierda, factura a la derecha (abajo en el teléfono) */
 main.ancho { max-width: 1200px; }
+.ajustes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; }
+.ajustes .card { height: 100%; align-content: start; }
+.ajdatos { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: .92rem; }
+.ajdatos span { color: var(--muted, #6B6B6B); } .ajdatos b { overflow-wrap: anywhere; }
+.barra { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; } .barra i { display: block; height: 100%; background: #2E9E5B; } .barra.llena i { background: #B3261E; }
 .vender { display: grid; gap: 14px; align-items: start; }
 @media (min-width: 760px) { .vender { grid-template-columns: minmax(0, 1fr) 340px; } .vfac { position: sticky; top: calc(var(--topH, 48px) + 12px); } .vpie { display: none !important; } }
 .vbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -317,51 +322,22 @@ function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = fals
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ---------- datos guardados en este equipo ----------
-const PRODUCTOS_BASE = `Empanada de queso | 1,5 | sí
-Empanada de dominó | 1,5 | sí
-Empanada de pollo | 1,5 | sí
-Empanada de carne mechada | 1,5 | sí
-Empanada de pabellón | 1,5 | sí
-Empanada de jamón y queso | 1,75 | sí
-Empanada de carne molida | 2 | sí
-Empanada de chicharrón | 2 | sí
-Empanada de pizza | 2 | sí
-Empanada de cazón | 2 | sí
-Papa rellena de carne | 2,25 | sí
-Papa rellena de pollo | 2,25 | sí
-Pastelito | 1 | sí
-Malta | 1,25 | sí
-Refresco personal | 1,5 | sí
-Agua mineral | 1 | sí
-Tequeño de guayaba | 0,5 | sí
-Tequeño de Nutella | 0,75 | sí
-Hamburguesa Clásica | 5,5 | sí
-Hamburguesa Pa'l Antojo | 7 | sí
-Hamburguesa Doble | 8,5 | sí
-Hamburguesa De pollo | 5,5 | sí
-Marrón | 1 | no
-Café con leche o capuchino | 1,25 | no
-Jugo natural | 1 | no`;
-let cfg = Object.assign({ equipo: "", imprime: false, url: "", key: "", clave: "", tasa: 0, tasaAuto: true, tasaFecha: "", productos: PRODUCTOS_BASE }, LS.get("pa.cfg", {}));
+
+let cfg = Object.assign({ equipo: "", imprime: false, url: "", key: "", clave: "", tasa: 0, tasaAuto: true, tasaFecha: "" }, LS.get("pa.cfg", {}));
+delete cfg.productos; // la lista de productos ahora sale del menú del enlace
 let pedidos = LS.get("pa.pedidos", {});   // id → pedido
 let dias = LS.get("pa.dias", {});         // fecha → { abrir:{}, contado:{}, gastos:[], fondo }
 let cola = LS.get("pa.cola", []);         // ids por enviar a la nube
 let estadoSync = LS.get("pa.sync", { ultimo: "" });
 let borrador = LS.get("pa.borrador", null);
 const guardarTodo = () => { LS.set("pa.pedidos", pedidos); LS.set("pa.dias", dias); LS.set("pa.cola", cola); };
-const productos = () => cfg.productos.split("\n").map(l => l.split("|").map(x => x.trim())).filter(x => x[0])
-  .map(([n, p, c]) => ({ n, p: num(p), inv: !/^no$/i.test(c || "sí") }));
+// Productos para "Agregar producto" en Recibir: salen del mismo menú del enlace (antes era una lista aparte en Ajustes)
+const productos = () => catsVenta().flatMap(c => filasVenta(c).map(r => { const o = opcionesVenta(r.it, r.f)[0] || { d: "", p: 0 }; return { n: nombreVenta(c, r.it), d: o.d, p: o.p, label: r.f && c.items.length > 1 ? `${r.it.name} ${r.f}` : (r.f || nombreVenta(c, r.it)) }; }));
 
-// Configuración por enlace: ...#cfg=<base64>
-(function leerEnlaceConfig() {
-  const m = location.hash.match(/^#cfg=(.+)$/); if (!m) return;
-  try {
-    const c = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
-    ["url", "key", "clave"].forEach(k => { if (c[k]) cfg[k] = c[k]; });
-    LS.set("pa.cfg", cfg); history.replaceState(null, "", location.pathname);
-    setTimeout(() => toast("Equipo conectado a la caja de la tienda. Ponle un nombre en Ajustes."), 300);
-  } catch (_) { }
-})();
+// La conexión ya no se configura a mano ni por enlace (#cfg): era una puerta para mandar un equipo a otra base de datos.
+// Si alguien abre un enlace viejo con #cfg, se borra sin usarlo.
+if (/^#cfg=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+delete cfg.url; delete cfg.key;
 
 // ---------- cuentas de un pedido ----------
 const totalDe = p => p.devuelto ? 0 : p.items.reduce((a, i) => a + i.q * i.p, 0) + (p.delivery || 0);
@@ -388,7 +364,7 @@ function leerPedido(t) {
   });
   const entrega = g(/Forma de entrega:\s*(.+)/i);
   return {
-    id: g(/ID de venta:\s*(\S+)/i), cliente: g(/Cliente:\s*(.+)/i), telefono: g(/Tel[eé]fono:\s*(.+)/i),
+    id: g(/ID de venta:\s*(\S+)/i).replace(/[^A-Za-z0-9-]/g, "").slice(0, 40), cliente: g(/Cliente:\s*(.+)/i), telefono: g(/Tel[eé]fono:\s*(.+)/i),
     entrega: /delivery/i.test(entrega) ? "Delivery" : entrega ? "Retiro" : "", pago: g(/Forma de pago:\s*(.+)/i),
     direccion: g(/Direcci[oó]n:\s*(.+)/i), ubicacion: g(/Ubicaci[oó]n:\s*(\S+)/i), nota: g(/^Nota:\s*(.+)/im),
     items, delivery: num(g(/^Delivery:\s*([\d.,]+)\s*\$/im)),
@@ -432,7 +408,7 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina");
+  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina" || tab === "ajustes");
   const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
@@ -548,7 +524,7 @@ function editorHTML() {
         <span class="q"><button data-a="menos" data-k="${k}" aria-label="Quitar uno">−</button><span>${i.q}</span><button data-a="mas" data-k="${k}" aria-label="Agregar uno">+</button></span>
         <span class="nm">${esc(i.n)}${i.d ? `<small>${esc(i.d)}</small>` : ""}</span><span>${fmt(i.q * i.p)}</span>
         <button class="x" data-a="quitar" data-k="${k}" aria-label="Quitar ${esc(i.n)}">×</button></div>`).join("") || `<p class="note">Sin productos todavía.</p>`}</div>
-    <details id="agregar"${verAgregar ? " open" : ""}><summary>Agregar producto</summary><div class="chips" style="margin-top:8px">${productos().map((x, k) => `<button data-a="add" data-k="${k}">${esc(x.n)} · ${fmt(x.p)}</button>`).join("")}</div></details>
+    <details id="agregar"${verAgregar ? " open" : ""}><summary>Agregar producto</summary><div class="chips" style="margin-top:8px">${productos().map((x, k) => `<button data-a="add" data-k="${k}">${esc(x.label)} · ${fmt(x.p)}</button>`).join("")}</div></details>
     ${agotados.length ? `<p class="msg bad">Según el inventario no alcanza: ${agotados.map(i => esc(i.n)).join(", ")}. Revisa antes de cobrar.</p>` : ""}
     ${p.entrega === "Delivery" ? `<label style="max-width:180px">Delivery ($)<input id="e-delivery" inputmode="decimal" value="${p.delivery ? String(p.delivery).replace(".", ",") : ""}"></label>` : ""}
     <div class="tot"><span>Total</span><span>${fmt(tot)}${tasaHoy() ? ` · ${fbs(tot * tasaHoy())}` : ""}</span></div>` : `
@@ -634,6 +610,8 @@ function abrirBorrador(pedido, modo) {
 function leerTexto(t) {
   const d = leerPedido(t);
   if (!d.items.length) { toast("No encontré productos en ese mensaje. Revisa que sea el pedido completo."); return; }
+  // Un ID igual de hace más de 3 días (por ejemplo, del año pasado) no es un cambio: es otro pedido
+  if (d.id && pedidos[d.id] && Date.now() - (pedidos[d.id].creado || 0) > 3 * 864e5) { let n = 2; while (pedidos[`${d.id}-${n}`]) n++; d.id = `${d.id}-${n}`; }
   if (d.id && pedidos[d.id]) {
     // Mismo ID: es un cambio de un pedido ya pagado
     const p = pedidos[d.id];
@@ -652,11 +630,13 @@ function leerTexto(t) {
 // Los productos salen del mismo menú del enlace: el publicado desde el panel (menu.json) o menu.js
 const MENU_URL = "https://ymzwomnzjfxznmpdouad.supabase.co/storage/v1/object/public/menu/menu.json";
 const menuOk = m => Array.isArray(m) && m.length > 0 && m.every(c => c && c.cat && Array.isArray(c.items));
-let menuVenta = (() => { const m = LS.get("pa.menu", null); return menuOk(m) ? m : (typeof MENU_BASE !== "undefined" ? MENU_BASE : []); })();
+const limpiarMenu = v => typeof v === "string" ? v.replace(/[<>"`]/g, "") : Array.isArray(v) ? v.map(limpiarMenu)
+  : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== "__proto__").map(([k, x]) => [k, limpiarMenu(x)])) : v;
+let menuVenta = (() => { const m = LS.get("pa.menu", null); return limpiarMenu(menuOk(m) ? m : (typeof MENU_BASE !== "undefined" ? MENU_BASE : [])); })();
 function traerMenu() {
   fetch(MENU_URL + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(m => {
     if (!menuOk(m)) return;
-    LS.set("pa.menu", m); menuVenta = m;
+    LS.set("pa.menu", m); menuVenta = limpiarMenu(m);
     if (tab === "vender" && venta.paso === "agregar" && !$("#main").contains(document.activeElement)) pintar();
   }).catch(() => {});
 }
@@ -818,7 +798,8 @@ function vListo() {
 function confirmarVenta() {
   if (erroresCobro().length) return refrescarCobro();
   const c = cuentaVenta(), ah = ahoraCaracas(), quien = cfg.equipo || "Sin nombre", t = tasaHoy();
-  const p = pedidoVacio("mostrador");
+  let p = pedidoVacio("mostrador"); for (let i = 0; pedidos[p.id] && i < 20; i++) p = pedidoVacio("mostrador");
+  if (pedidos[p.id]) p.id += uid().slice(0, 3).toUpperCase();
   p.items = venta.items.map(i => ({ q: i.q, n: i.n, d: i.d, p: i.p }));
   // Se guarda lo que queda en la caja: lo recibido menos el vuelto
   p.pagos = c.pagos.filter(y => y.aplica > 0.004).map(({ x, aplica }) => ({ id: uid(), forma: x.forma, ref: x.ref || "", banco: x.banco || "",
@@ -893,7 +874,7 @@ $("#main").addEventListener("click", e => {
     const p = borrador.pedido;
     if (a === "menos" || a === "mas") { const it = p.items[+b.dataset.k]; it.q += a === "mas" ? 1 : -1; if (it.q <= 0) p.items.splice(+b.dataset.k, 1); }
     if (a === "quitar") p.items.splice(+b.dataset.k, 1);
-    if (a === "add") { const x = productos()[+b.dataset.k]; const f = p.items.find(i => norm(i.n) === norm(x.n) && !i.d); if (f) f.q++; else p.items.push({ q: 1, n: x.n, d: "", p: x.p }); }
+    if (a === "add") { const x = productos()[+b.dataset.k]; const f = p.items.find(i => norm(i.n) === norm(x.n) && norm(i.d) === norm(x.d || "")); if (f) f.q++; else p.items.push({ q: 1, n: x.n, d: x.d || "", p: x.p }); }
     if (a === "pago") {
       const cub = cubiertoDe(p, borrador.pagos.map(x => ({ usd: usdDe(x) })));
       const falta = Math.max(0, totalDe(p) - cub);
@@ -910,10 +891,10 @@ $("#main").addEventListener("click", e => {
   if (a === "devolver") abrirBorrador(pedidos[b.dataset.id], "devolver");
   if (a === "imprimir") imprimir([pedidos[b.dataset.id]]);
   if (a === "revisado") cambiarEstado(b.dataset.id, p => { const x = p.pagos.find(y => y.id === b.dataset.pid); if (x) x.revisado = !x.revisado; });
-  if (a === "gasto") { const d = diaDe(diaSel); d.gastos.push({ c: "", m: "", mon: "$", pago: "Efectivo" }); tocarDia(diaSel); pintar(); }
-  if (a === "qgasto") { const d = diaDe(diaSel); d.gastos.splice(+b.dataset.k, 1); tocarDia(diaSel); pintar(); }
-  if (a === "copiarcfg") copiarConfig();
+  if (a === "gasto") { const d = diaDe(diaSel); d.gastos.push({ id: "g" + uid(), c: "", m: "", mon: "$", pago: "Efectivo" }); tocarDia(diaSel); pintar(); }
+  if (a === "qgasto") { const d = diaDe(diaSel); const g = d.gastos.splice(+b.dataset.k, 1)[0]; if (g && g.id) (d.quitados = d.quitados || {})[g.id] = Date.now(); tocarDia(diaSel); pintar(); }
   if (a === "respaldo") respaldo();
+  if (a === "irMenu") { $("#main").innerHTML = ""; tab = "menu"; LS.set("pa.tab", tab); pintar(); window.scrollTo(0, 0); }
   if (a === "probar") sincronizar(true);
   if (a === "probarImpresion") imprimir([Object.assign(pedidoVacio("mostrador"), { cliente: "Prueba de impresora", items: [{ q: 1, n: "Empanada de queso", d: "", p: 1.5 }], pagos: [{ forma: "Efectivo $", usd: 1.5, cobrado: true }] })]);
 });
@@ -943,7 +924,7 @@ $("#main").addEventListener("input", e => {
   if (el.id === "diaSel") { diaSel = el.value || ahoraCaracas().fecha; pintar(); return; }
   if (el.dataset.cfg) {
     const k = el.dataset.cfg; cfg[k] = el.type === "checkbox" ? el.checked : el.value.trim ? (k === "productos" ? el.value : el.value.trim()) : el.value;
-    LS.set("pa.cfg", cfg); if (k === "url" || k === "key" || k === "clave") pintarSync(); return;
+    LS.set("pa.cfg", cfg); return;
   }
 });
 // Recetas: buscar dentro de la lista larga de productos (sin volver a pintar)
@@ -991,10 +972,10 @@ function pedidoCard(p) {
   const pc = porCobrarDe(p);
   const estado = p.estado === "devuelto" ? `<span class="pill r">Devuelto</span>` : p.estado === "entregado" ? `<span class="pill">Entregado</span>`
     : p.estado === "listo" ? `<span class="pill g">Listo</span>` : `<span class="pill w">Preparando</span>`;
-  const pagos = vivos(p).map(x => `${x.forma}${x.ref ? ` ${x.ref}` : ""}${x.cobrado ? "" : " (por cobrar)"}`).join(" · ");
+  const pagos = vivos(p).map(x => `${esc(x.forma)}${x.ref ? ` ${esc(x.ref)}` : ""}${x.cobrado ? "" : " (por cobrar)"}`).join(" · ");
   return `<article class="card${p.id === recienLlego ? " new" : ""}">
     <div class="oh"><span class="id">${esc(p.id)}${p.cambio ? ` <span class="pill w">Cambio ${p.cambio}</span>` : ""}</span>${estado}</div>
-    <div class="oh"><b>${esc(p.cliente)}</b><span class="meta">${p.hora || ""} · ${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""} · lo mandó ${esc(p.por || "")}</span></div>
+    <div class="oh"><b>${esc(p.cliente)}</b><span class="meta">${esc(p.hora || "")} · ${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""} · lo mandó ${esc(p.por || "")}</span></div>
     ${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}${p.nota ? `<p class="note">Nota: ${esc(p.nota)}</p>` : ""}
     <div class="lines">${p.items.map(i => `<div class="ln"><b>${i.q} ×</b><span class="nm">${esc(i.n)}${i.d ? `<small>${esc(i.d)}</small>` : ""}</span><span>${fmt(i.q * i.p)}</span><span></span></div>`).join("")}
     ${p.delivery ? `<div class="ln"><span></span><span class="nm">Delivery</span><span>${fmt(p.delivery)}</span><span></span></div>` : ""}</div>
@@ -1086,9 +1067,9 @@ function pBanco() {
   return `<h2>Pagos móviles de hoy</h2>
   <p class="hint">Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
   ${filas.length ? `<div class="tbl apilar"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
-  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${x.hora || ""}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
+  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${esc(x.hora || "")}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
     <td class="n" data-l="Bs">${x.bs ? fbs(x.bs) : ""}</td><td class="n" data-l="$">${fmt(x.usd)}</td><td data-l="Lo vio">${esc(x.quien || "")}</td>
-    <td class="tact"><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${x.id}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
+    <td class="tact"><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${esc(x.id)}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
   </tbody></table></div>` : `<p class="empty">Todavía no hay pagos móviles hoy.</p>`}`;
 }
 
@@ -1218,7 +1199,6 @@ function vendibles() {
     (it.sizes || []).forEach(([t]) => t && dets.set(norm(t), t));
     (it.extras || []).forEach(e => dets.set(norm(e.label), e.label.toLowerCase()));
   }));
-  productos().forEach(x => { if (!prods.has(norm(x.n))) prods.set(norm(x.n), { n: x.n, cat: "Otros" }); });
   return { prods: [...prods.values()], dets: [...dets.values()] };
 }
 // Llegó una factura: se anotan todas sus líneas de una vez. Cada ingrediente puede tener su presentación (bulto, caja…)
@@ -1228,7 +1208,15 @@ const lineaVacia = () => ({ ins: "", nombre: "", u: "g", c: "", en: "" });
 if (!fac.lineas.length) fac.lineas = [lineaVacia()];
 const guardarFac = () => LS.set("pa.fac", { prov: fac.prov, lineas: fac.lineas, foto: fac.foto || "" });
 // Fotos de facturas: se guardan en el equipo hasta subirlas a la carpeta "facturas" de Supabase (solo usuarios de la tienda)
-let fotosPend = LS.get("pa.fotosPend", {}); // ruta → foto en data URL
+// Se guardan en IndexedDB (no en localStorage): unas pocas fotos llenaban el espacio y entonces no se podían guardar los pedidos.
+const fotosDB = (() => {
+  let db;
+  const abrir = () => db || (db = new Promise((ok, mal) => { const r = indexedDB.open("pa-fotos", 1); r.onupgradeneeded = () => r.result.createObjectStore("f"); r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error); }));
+  const tx = (modo, f) => abrir().then(d => new Promise((ok, mal) => { const t = d.transaction("f", modo), q = f(t.objectStore("f")); t.oncomplete = () => ok(q && q.result); t.onerror = () => mal(t.error); }));
+  return { poner: (k, v) => tx("readwrite", s => s.put(v, k)), leer: k => tx("readonly", s => s.get(k)), quitar: k => tx("readwrite", s => s.delete(k)), claves: () => tx("readonly", s => s.getAllKeys()) };
+})();
+// Las que quedaron en localStorage de la versión anterior se pasan a IndexedDB
+(async () => { const viejas = LS.get("pa.fotosPend", null); if (!viejas) return; try { for (const [k, v] of Object.entries(viejas)) await fotosDB.poner(k, v); localStorage.removeItem("pa.fotosPend"); } catch (_) { } })();
 function achicarFoto(file) {
   return new Promise((ok, mal) => {
     const img = new Image(), url = URL.createObjectURL(file);
@@ -1242,7 +1230,9 @@ function achicarFoto(file) {
     img.src = url;
   });
 }
-async function sesionViva() {
+let renovando = null;
+function sesionViva() { return renovando || (renovando = sesionViva2().finally(() => { renovando = null; })); }
+async function sesionViva2() {
   let s = LS.get("pa.admin.ses", null); if (!s || !s.refresh_token) return null;
   if (Date.now() > (s.expira || 0) - 120000) {
     const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: SB_KEY, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
@@ -1253,19 +1243,21 @@ async function sesionViva() {
 }
 let subiendoFotos = false;
 async function subirFotos() {
-  if (subiendoFotos || !navigator.onLine || !Object.keys(fotosPend).length) return;
+  if (subiendoFotos || !navigator.onLine) return;
   subiendoFotos = true;
   try {
+    const rutas = await fotosDB.claves(); if (!rutas.length) return;
     const s = await sesionViva(); if (!s) return;
-    for (const [ruta, d] of Object.entries(fotosPend)) {
+    for (const ruta of rutas) {
+      const d = await fotosDB.leer(ruta); if (!d) continue;
       const r = await fetch(SB_URL + "/storage/v1/object/facturas/" + ruta, { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + s.access_token, "content-type": "image/jpeg" }, body: await (await fetch(d)).blob() });
       // 409: ya estaba subida
-      if (r.ok || r.status === 409) { delete fotosPend[ruta]; LS.set("pa.fotosPend", fotosPend); }
+      if (r.ok || r.status === 409) await fotosDB.quitar(ruta);
     }
   } catch (_) { } finally { subiendoFotos = false; }
 }
 async function verFoto(ruta) {
-  let src = fotosPend[ruta];
+  let src = await fotosDB.leer(ruta).catch(() => null);
   if (!src) {
     try {
       const s = await sesionViva(); if (!s) throw new Error("Entra con tu usuario para ver la foto.");
@@ -1317,7 +1309,7 @@ function confirmarFactura() {
   });
   if (!sumados.length) { toast("Pon la cantidad de al menos una línea."); return; }
   if (nuevos.length) tocarInv();
-  if (foto) { fotosPend[foto] = fac.foto; LS.set("pa.fotosPend", fotosPend); }
+  if (foto) fotosDB.poner(foto, fac.foto).then(subirFotos).catch(() => toast("No se pudo guardar la foto en este equipo."));
   LS.set("pa.movs", movs); LS.set("pa.cola", cola); sincronizar();
   fac = { prov: "", lineas: [lineaVacia()], hecho: { nuevos, sumados, foto } }; guardarFac();
 }
@@ -1462,9 +1454,9 @@ $("#main").addEventListener("click", e => {
   if (a === "sel") { invSel = invSel === k ? "" : k; if (k.startsWith("prep:")) invVista = "recetas"; window.scrollTo(0, 0); }
   if (a === "cerrar") invSel = "";
   if (a === "ins") { inv.insumos.push({ id: "i" + uid(), n: "", u: "g", min: "" }); tocarInv(); }
-  if (a === "qins") { const x = inv.insumos[+k]; if (x && confirm(`¿Quitar ${x.n || "este ingrediente"}? Sale de todas las recetas.`)) { inv.insumos.splice(+k, 1); tocarInv(); } }
+  if (a === "qins") { const x = inv.insumos[+k]; if (x && confirm(`¿Quitar ${x.n || "este ingrediente"}? Sale de todas las recetas.`)) { inv.insumos.splice(+k, 1); (inv.quitados = inv.quitados || {})[x.id] = Date.now(); tocarInv(); } }
   if (a === "prep") { inv.preps.push({ id: "p" + uid(), n: "", rinde: "", partes: [] }); tocarInv(); }
-  if (a === "qprep") { const x = inv.preps[+k]; if (x && confirm(`¿Quitar ${x.n || "esta preparación"}?`)) { inv.preps.splice(+k, 1); tocarInv(); } }
+  if (a === "qprep") { const x = inv.preps[+k]; if (x && confirm(`¿Quitar ${x.n || "esta preparación"}?`)) { inv.preps.splice(+k, 1); (inv.quitados = inv.quitados || {})[x.id] = Date.now(); tocarInv(); } }
   if (a === "parte") { const r = recetaSel(); if (!inv.insumos.length) { toast("Primero anota ingredientes."); return; } r.partes.push({ i: inv.insumos[0].id, c: "" }); tocarInv(); }
   if (a === "qparte") { recetaSel().partes.splice(+k, 1); tocarInv(); }
   if (a === "mov") {
@@ -1524,35 +1516,40 @@ $("#main").addEventListener("input", e => {
 
 // ---------- Ajustes ----------
 function pAjustes() {
+  const ses = LS.get("pa.admin.ses", null) || {}, pend = new Set(cola).size;
+  let usado = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); usado += k.length + (localStorage.getItem(k) || "").length; } } catch (_) { }
+  const kb = Math.round(usado * 2 / 1024), pct = Math.min(100, Math.round(kb / 5120 * 100));
+  const nPed = Object.keys(pedidos).length;
   return `<h2>Ajustes de este equipo</h2>
-  <section class="card"><div class="fields">
-    <label>Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
-    <label class="chk"><input type="checkbox" data-cfg="imprime"${cfg.imprime ? " checked" : ""}> Este equipo imprime los tickets (solo el de la tienda)</label>
+  <div class="ajustes">
+  <section class="card"><h3>🖥️ Este equipo</h3>
+    <div class="fields"><label class="ancho">Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
+    <p class="hint">Sale en los pedidos y en el cierre como "lo mandó…".</p>
+  </section>
+  <section class="card"><h3>🖨️ Impresora de tickets</h3>
+    <label class="chk"><input type="checkbox" data-cfg="imprime"${cfg.imprime ? " checked" : ""}> Este equipo imprime los tickets</label>
+    <p class="hint">Márcalo solo en el equipo de la tienda que tiene la impresora de 58 mm.</p>
     <div class="acts"><button class="btn ghost" data-a="probarImpresion">Imprimir ticket de prueba</button></div>
   </section>
-  <section class="card"><h3>Conexión entre equipos</h3>
-    <p class="hint">Con esto el teléfono y la PC ven los mismos pedidos. Los datos salen de la cuenta de Supabase (ver la guía).</p>
-    <div class="fields">
-      <label>URL del proyecto<input data-cfg="url" value="${esc(cfg.url)}" placeholder="https://xxxx.supabase.co"></label>
-      <label>Clave pública (anon o publishable)<input data-cfg="key" value="${esc(cfg.key)}"></label>
-      <label>Clave de la tienda<input data-cfg="clave" value="${esc(cfg.clave)}"></label></div>
-    <div class="acts"><button class="btn" data-a="probar">Probar conexión</button>
-    <button class="btn ghost" data-a="copiarcfg">Copiar enlace para otro equipo</button></div>
+  <section class="card"><h3>🔄 Conexión entre equipos</h3>
+    <p class="hint">El teléfono y la PC ven los mismos pedidos con solo entrar con un usuario de la tienda.</p>
+    <div class="ajdatos"><span>Usuario</span><b>${esc(ses.email || "Sin entrar")}</b>
+      <span>Seguridad</span><b>${modoSync === "v2" ? "✓ Con usuario" : "Con clave de la tienda (falta el SQL de seguridad)"}</b>
+      <span>Por enviar</span><b>${pend ? `${pend} cambio(s)` : "Nada, todo enviado ✓"}</b></div>
+    <div class="acts"><button class="btn" data-a="probar">Probar conexión</button></div>
     <p class="note" id="cfgMsg"></p>
   </section>
-  <section class="card"><h3>Productos</h3>
-    <p class="hint">Uno por línea: nombre | precio. El nombre debe ser igual al del enlace. Lo que lleva cada uno se anota en Inventario › Recetas.</p>
-    <textarea data-cfg="productos" rows="12">${esc(cfg.productos)}</textarea>
-  </section>
-  <section class="card"><h3>Respaldo</h3>
-    <p class="hint">Descarga todo lo de este equipo en un archivo, por si acaso.</p>
+  <section class="card"><h3>💾 Datos guardados aquí</h3>
+    <div class="ajdatos"><span>Pedidos</span><b>${nPed}</b><span>Espacio usado</span><b>${kb.toLocaleString("es-VE")} KB de ~5.000 KB</b></div>
+    <div class="barra${pct > 80 ? " llena" : ""}"><i style="width:${pct}%"></i></div>
+    <p class="hint">${pct > 80 ? "Se está llenando. Descarga un respaldo." : "Todo lo de este equipo también queda en la nube."} El respaldo descarga todo en un archivo, por si acaso.</p>
     <div class="acts"><button class="btn ghost" data-a="respaldo">Descargar respaldo</button></div>
-  </section>`;
-}
-function copiarConfig() {
-  const enlace = location.origin + location.pathname + "#cfg=" + btoa(unescape(encodeURIComponent(JSON.stringify({ url: cfg.url, key: cfg.key, clave: cfg.clave }))));
-  const ok = () => { $("#cfgMsg").textContent = "Enlace copiado. Ábrelo en el otro equipo y queda conectado."; };
-  try { navigator.clipboard.writeText(enlace).then(ok, () => { $("#cfgMsg").textContent = enlace; }); } catch (_) { $("#cfgMsg").textContent = enlace; }
+  </section>
+  <section class="card"><h3>📋 Productos y precios</h3>
+    <p class="hint">Salen del menú del enlace. Para cambiar un producto o un precio, ve a Administración › Menú del enlace. Lo que lleva cada uno se anota en Inventario › Recetas.</p>
+    <div class="acts"><button class="btn ghost" data-a="irMenu">Abrir Menú del enlace</button></div>
+  </section>
+  </div>`;
 }
 function respaldo() {
   const blob = new Blob([JSON.stringify({ pedidos, dias, inv, movs, cfg: { ...cfg, key: "", clave: "" } }, null, 1)], { type: "application/json" });
@@ -1566,7 +1563,7 @@ function ticketHTML(p) {
   const tot = p.items.reduce((a, i) => a + i.q * i.p, 0) + (p.delivery || 0), pc = porCobrarDe(p);
   return `<div class="tk"><div class="t">PA'L ANTOJO</div><div style="text-align:center">Calle Urdaneta, local 16 H</div><hr>
     ${p.cambio ? `<div class="big">CAMBIO ${p.cambio}</div>` : ""}
-    <div class="row"><b>${esc(p.id)}</b><span>${p.hora || ahoraCaracas().hora}</span></div>
+    <div class="row"><b>${esc(p.id)}</b><span>${esc(p.hora || ahoraCaracas().hora)}</span></div>
     <div>${esc(p.cliente)}${p.telefono ? ` · ${esc(p.telefono)}` : ""}</div><div>${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""}</div>
     ${p.direccion ? `<div>${esc(p.direccion)}</div>` : ""}${p.nota ? `<div>Nota: ${esc(p.nota)}</div>` : ""}<hr>
     ${p.items.map(i => `<div class="row"><span>${i.q} ${esc(i.n)}${i.d ? ` (${esc(i.d)})` : ""}</span><span>${fmt(i.q * i.p)}</span></div>`).join("")}
@@ -1589,81 +1586,225 @@ function siguienteImpresion() {
 }
 
 // ---------- sincronización con Supabase ----------
-let sincronizando = false;
+// Cada cosa (pedido, día, inventario, movimiento) es una fila en la tabla registros con su número de versión (rev).
+// Con la base de datos blindada (caja/supabase-seguridad.sql) se entra con el usuario de la tienda y guardar compara la rev:
+// si otro equipo guardó algo más nuevo, la base de datos lo devuelve y aquí se unen los dos cambios, sin perder ninguno.
+// Mientras no se corra ese SQL, sigue funcionando como antes con la clave de la tienda.
+const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
+const BASE_REG = SB_URL + "/rest/v1/registros";
+let sincronizando = false, modoSync = LS.get("pa.modoSync", ""), probadoV2 = 0, avisoSesion = "";
+const conectado = () => modoSync === "v2" ? !!LS.get("pa.admin.ses", null) : !!cfg.clave;
 function pintarSync(txt, tipo) {
-  const conectado = cfg.url && cfg.key && cfg.clave;
   const pend = new Set(cola).size;
   if (!txt) {
-    if (!conectado) { txt = "Solo este equipo"; tipo = ""; }
+    if (avisoSesion) { txt = avisoSesion; tipo = "bad"; }
+    else if (!conectado()) { txt = "Solo este equipo"; tipo = ""; }
     else if (!navigator.onLine) { txt = `Sin internet${pend ? ` · ${pend} por enviar` : ""}`; tipo = "w"; }
     else { txt = pend ? `${pend} por enviar` : "Al día"; tipo = pend ? "w" : "ok"; }
   }
   $("#syncTxt").innerHTML = `<span class="dot ${tipo || ""}"></span><span class="stx">${esc(txt)}</span>`;
   $("#syncTxt").title = txt; $("#syncTxt").classList.toggle("calma", !tipo || tipo === "ok");
 }
-// Al entrar con el usuario de la tienda, el equipo se conecta solo: la clave la da Supabase (función clave_tienda) a quien puede entrar
-const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
+
+// Lo que llega de otro equipo se limpia antes de usarlo: sin < > en los textos y los ids solo con letras y números
+const ID_OK = /[^A-Za-z0-9:_.-]/g;
+function limpio(v, k) {
+  if (typeof v === "string") return (k === "id" || k === "ins" || k === "i") ? v.replace(ID_OK, "").slice(0, 80) : v.replace(/[<>]/g, "");
+  if (Array.isArray(v)) return v.map(x => limpio(x));
+  if (v && typeof v === "object") { const o = {}; for (const [kk, x] of Object.entries(v)) if (kk !== "__proto__") o[kk] = limpio(x, kk); return o; }
+  return v;
+}
+
+// ---------- unir los cambios de dos equipos ----------
+// Se guarda la última versión que se vio en la nube (base). Al unir, cada campo se compara con la base:
+// si solo un equipo lo cambió, queda ese cambio; si los dos cambiaron el mismo campo, gana el más reciente.
+const revDe = d => +(d && d.rev) || 0;
+const masNuevo = (d, l) => !l || revDe(d) > revDe(l) || (revDe(d) === revDe(l) && (d.actualizado || 0) > (l.actualizado || 0));
+let bases = LS.get("pa.bases", {}); // id → { d: datos como están en la nube, t: cuándo }
+function ponerBase(id, d) { bases[id] = { d: JSON.parse(JSON.stringify(d)), t: Date.now() }; }
+function guardarBases() {
+  // Solo hace falta la base de lo reciente o pendiente
+  const limite = Date.now() - 4 * 864e5;
+  for (const id of Object.keys(bases)) if (bases[id].t < limite && id !== "inv" && !cola.includes(id)) delete bases[id];
+  LS.set("pa.bases", bases);
+}
+const igual = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+function unir3(o, l, r, ganaL) {
+  o = o || {}; const out = {};
+  for (const k of new Set([...Object.keys(l || {}), ...Object.keys(r || {})])) {
+    const vl = (l || {})[k], vr = (r || {})[k], vo = o[k];
+    const v = igual(vl, vr) ? vl : igual(vl, vo) ? vr : igual(vr, vo) ? vl : ganaL ? vl : vr;
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+}
+// Listas con id: queda todo lo de las dos, salvo lo que alguien quitó (anotado en quitados). Si está en las dos, se une campo por campo.
+function unirLista(l, r, o, quitados, ganaL) {
+  const deR = new Map((r || []).filter(x => x && x.id).map(x => [x.id, x])), deO = new Map((o || []).filter(x => x && x.id).map(x => [x.id, x]));
+  const out = [];
+  (l || []).forEach(x => {
+    if (x && x.id && quitados[x.id]) return;
+    const y = x && x.id && deR.get(x.id);
+    if (y) { deR.delete(x.id); out.push(unir3(deO.get(x.id), x, y, ganaL)); } else out.push(x);
+  });
+  deR.forEach((y, id) => { if (!quitados[id]) out.push(y); });
+  return out;
+}
+function unir(id, l, r) {
+  const ganaL = masNuevo(l, r), o = (bases[id] || {}).d || {};
+  const u = unir3(o, l, r, ganaL);
+  if (id === "inv") {
+    u.quitados = { ...(r.quitados || {}), ...(l.quitados || {}) };
+    u.insumos = unirLista(l.insumos, r.insumos, o.insumos, u.quitados, ganaL);
+    u.preps = unirLista(l.preps, r.preps, o.preps, u.quitados, ganaL);
+    u.recetas = unir3(o.recetas, l.recetas, r.recetas, ganaL);
+  } else if (id.startsWith("dia:")) {
+    u.quitados = { ...(r.quitados || {}), ...(l.quitados || {}) };
+    u.abrir = unir3(o.abrir, l.abrir, r.abrir, ganaL); u.contado = unir3(o.contado, l.contado, r.contado, ganaL);
+    u.gastos = unirLista(l.gastos, r.gastos, o.gastos, u.quitados, ganaL);
+  } else if (id.startsWith("mov:")) {
+    if (l.anulado || r.anulado) { const x = l.anulado ? l : r; Object.assign(u, { anulado: true, motivo: x.motivo, anuladoPor: x.anuladoPor, anuladoT: x.anuladoT }); }
+  } else {
+    // Pagos: no se pierde ninguno. Si uno lo cobró o lo anuló, queda cobrado o anulado.
+    u.pagos = unirLista(l.pagos, r.pagos, o.pagos, {}, ganaL).map(x => {
+      const a = (l.pagos || []).find(y => y.id === x.id), b = (r.pagos || []).find(y => y.id === x.id);
+      return a && b ? { ...x, cobrado: !!(a.cobrado || b.cobrado), anulado: !!(a.anulado || b.anulado) } : x;
+    });
+    u.cambio = Math.max(l.cambio || 0, r.cambio || 0);
+    if (l.devuelto || r.devuelto) Object.assign(u, { devuelto: true, estado: "devuelto", merma: l.merma || r.merma });
+  }
+  u.rev = Math.max(revDe(l), revDe(r)) + 1; u.actualizado = Date.now();
+  return u;
+}
+const datoLocal = id => id === "inv" ? inv : id.startsWith("mov:") ? movs[id.slice(4)] : id.startsWith("dia:") ? dias[id.slice(4)] : pedidos[id];
+function ponerLocal(id, d) {
+  if (id === "inv") { inv = Object.assign({ insumos: [], preps: [], recetas: {} }, d); LS.set("pa.inv", inv); }
+  else if (id.startsWith("mov:")) { movs[id.slice(4)] = d; LS.set("pa.movs", movs); }
+  else if (id.startsWith("dia:")) dias[id.slice(4)] = Object.assign({ abrir: {}, contado: {}, gastos: [], fondo: "" }, d);
+  else pedidos[id] = d;
+}
+// Quita de la cola solo lo que se envió tal cual: si mientras tanto se cambió otra vez, se queda para el próximo envío
+function sacarDeCola(lote, rechazados) {
+  const no = new Set((rechazados || []).map(f => f.id));
+  lote.forEach(f => { if (!no.has(f.id)) ponerBase(f.id, f.datos); });
+  const enviados = new Map(lote.map(f => [f.id, revDe(f.datos)]));
+  cola = cola.filter(id => !enviados.has(id) || revDe(datoLocal(id)) !== enviados.get(id));
+  LS.set("pa.cola", cola); guardarBases();
+}
+function loteParaEnviar() {
+  return [...new Set(cola)].map(id => ({ id, datos: datoLocal(id) })).filter(f => f.datos).slice(0, 200).map(f => ({ id: f.id, datos: JSON.parse(JSON.stringify(f.datos)) }));
+}
+
+// Al entrar con el usuario de la tienda, el equipo se conecta solo (modo con clave, mientras no se corra el SQL nuevo)
 let ultimoAuto = 0;
-async function conectarSolo() {
-  if ((cfg.url && cfg.key && cfg.clave) || !navigator.onLine || Date.now() - ultimoAuto < 30000) return;
+async function conectarSolo(ses) {
+  if (cfg.clave || !ses || Date.now() - ultimoAuto < 30000) return;
   ultimoAuto = Date.now();
-  const ses = LS.get("pa.admin.ses", null); if (!ses || !ses.access_token) return;
   try {
     const r = await fetch(SB_URL + "/rest/v1/rpc/clave_tienda", { method: "POST", headers: { apikey: SB_KEY, authorization: "Bearer " + ses.access_token, "content-type": "application/json" }, body: "{}" });
-    const clave = r.ok ? await r.json() : null; if (!clave) return;
-    cfg.url = cfg.url || SB_URL; cfg.key = cfg.key || SB_KEY; cfg.clave = clave; LS.set("pa.cfg", cfg);
-    toast("Equipo conectado a la caja de la tienda.");
+    const clave = r.ok ? await r.json() : null; if (typeof clave !== "string" || !clave) return;
+    cfg.clave = clave; LS.set("pa.cfg", cfg);
   } catch (_) { }
 }
+
+// Envía con el usuario. Devuelve false si la base de datos todavía no tiene guardar_registros (falta correr el SQL nuevo).
+async function probarV2(H) {
+  const r = await fetch(SB_URL + "/rest/v1/rpc/guardar_registros", { method: "POST", headers: H, body: JSON.stringify({ filas: [] }) });
+  if (r.status === 404) return false;
+  if (r.status === 401 || r.status === 403) { const e = new Error("sesion"); e.sesion = true; throw e; }
+  return r.ok;
+}
+async function enviarV2(H) {
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    const lote = loteParaEnviar();
+    if (!lote.length) return;
+    const r = await fetch(SB_URL + "/rest/v1/rpc/guardar_registros", { method: "POST", headers: H, body: JSON.stringify({ filas: lote }) });
+    if (r.status === 401 || r.status === 403) { const e = new Error("sesion"); e.sesion = true; throw e; }
+    if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
+    const res = await r.json().catch(() => ({}));
+    sacarDeCola(lote, res.rechazados);
+    // Lo que otro equipo cambió antes: se une con lo de aquí y se vuelve a enviar
+    (res.rechazados || []).forEach(f => {
+      const remoto = limpio(f.datos), local = datoLocal(f.id);
+      ponerLocal(f.id, local ? unir(f.id, local, remoto) : remoto); ponerBase(f.id, remoto); cola.push(f.id);
+    });
+    (res.invalidos || []).forEach(id => console.warn("No se pudo guardar en la nube:", id));
+    guardarTodo();
+    if (!(res.rechazados || []).length) return;
+  }
+}
+async function enviarConClave(H) {
+  const lote = loteParaEnviar(); if (!lote.length) return;
+  const r = await fetch(BASE_REG, { method: "POST", headers: { ...H, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(lote) });
+  if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
+  sacarDeCola(lote);
+}
+async function traer(H) {
+  const desde = estadoSync.ultimo ? new Date(new Date(estadoSync.ultimo).getTime() - 15000).toISOString() : new Date(Date.now() - 3 * 864e5).toISOString();
+  const r = await fetch(`${BASE_REG}?select=id,datos,actualizado&actualizado=gt.${encodeURIComponent(desde)}&order=actualizado.asc&limit=1000`, { headers: H });
+  if (r.status === 401 || r.status === 403) { const e = new Error("sesion"); e.sesion = true; throw e; }
+  if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
+  const filas = await r.json(); let cambios = false; const porImprimir = [];
+  // Un equipo nuevo trae también las recetas y todos los movimientos de inventario, no solo los de 3 días (de a 1000)
+  if (!estadoSync.ultimo) {
+    for (let desdeN = 0; desdeN < 100000; desdeN += 1000) {
+      const ri = await fetch(`${BASE_REG}?select=id,datos,actualizado&or=(id.eq.inv,id.like.mov:*)&order=id.asc&limit=1000&offset=${desdeN}`, { headers: H });
+      if (!ri.ok) throw new Error(ri.status + " " + (await ri.text()).slice(0, 160));
+      const parte = await ri.json(); filas.unshift(...parte); if (parte.length < 1000) break;
+    }
+  }
+  filas.forEach(f => {
+    if (!f || typeof f.id !== "string" || !f.datos || typeof f.datos !== "object") return;
+    const id = f.id, d = limpio(f.datos), l = datoLocal(id);
+    if (cola.includes(id)) {
+      // Este equipo también lo cambió y no lo ha enviado: se unen los dos cambios
+      if (l && !igual(l, d)) { ponerLocal(id, unir(id, l, d)); cambios = true; }
+      ponerBase(id, d);
+    } else if (masNuevo(d, l)) {
+      ponerLocal(id, d); ponerBase(id, d); cambios = true;
+      if (!id.startsWith("mov:") && !id.startsWith("dia:") && id !== "inv" && cfg.imprime && !d.impreso && d.estado !== "devuelto") {
+        porImprimir.push(pedidos[id]); recienLlego = id; if (!borrador && tab === "nuevo") { tab = "cocina"; LS.set("pa.tab", tab); }
+      }
+    }
+    if (f.actualizado && (!estadoSync.ultimo || f.actualizado > estadoSync.ultimo)) estadoSync.ultimo = f.actualizado;
+  });
+  LS.set("pa.sync", estadoSync); guardarBases();
+  if (cambios) {
+    guardarTodo();
+    if (porImprimir.length) { avisar(); imprimir(porImprimir); porImprimir.forEach(d => { d.impreso = true; d.rev = revDe(d) + 1; d.actualizado = Date.now(); cola.push(d.id); }); guardarTodo(); toast(porImprimir.length === 1 ? `Llegó ${porImprimir[0].id}.` : `Llegaron ${porImprimir.length} pedidos.`); }
+    if (!borrador || tab !== "nuevo") { const foco = document.activeElement && document.activeElement.closest("#main input, #main textarea, #main select"); if (!foco) pintar(); else pintarTabs(); }
+  }
+}
 async function sincronizar(manual) {
-  await conectarSolo(); subirFotos();
-  if (!(cfg.url && cfg.key && cfg.clave)) { pintarSync(); if (manual) $("#cfgMsg").textContent = "Faltan datos de conexión."; return; }
+  subirFotos();
   if (!navigator.onLine || sincronizando) { pintarSync(); return; }
   sincronizando = true;
-  const H = { apikey: cfg.key, "x-clave": cfg.clave, "Content-Type": "application/json" };
-  if (cfg.key.startsWith("eyJ")) H.Authorization = "Bearer " + cfg.key;
-  const base = cfg.url.replace(/\/+$/, "") + "/rest/v1/registros";
+  const msg = t => { if (manual && $("#cfgMsg")) $("#cfgMsg").textContent = t; };
   try {
-    const ids = [...new Set(cola)];
-    if (ids.length) {
-      const filas = ids.map(id => ({ id, datos: id === "inv" ? inv : id.startsWith("mov:") ? movs[id.slice(4)] : id.startsWith("dia:") ? dias[id.slice(4)] : pedidos[id] })).filter(f => f.datos);
-      const r = await fetch(base, { method: "POST", headers: { ...H, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(filas) });
-      if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
-      cola = cola.filter(x => !ids.includes(x)); LS.set("pa.cola", cola);
+    const ses = await sesionViva().catch(() => LS.get("pa.admin.ses", null));
+    let H = null;
+    // Con el usuario de la tienda (base de datos blindada). Si todavía no está, se vuelve a probar cada 5 minutos.
+    if (ses && ses.access_token && (modoSync === "v2" || Date.now() - probadoV2 > 300000)) {
+      const HV = { apikey: SB_KEY, Authorization: "Bearer " + ses.access_token, "Content-Type": "application/json" };
+      if (modoSync === "v2" || await probarV2(HV)) {
+        H = HV;
+        if (modoSync !== "v2") { modoSync = "v2"; LS.set("pa.modoSync", modoSync); estadoSync.ultimo = ""; cfg.clave = ""; LS.set("pa.cfg", cfg); }
+      } else { probadoV2 = Date.now(); if (modoSync === "v2") { modoSync = ""; LS.set("pa.modoSync", ""); } }
     }
-    const desde = estadoSync.ultimo ? new Date(new Date(estadoSync.ultimo).getTime() - 15000).toISOString() : new Date(Date.now() - 3 * 864e5).toISOString();
-    const r = await fetch(`${base}?select=id,datos,actualizado&actualizado=gt.${encodeURIComponent(desde)}&order=actualizado.asc&limit=1000`, { headers: H });
-    if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
-    const filas = await r.json(); let cambios = false; const porImprimir = [];
-    // Un equipo nuevo trae también las recetas y los movimientos de inventario viejos, no solo los de 3 días
-    if (!estadoSync.ultimo) { const ri = await fetch(`${base}?select=id,datos,actualizado&or=(id.eq.inv,id.like.mov:*)&limit=10000`, { headers: H }); if (ri.ok) filas.unshift(...await ri.json()); }
-    const masNuevo = (d, l) => !l || (d.rev || 0) > (l.rev || 0) || ((d.rev || 0) === (l.rev || 0) && (d.actualizado || 0) > (l.actualizado || 0));
-    filas.forEach(f => {
-      if (f.id === "inv") { if (masNuevo(f.datos, inv) && !cola.includes("inv")) { inv = f.datos; LS.set("pa.inv", inv); cambios = true; } }
-      else if (f.id.startsWith("mov:")) { const k = f.id.slice(4); if ((!movs[k] || (f.datos.rev || 0) > (movs[k].rev || 0)) && !cola.includes(f.id)) { movs[k] = f.datos; LS.set("pa.movs", movs); cambios = true; } }
-      else if (f.id.startsWith("dia:")) {
-        const k = f.id.slice(4), l = dias[k];
-        if (!l || (f.datos.rev || 0) > (l.rev || 0) || ((f.datos.rev || 0) === (l.rev || 0) && (f.datos.actualizado || 0) > (l.actualizado || 0))) { if (!cola.includes(f.id)) { dias[k] = f.datos; cambios = true; } }
-      } else {
-        const l = pedidos[f.id], d = f.datos;
-        const nuevo = !l || (d.rev || 0) > (l.rev || 0) || ((d.rev || 0) === (l.rev || 0) && (d.actualizado || 0) > (l.actualizado || 0));
-        if (nuevo && !cola.includes(f.id)) {
-          pedidos[f.id] = d; cambios = true;
-          if (cfg.imprime && !d.impreso && d.estado !== "devuelto") { porImprimir.push(d); recienLlego = d.id; if (!borrador && tab === "nuevo") { tab = "cocina"; LS.set("pa.tab", tab); } }
-        }
-      }
-      if (!estadoSync.ultimo || f.actualizado > estadoSync.ultimo) estadoSync.ultimo = f.actualizado;
-    });
-    LS.set("pa.sync", estadoSync);
-    if (cambios) {
-      guardarTodo();
-      if (porImprimir.length) { avisar(); imprimir(porImprimir); porImprimir.forEach(d => { d.impreso = true; d.rev = (d.rev || 0) + 1; d.actualizado = Date.now(); cola.push(d.id); }); guardarTodo(); toast(porImprimir.length === 1 ? `Llegó ${porImprimir[0].id}.` : `Llegaron ${porImprimir.length} pedidos.`); }
-      if (!borrador || tab !== "nuevo") { const foco = document.activeElement && document.activeElement.closest("#main input, #main textarea, #main select"); if (!foco) pintar(); else pintarTabs(); }
+    if (!H) {
+      if (modoSync === "v2") { avisoSesion = "Vuelve a entrar para sincronizar"; pintarSync(); msg("Cierra sesión y vuelve a entrar con tu usuario."); return; }
+      await conectarSolo(ses);
+      if (!cfg.clave) { pintarSync(); msg(ses ? "No se pudo conectar. Revisa el internet." : "Entra con tu usuario de la tienda."); return; }
+      H = { apikey: SB_KEY, "x-clave": cfg.clave, "Content-Type": "application/json" };
     }
-    pintarSync(); if (manual) $("#cfgMsg").textContent = "Conectado.";
+    avisoSesion = "";
+    // Primero se trae lo de los otros equipos (y se une con lo pendiente de aquí); después se envía
+    await traer(H);
+    if (modoSync === "v2") await enviarV2(H); else await enviarConClave(H);
+    pintarSync(); msg("Conectado" + (modoSync === "v2" ? " con tu usuario." : "."));
   } catch (err) {
-    pintarSync("No se pudo sincronizar", "bad");
-    if (manual) $("#cfgMsg").textContent = "Error: " + err.message;
+    if (err.sesion) { avisoSesion = "Vuelve a entrar para sincronizar"; pintarSync(); msg("La sesión venció o este usuario no tiene permiso. Vuelve a entrar."); }
+    else { pintarSync("No se pudo sincronizar", "bad"); msg("Error: " + err.message); }
   } finally { sincronizando = false; }
 }
 function avisar() {
@@ -1720,6 +1861,8 @@ async function limpiarCompartidos() {
 
 // ---------- arranque ----------
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
+// Pide al navegador que no borre los datos de este equipo cuando le falte espacio
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) { }
 pintar(); pintarSync();
 if (new URLSearchParams(location.search).has("compartido")) { history.replaceState(null, "", location.pathname); }
 leerCompartidos();

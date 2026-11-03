@@ -1,4 +1,5 @@
 -- Caja Pa'l Antojo: tabla compartida entre el teléfono y la PC de la tienda.
+-- IMPORTANTE: después de este, corre caja/supabase-seguridad.sql. Ese quita la clave de la tienda y deja entrar solo a los usuarios con permiso.
 -- Pegar todo esto en Supabase > SQL Editor > Run.
 -- ANTES de correrlo, cambia CAMBIA-ESTA-CLAVE (las dos veces) por una clave tuya, la misma que pones en Ajustes de la caja.
 
