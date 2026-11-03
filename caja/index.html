@@ -34,6 +34,8 @@ p { margin: 0; }
 .top label { display: flex; align-items: center; gap: 6px; color: #F3EEE0; font-weight: 700; }
 .top .tinfo { font-size: .78rem; color: #CFC8B4; display: flex; gap: 6px; align-items: center; }
 .top .tinfo button { white-space: nowrap; padding: 2px 8px; font-size: .78rem; background: var(--brand); color: var(--ink); border: 0; font-weight: 700; cursor: pointer; }
+.top .reloj { font-size: .85rem; font-weight: 700; color: #F3EEE0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.top .reloj.w { color: var(--brand); }
 .top input { width: 90px; padding: 4px 8px; background: #2A2822; color: #F3EEE0; border: 1px solid #4A463A; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #888; margin-right: 5px; }
 .dot.ok { background: #6FCF8A; } .dot.w { background: var(--brand); } .dot.bad { background: #F08A82; }
@@ -302,6 +304,7 @@ td.n { white-space: nowrap; }
   <div class="r">
     <label for="tasaTop"><span class="lt">Tasa </span>Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
     <span id="tasaInfo" class="tinfo"></span>
+    <span id="reloj" class="reloj" aria-label="Hora de Venezuela"></span>
     <span id="syncTxt"><span class="dot"></span>…</span>
   </div>
 </header>
@@ -325,14 +328,25 @@ const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { toast("No se pudo guardar en este equipo. Revisa el espacio."); } },
 };
-function ahoraCaracas(d = new Date()) {
+// Si el reloj de este equipo está mal, se corrige con la hora del servidor (ver ajustarReloj)
+let desfase = +LS.get("pa.desfase", 0) || 0;
+const ahoraReal = () => new Date(Date.now() + desfase);
+function ajustarReloj(fechaServidor) {
+  const t = Date.parse(fechaServidor || ""); if (isNaN(t)) return;
+  const d = t - Date.now(), nuevo = Math.abs(d) > 120000 ? d : 0; // menos de 2 min: el reloj está bien
+  if (Math.abs(nuevo - desfase) < 60000) return;
+  desfase = nuevo; LS.set("pa.desfase", desfase); pintarReloj();
+  if (desfase) toast("La hora de este equipo está mal. La caja usa la hora de Venezuela correcta.");
+}
+function ahoraCaracas(d = ahoraReal()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Caracas", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
     .formatToParts(d).map(x => [x.type, x.value]));
   return { fecha: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}`, h: +p.hour, mmdd: p.month + p.day, hhmm: p.hour + p.minute };
 }
 // Hora para mostrar en am/pm (se guarda en 24 h, ej. "20:15" → "8:15 pm")
 const h12 = t => { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); if (!m) return t || ""; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? "am" : "pm"}`; };
-const turnoDe = h => h < 15 ? "Día" : "Noche";
+// Día 6am-3pm; Noche 3pm-12am (lo que se cobre de madrugada, al cerrar, sigue siendo Noche)
+const turnoDe = h => h >= 6 && h < 15 ? "Día" : "Noche";
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3200); }
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -467,7 +481,7 @@ function pintarTasa() {
   const d = cfg.tasaFecha ? new Date(cfg.tasaFecha) : null;
   const fecha = d && !isNaN(d) ? d.toLocaleDateString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short" }) : "";
   $("#tasaInfo").innerHTML = cfg.tasaAuto
-    ? (fecha ? `BCV · ${esc(fecha)}` : "Buscando BCV…")
+    ? (fecha ? `BCV<span class="lt"> · ${esc(fecha)}</span>` : "Buscando BCV…")
     : `<span class="lt">A mano</span> <button type="button" id="tasaBcv">Usar BCV</button>`;
 }
 async function buscarTasa() {
@@ -475,6 +489,7 @@ async function buscarTasa() {
   try {
     const r = await fetch(TASA_API, { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
+    ajustarReloj(r.headers.get("Date"));
     const j = await r.json();
     const t = Math.round(Number(j.promedio ?? j.venta ?? j.compra) * 100) / 100;
     if (!(t > 0) || !cfg.tasaAuto) throw new Error("sin tasa");
@@ -495,6 +510,15 @@ $("#tasaInfo").addEventListener("click", e => {
   if (!e.target.closest("#tasaBcv")) return;
   cfg.tasaAuto = true; cfg.tasaFecha = ""; LS.set("pa.cfg", cfg); pintarTasa(); buscarTasa();
 });
+// Hora actual de Venezuela en la barra de arriba, al lado de la tasa
+function pintarReloj() {
+  const el = $("#reloj"); if (!el) return;
+  el.textContent = h12(ahoraCaracas().hora);
+  el.title = desfase ? "El reloj de este equipo está mal; esta es la hora correcta de Venezuela" : "Hora de Venezuela";
+  el.classList.toggle("w", !!desfase);
+}
+pintarReloj();
+setInterval(pintarReloj, 15000);
 pintarTasa();
 buscarTasa();
 setInterval(buscarTasa, 30 * 60 * 1000);
@@ -1778,7 +1802,8 @@ async function enviarConClave(H) {
 }
 async function traer(H) {
   const desde = estadoSync.ultimo ? new Date(new Date(estadoSync.ultimo).getTime() - 15000).toISOString() : new Date(Date.now() - 3 * 864e5).toISOString();
-  const r = await fetch(`${BASE_REG}?select=id,datos,actualizado&actualizado=gt.${encodeURIComponent(desde)}&order=actualizado.asc&limit=1000`, { headers: H });
+  const r = await fetch(`${BASE_REG}?select=id,datos,actualizado&actualizado=gt.${encodeURIComponent(desde)}&order=actualizado.asc&limit=1000`, { headers: H, cache: "no-store" });
+  ajustarReloj(r.headers.get("Date"));
   if (r.status === 401 || r.status === 403) { const e = new Error("sesion"); e.sesion = true; throw e; }
   if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 160));
   const filas = await r.json(); let cambios = false; const porImprimir = [];
