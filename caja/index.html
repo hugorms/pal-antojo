@@ -321,6 +321,7 @@ td.n { white-space: nowrap; }
 <div id="ticket"></div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="personal.js"></script>
 <script src="../menu.js"></script>
 <script>
 "use strict";
@@ -414,7 +415,7 @@ let tab = LS.get("pa.tab", "nuevo");
 // Módulos del menú lateral: [clave, nombre, ícono, grupo]. Para agregar un módulo, se suma aquí y en pintar().
 const TABS = [
   ["vender", "Vender", "🛒", "Caja"], ["nuevo", "Recibir", "📥", "Caja"], ["cocina", "Pedidos", "🍳", "Caja"], ["banco", "Banco", "🏦", "Caja"], ["cierre", "Cierre", "📊", "Caja"], ["reportes", "Reportes", "📈", "Caja"], ["inventario", "Inventario", "📦", "Caja"], ["delivery", "Delivery", "🛵", "Caja"],
-  ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
+  ["personal", "Personal y sueldos", "👥", "Administración"], ["menu", "Menú del enlace", "📋", "Administración"], ["ajustes", "Ajustes", "⚙️", "Administración"],
 ];
 if (!TABS.some(t => t[0] === tab)) tab = "nuevo";
 let ultimoTab = tab === "menu" ? "nuevo" : tab; // a dónde vuelve el teléfono desde un módulo abierto aparte
@@ -467,8 +468,8 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina" || tab === "ajustes" || tab === "delivery");
-  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, delivery: pDelivery, ajustes: pAjustes }[tab];
+  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina" || tab === "ajustes" || tab === "personal" || tab === "delivery");
+  const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, delivery: pDelivery, personal: pPersonal, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
   document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
@@ -1621,7 +1622,7 @@ function pAjustes() {
   </div>`;
 }
 function respaldo() {
-  const blob = new Blob([JSON.stringify({ pedidos, dias, inv, movs, cfg: { ...cfg, key: "", clave: "" } }, null, 1)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ pedidos, dias, inv, movs, ...Object.fromEntries(EXTRA.map(m => [m.nombre, m.respaldo()])), cfg: { ...cfg, key: "", clave: "" } }, null, 1)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `caja-pal-antojo-${ahoraCaracas().fecha}.json`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -1661,6 +1662,9 @@ function siguienteImpresion() {
 // Mientras no se corra ese SQL, sigue funcionando como antes con la clave de la tienda.
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
 const BASE_REG = SB_URL + "/rest/v1/registros";
+// Módulos en archivo aparte (ej. personal.js) registran aquí sus registros: { es(id), fija(id), todos, dato(id), poner(id, d), unir(...), respaldo() }
+const EXTRA = window.PA_EXTRA || [];
+const extraDe = id => EXTRA.find(m => m.es(id));
 let sincronizando = false, modoSync = LS.get("pa.modoSync", ""), probadoV2 = 0, avisoSesion = "";
 const conectado = () => modoSync === "v2" ? !!LS.get("pa.admin.ses", null) : !!cfg.clave;
 function pintarSync(txt, tipo) {
@@ -1694,7 +1698,7 @@ function ponerBase(id, d) { bases[id] = { d: JSON.parse(JSON.stringify(d)), t: D
 function guardarBases() {
   // Solo hace falta la base de lo reciente o pendiente
   const limite = Date.now() - 4 * 864e5;
-  for (const id of Object.keys(bases)) if (bases[id].t < limite && id !== "inv" && !cola.includes(id)) delete bases[id];
+  for (const id of Object.keys(bases)) if (bases[id].t < limite && id !== "inv" && !(extraDe(id) && extraDe(id).fija(id)) && !cola.includes(id)) delete bases[id];
   LS.set("pa.bases", bases);
 }
 const igual = (x, y) => JSON.stringify(x) === JSON.stringify(y);
@@ -1721,8 +1725,9 @@ function unirLista(l, r, o, quitados, ganaL) {
 }
 function unir(id, l, r) {
   const ganaL = masNuevo(l, r), o = (bases[id] || {}).d || {};
-  const u = unir3(o, l, r, ganaL);
-  if (id === "inv") {
+  const u = unir3(o, l, r, ganaL), ext = extraDe(id);
+  if (ext) ext.unir(id, u, l, r, o, ganaL);
+  else if (id === "inv") {
     u.quitados = { ...(r.quitados || {}), ...(l.quitados || {}) };
     u.insumos = unirLista(l.insumos, r.insumos, o.insumos, u.quitados, ganaL);
     u.preps = unirLista(l.preps, r.preps, o.preps, u.quitados, ganaL);
@@ -1745,9 +1750,10 @@ function unir(id, l, r) {
   u.rev = Math.max(revDe(l), revDe(r)) + 1; u.actualizado = Date.now();
   return u;
 }
-const datoLocal = id => id === "inv" ? inv : id.startsWith("mov:") ? movs[id.slice(4)] : id.startsWith("dia:") ? dias[id.slice(4)] : pedidos[id];
+const datoLocal = id => extraDe(id) ? extraDe(id).dato(id) : id === "inv" ? inv : id.startsWith("mov:") ? movs[id.slice(4)] : id.startsWith("dia:") ? dias[id.slice(4)] : pedidos[id];
 function ponerLocal(id, d) {
-  if (id === "inv") { inv = Object.assign({ insumos: [], preps: [], recetas: {} }, d); LS.set("pa.inv", inv); }
+  if (extraDe(id)) extraDe(id).poner(id, d);
+  else if (id === "inv") { inv = Object.assign({ insumos: [], preps: [], recetas: {} }, d); LS.set("pa.inv", inv); }
   else if (id.startsWith("mov:")) { movs[id.slice(4)] = d; LS.set("pa.movs", movs); }
   else if (id.startsWith("dia:")) dias[id.slice(4)] = Object.assign({ abrir: {}, contado: {}, gastos: [], fondo: "" }, d);
   else pedidos[id] = d;
@@ -1818,7 +1824,7 @@ async function traer(H) {
   // Un equipo nuevo trae también las recetas y todos los movimientos de inventario, no solo los de 3 días (de a 1000)
   if (!estadoSync.ultimo) {
     for (let desdeN = 0; desdeN < 100000; desdeN += 1000) {
-      const ri = await fetch(`${BASE_REG}?select=id,datos,actualizado&or=(id.eq.inv,id.like.mov:*)&order=id.asc&limit=1000&offset=${desdeN}`, { headers: H });
+      const ri = await fetch(`${BASE_REG}?select=id,datos,actualizado&or=(id.eq.inv,id.like.mov:*${EXTRA.map(m => "," + m.todos).join("")})&order=id.asc&limit=1000&offset=${desdeN}`, { headers: H });
       if (!ri.ok) throw new Error(ri.status + " " + (await ri.text()).slice(0, 160));
       const parte = await ri.json(); filas.unshift(...parte); if (parte.length < 1000) break;
     }
@@ -1832,7 +1838,7 @@ async function traer(H) {
       ponerBase(id, d);
     } else if (masNuevo(d, l)) {
       ponerLocal(id, d); ponerBase(id, d); cambios = true;
-      if (!id.startsWith("mov:") && !id.startsWith("dia:") && id !== "inv" && cfg.imprime && !d.impreso && d.estado !== "devuelto") {
+      if (!id.startsWith("mov:") && !id.startsWith("dia:") && id !== "inv" && !extraDe(id) && cfg.imprime && !d.impreso && d.estado !== "devuelto") {
         porImprimir.push(pedidos[id]); recienLlego = id; if (!borrador && tab === "nuevo") { tab = "cocina"; LS.set("pa.tab", tab); }
       }
     }
