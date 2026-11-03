@@ -147,6 +147,8 @@ input[type="file"] { display: none; }
 .embebido header { background: none; padding: 10px 16px 0; }
 .embebido header img, .embebido header h1 small { display: none; }
 .embebido header h1 { font-size: 0; }
+/* Dentro de la app el nombre del módulo ya está en la barra de arriba */
+.embebido .titmod { display: none; }
 </style>
 </head>
 <body>
@@ -416,7 +418,7 @@ function pintar() {
       <button class="btn peq malo" data-a="descartar" ${JSON.stringify(menu) === publicado ? "disabled" : ""}>Descartar cambios</button>
       <button class="btn peq" data-a="base">Volver al menú base</button>
     </div>`;
-  const ayuda = `<h2>Menú del enlace</h2>
+  const ayuda = `<h2 class="titmod">Menú del enlace</h2>
     <p class="ayuda">${ancho ? "Elige una categoría a la izquierda" : "Toca una categoría"} para cambiar sus productos, sabores, precios y foto. Los cambios se guardan aquí mientras trabajas; salen en el enlace cuando tocas <b>Publicar</b>.</p>`;
   const c = menu[abierta];
   $("#app").innerHTML = ancho

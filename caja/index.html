@@ -33,7 +33,7 @@ p { margin: 0; }
 .top .r { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .85rem; }
 .top label { display: flex; align-items: center; gap: 6px; color: #F3EEE0; font-weight: 700; }
 .top .tinfo { font-size: .78rem; color: #CFC8B4; display: flex; gap: 6px; align-items: center; }
-.top .tinfo button { padding: 2px 8px; font-size: .78rem; background: var(--brand); color: var(--ink); border: 0; font-weight: 700; cursor: pointer; }
+.top .tinfo button { white-space: nowrap; padding: 2px 8px; font-size: .78rem; background: var(--brand); color: var(--ink); border: 0; font-weight: 700; cursor: pointer; }
 .top input { width: 90px; padding: 4px 8px; background: #2A2822; color: #F3EEE0; border: 1px solid #4A463A; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #888; margin-right: 5px; }
 .dot.ok { background: #6FCF8A; } .dot.w { background: var(--brand); } .dot.bad { background: #F08A82; }
@@ -317,6 +317,8 @@ function ahoraCaracas(d = new Date()) {
     .formatToParts(d).map(x => [x.type, x.value]));
   return { fecha: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}`, h: +p.hour, mmdd: p.month + p.day, hhmm: p.hour + p.minute };
 }
+// Hora para mostrar en am/pm (se guarda en 24 h, ej. "20:15" → "8:15 pm")
+const h12 = t => { const m = String(t || "").match(/^(\d{1,2}):(\d{2})/); if (!m) return t || ""; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? "am" : "pm"}`; };
 const turnoDe = h => h < 15 ? "Día" : "Noche";
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3200); }
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -975,7 +977,7 @@ function pedidoCard(p) {
   const pagos = vivos(p).map(x => `${esc(x.forma)}${x.ref ? ` ${esc(x.ref)}` : ""}${x.cobrado ? "" : " (por cobrar)"}`).join(" · ");
   return `<article class="card${p.id === recienLlego ? " new" : ""}">
     <div class="oh"><span class="id">${esc(p.id)}${p.cambio ? ` <span class="pill w">Cambio ${p.cambio}</span>` : ""}</span>${estado}</div>
-    <div class="oh"><b>${esc(p.cliente)}</b><span class="meta">${esc(p.hora || "")} · ${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""} · lo mandó ${esc(p.por || "")}</span></div>
+    <div class="oh"><b>${esc(p.cliente)}</b><span class="meta">${esc(h12(p.hora))} · ${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""} · lo mandó ${esc(p.por || "")}</span></div>
     ${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}${p.nota ? `<p class="note">Nota: ${esc(p.nota)}</p>` : ""}
     <div class="lines">${p.items.map(i => `<div class="ln"><b>${i.q} ×</b><span class="nm">${esc(i.n)}${i.d ? `<small>${esc(i.d)}</small>` : ""}</span><span>${fmt(i.q * i.p)}</span><span></span></div>`).join("")}
     ${p.delivery ? `<div class="ln"><span></span><span class="nm">Delivery</span><span>${fmt(p.delivery)}</span><span></span></div>` : ""}</div>
@@ -993,7 +995,7 @@ function pedidoCard(p) {
 function pCocina() {
   const lista = pedidosDe(ahoraCaracas().fecha);
   const activos = lista.filter(p => p.estado === "cocina" || p.estado === "listo"), resto = lista.filter(p => !activos.includes(p)).reverse();
-  const html = `<h2>Pedidos de hoy</h2>
+  const html = `
     ${activos.length ? `<div class="pedidos">${activos.map(pedidoCard).join("")}</div>` : `<p class="empty">No hay pedidos por preparar. Los pedidos pagados que se compartan desde WhatsApp aparecen aquí.</p>`}
     ${resto.length ? `<details><summary>Entregados y devueltos (${resto.length})</summary><div class="pedidos" style="margin-top:10px">${resto.map(pedidoCard).join("")}</div></details>` : ""}`;
   recienLlego = "";
@@ -1031,7 +1033,7 @@ function pReportes() {
   const top = Object.values(prods).sort((a, b) => b.usd - a.usd).slice(0, 12);
   const tope = Math.max(META_DIA, ...filas.map(r => r.c.venta));
   const pct = v => (v / tope * 100).toFixed(1) + "%";
-  const cab = `<h2>Reportes</h2><div class="chips seg">${RANGOS.map(([k, n]) => `<button data-rep="${k}"${k === repRango ? ` aria-pressed="true"` : ""}>${n}</button>`).join("")}</div>`;
+  const cab = `<div class="chips seg">${RANGOS.map(([k, n]) => `<button data-rep="${k}"${k === repRango ? ` aria-pressed="true"` : ""}>${n}</button>`).join("")}</div>`;
   if (!nPed) return cab + `<p class="empty">No hay ventas en ${esc(RANGOS.find(r => r[0] === repRango)[1].toLowerCase())}. Las ventas de Vender y los pedidos que llegan por WhatsApp aparecen aquí.</p>`;
   return cab + `<div class="kpis">
       <div class="kpi main"><small>Vendido (cobrado)</small><b>${fmt(venta)}</b></div>
@@ -1064,10 +1066,9 @@ $("#main").addEventListener("click", e => {
 function pBanco() {
   const filas = [];
   pedidosDe(ahoraCaracas().fecha).forEach(p => vivos(p).forEach(x => { if (x.forma === "Pago móvil" || (x.forma === "Devolución" && x.medio === "Pago móvil")) filas.push({ p, x }); }));
-  return `<h2>Pagos móviles de hoy</h2>
-  <p class="hint">Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
+  return `<p class="hint"><b>Pagos móviles de hoy.</b> Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
   ${filas.length ? `<div class="tbl apilar"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
-  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${esc(x.hora || "")}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
+  ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${esc(h12(x.hora))}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
     <td class="n" data-l="Bs">${x.bs ? fbs(x.bs) : ""}</td><td class="n" data-l="$">${fmt(x.usd)}</td><td data-l="Lo vio">${esc(x.quien || "")}</td>
     <td class="tact"><button class="btn ${x.revisado ? "ghost" : "brand"}" data-a="revisado" data-id="${esc(p.id)}" data-pid="${esc(x.id)}">${x.revisado ? "Revisado ✓" : "Revisar"}</button></td></tr>`).join("")}
   </tbody></table></div>` : `<p class="empty">Todavía no hay pagos móviles hoy.</p>`}`;
@@ -1104,7 +1105,7 @@ function cuentasDia(f) {
 }
 function pCierre() {
   const f = diaSel, d = diaDe(f);
-  return `<div class="oh"><h2>Cierre</h2><label style="max-width:170px">Día<input type="date" id="diaSel" value="${f}"></label></div>
+  return `<label style="max-width:190px">Día<input type="date" id="diaSel" value="${f}"></label>
   <div id="cierreNum">${cierreNumeros(f)}</div>
   <section class="card"><h3>Gastos del día</h3>
     ${d.gastos.map((g, k) => `<div class="fields">
@@ -1352,7 +1353,7 @@ function compraHTML() {
 }
 function pInventario() {
   const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
-  const cab = `<h2>Inventario</h2><div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
+  const cab = `<div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
   if (!inv.insumos.length && invVista !== "ingredientes")
     return cab + `<section class="card"><p>Primero anota los ingredientes (carne, harina, queso…) con su unidad. Después le pones a cada producto cuánto lleva de cada uno, y la caja descuenta sola con cada venta.</p>
       <div class="acts"><button class="btn brand" data-iv="vista" data-k="ingredientes">Anotar ingredientes</button></div></section>`;
@@ -1386,7 +1387,7 @@ function invHay() {
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
     ${ult.length ? `<div>${ult.map(m => { const x = insumoDe(m.ins); return `<div class="mov"${m.anulado ? ` style="opacity:.45"` : ""}>
-      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span>${m.foto ? `<br><button class="x" style="color:var(--fg);padding:4px 0;font-size:.9rem" data-iv="verfoto" data-k="${esc(m.foto)}">📄 Ver factura</button>` : ""}</div>
+      <div><b>${tipos[m.tipo]}</b> · ${x ? esc(x.n) : "?"}<br><span class="meta">${new Date(m.t).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}${m.nota ? ` · ${esc(m.nota)}` : ""}${m.anulado && m.motivo ? `<br>Anulado: ${esc(m.motivo)}${m.anuladoPor ? ` (${esc(m.anuladoPor)})` : ""}` : ""}</span>${m.foto ? `<br><button class="x" style="color:var(--fg);padding:4px 0;font-size:.9rem" data-iv="verfoto" data-k="${esc(m.foto)}">📄 Ver factura</button>` : ""}</div>
       <div class="mq"><span>${cant(num(m.c))} ${x ? esc(x.u) : ""}</span>${m.anulado ? `<span class="meta">Anulado</span>` : `<button class="x" style="padding:4px 0;font-size:.9rem" data-iv="anular" data-k="${m.id}">Anular</button>`}</div></div>`; }).join("")}</div>` : `<p class="note">Todavía no hay movimientos. Empieza con un conteo real de cada ingrediente.</p>`}
   </section>`;
 }
@@ -1520,7 +1521,7 @@ function pAjustes() {
   let usado = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); usado += k.length + (localStorage.getItem(k) || "").length; } } catch (_) { }
   const kb = Math.round(usado * 2 / 1024), pct = Math.min(100, Math.round(kb / 5120 * 100));
   const nPed = Object.keys(pedidos).length;
-  return `<h2>Ajustes de este equipo</h2>
+  return `<p class="hint">Estos ajustes son solo de este equipo.</p>
   <div class="ajustes">
   <section class="card"><h3>🖥️ Este equipo</h3>
     <div class="fields"><label class="ancho">Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
@@ -1563,7 +1564,7 @@ function ticketHTML(p) {
   const tot = p.items.reduce((a, i) => a + i.q * i.p, 0) + (p.delivery || 0), pc = porCobrarDe(p);
   return `<div class="tk"><div class="t">PA'L ANTOJO</div><div style="text-align:center">Calle Urdaneta, local 16 H</div><hr>
     ${p.cambio ? `<div class="big">CAMBIO ${p.cambio}</div>` : ""}
-    <div class="row"><b>${esc(p.id)}</b><span>${esc(p.hora || ahoraCaracas().hora)}</span></div>
+    <div class="row"><b>${esc(p.id)}</b><span>${esc(h12(p.hora || ahoraCaracas().hora))}</span></div>
     <div>${esc(p.cliente)}${p.telefono ? ` · ${esc(p.telefono)}` : ""}</div><div>${esc(p.entrega)}${p.mototaxi ? ` · ${esc(p.mototaxi)}` : ""}</div>
     ${p.direccion ? `<div>${esc(p.direccion)}</div>` : ""}${p.nota ? `<div>Nota: ${esc(p.nota)}</div>` : ""}<hr>
     ${p.items.map(i => `<div class="row"><span>${i.q} ${esc(i.n)}${i.d ? ` (${esc(i.d)})` : ""}</span><span>${fmt(i.q * i.p)}</span></div>`).join("")}
