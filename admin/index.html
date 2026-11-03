@@ -470,9 +470,9 @@ function pintarCat(c, ci) {
     </div>`}
     ${ancho ? `<div class="prodsCab"><p class="sub">Productos (${c.items.length})</p><button class="btn peq" data-a="nuevoProd" data-c="${ci}">+ Agregar producto</button></div>` : `<p class="sub">Productos</p>`}
     <div class="prods">${prods || `<p class="ayuda">Todavía no tiene productos.</p>`}</div>
-    <div class="fila">
+    ${ancho ? "" : `<div class="fila">
       <button class="btn" data-a="nuevoProd" data-c="${ci}">+ Agregar producto</button>
-    </div>
+    </div>`}
     <div class="fila" style="justify-content:flex-end">
       <button class="btn peq" data-a="subirCat" data-c="${ci}" ${ci === 0 ? "disabled" : ""}>↑ Subir</button>
       <button class="btn peq" data-a="bajarCat" data-c="${ci}" ${ci === menu.length - 1 ? "disabled" : ""}>↓ Bajar</button>
@@ -589,6 +589,8 @@ $("#app").addEventListener("click", e => {
     default: return;
   }
   pintar();
+  // En PC el botón está arriba: llevar la vista al producto nuevo y dejar el cursor en su nombre
+  if (a === "nuevoProd") { const ps = document.querySelectorAll(".prod"), n = ps[ps.length - 1]; if (n) { n.scrollIntoView({ block: "center" }); const i = n.querySelector('[data-k="name"]'); if (i) i.focus({ preventScroll: true }); } }
 });
 
 if (ses) entrar().catch(err => pintarLogin(err.message)); else pintarLogin();
