@@ -417,7 +417,22 @@ function pintar() {
   const MODULOS = { menu: "../admin/?app=1" };
   $("#main").classList.toggle("modulo", !!MODULOS[tab]);
   if (MODULOS[tab]) {
-    if (!$("#main iframe")) $("#main").innerHTML = `<iframe src="${MODULOS[tab]}" title="${TABS.find(t => t[0] === tab)[1]}"></iframe>`;
+    if (!$("#main iframe") && !$("#main .moduloFallo")) {
+      $("#main").innerHTML = `<iframe src="${MODULOS[tab]}" title="${TABS.find(t => t[0] === tab)[1]}"></iframe>`;
+      // Si el teléfono no deja abrir el módulo dentro de la app (sale la hoja triste), se ofrece abrirlo aparte
+      const fr = $("#main iframe"), url = MODULOS[tab];
+      fr.addEventListener("load", () => {
+        let bien = false;
+        try { bien = !!(fr.contentDocument && fr.contentDocument.getElementById("app")); } catch (_) { }
+        if (bien || !fr.isConnected) return;
+        $("#main").innerHTML = `<div class="moduloFallo" style="max-width:420px;margin:40px auto;padding:0 16px;text-align:center;display:grid;gap:12px">
+          <p style="margin:0;font-weight:700">Este equipo no dejó abrir el módulo dentro de la app.</p>
+          <a class="btn brand" href="${url}">Abrir ${esc(TABS.find(t => t[0] === tab)[1])}</a>
+          <button class="btn" type="button" id="reintentarModulo">Intentar de nuevo aquí</button>
+        </div>`;
+        $("#reintentarModulo").addEventListener("click", () => { $("#main").innerHTML = ""; pintar(); });
+      });
+    }
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
