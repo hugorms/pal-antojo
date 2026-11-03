@@ -62,6 +62,11 @@ p { margin: 0; }
 }
 /* Vender: productos a la izquierda, factura a la derecha (abajo en el teléfono) */
 main.ancho { max-width: 1200px; }
+.ajustes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; }
+.ajustes .card { height: 100%; align-content: start; }
+.ajdatos { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: .92rem; }
+.ajdatos span { color: var(--muted, #6B6B6B); } .ajdatos b { overflow-wrap: anywhere; }
+.barra { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; } .barra i { display: block; height: 100%; background: #2E9E5B; } .barra.llena i { background: #B3261E; }
 .vender { display: grid; gap: 14px; align-items: start; }
 @media (min-width: 760px) { .vender { grid-template-columns: minmax(0, 1fr) 340px; } .vfac { position: sticky; top: calc(var(--topH, 48px) + 12px); } .vpie { display: none !important; } }
 .vbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -317,45 +322,22 @@ function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = fals
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ---------- datos guardados en este equipo ----------
-const PRODUCTOS_BASE = `Empanada de queso | 1,5 | sí
-Empanada de dominó | 1,5 | sí
-Empanada de pollo | 1,5 | sí
-Empanada de carne mechada | 1,5 | sí
-Empanada de pabellón | 1,5 | sí
-Empanada de jamón y queso | 1,75 | sí
-Empanada de carne molida | 2 | sí
-Empanada de chicharrón | 2 | sí
-Empanada de pizza | 2 | sí
-Empanada de cazón | 2 | sí
-Papa rellena de carne | 2,25 | sí
-Papa rellena de pollo | 2,25 | sí
-Pastelito | 1 | sí
-Malta | 1,25 | sí
-Refresco personal | 1,5 | sí
-Agua mineral | 1 | sí
-Tequeño de guayaba | 0,5 | sí
-Tequeño de Nutella | 0,75 | sí
-Hamburguesa Clásica | 5,5 | sí
-Hamburguesa Pa'l Antojo | 7 | sí
-Hamburguesa Doble | 8,5 | sí
-Hamburguesa De pollo | 5,5 | sí
-Marrón | 1 | no
-Café con leche o capuchino | 1,25 | no
-Jugo natural | 1 | no`;
-let cfg = Object.assign({ equipo: "", imprime: false, url: "", key: "", clave: "", tasa: 0, tasaAuto: true, tasaFecha: "", productos: PRODUCTOS_BASE }, LS.get("pa.cfg", {}));
+
+let cfg = Object.assign({ equipo: "", imprime: false, url: "", key: "", clave: "", tasa: 0, tasaAuto: true, tasaFecha: "" }, LS.get("pa.cfg", {}));
+delete cfg.productos; // la lista de productos ahora sale del menú del enlace
 let pedidos = LS.get("pa.pedidos", {});   // id → pedido
 let dias = LS.get("pa.dias", {});         // fecha → { abrir:{}, contado:{}, gastos:[], fondo }
 let cola = LS.get("pa.cola", []);         // ids por enviar a la nube
 let estadoSync = LS.get("pa.sync", { ultimo: "" });
 let borrador = LS.get("pa.borrador", null);
 const guardarTodo = () => { LS.set("pa.pedidos", pedidos); LS.set("pa.dias", dias); LS.set("pa.cola", cola); };
-const productos = () => cfg.productos.split("\n").map(l => l.split("|").map(x => x.trim())).filter(x => x[0])
-  .map(([n, p, c]) => ({ n, p: num(p), inv: !/^no$/i.test(c || "sí") }));
+// Productos para "Agregar producto" en Recibir: salen del mismo menú del enlace (antes era una lista aparte en Ajustes)
+const productos = () => catsVenta().flatMap(c => filasVenta(c).map(r => { const o = opcionesVenta(r.it, r.f)[0] || { d: "", p: 0 }; return { n: nombreVenta(c, r.it), d: o.d, p: o.p, label: r.f && c.items.length > 1 ? `${r.it.name} ${r.f}` : (r.f || nombreVenta(c, r.it)) }; }));
 
 // La conexión ya no se configura a mano ni por enlace (#cfg): era una puerta para mandar un equipo a otra base de datos.
 // Si alguien abre un enlace viejo con #cfg, se borra sin usarlo.
 if (/^#cfg=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
-cfg.url = ""; cfg.key = "";
+delete cfg.url; delete cfg.key;
 
 // ---------- cuentas de un pedido ----------
 const totalDe = p => p.devuelto ? 0 : p.items.reduce((a, i) => a + i.q * i.p, 0) + (p.delivery || 0);
@@ -426,7 +408,7 @@ function pintar() {
     document.documentElement.style.setProperty("--topH", $("#top").offsetHeight + "px");
     return;
   }
-  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina");
+  $("#main").classList.toggle("ancho", tab === "vender" || tab === "cocina" || tab === "ajustes");
   const f = { vender: pVender, nuevo: pNuevo, cocina: pCocina, banco: pBanco, cierre: pCierre, reportes: pReportes, inventario: pInventario, ajustes: pAjustes }[tab];
   $("#main").innerHTML = f();
   if (tab === "nuevo" || tab === "vender") despuesNuevo();
@@ -542,7 +524,7 @@ function editorHTML() {
         <span class="q"><button data-a="menos" data-k="${k}" aria-label="Quitar uno">−</button><span>${i.q}</span><button data-a="mas" data-k="${k}" aria-label="Agregar uno">+</button></span>
         <span class="nm">${esc(i.n)}${i.d ? `<small>${esc(i.d)}</small>` : ""}</span><span>${fmt(i.q * i.p)}</span>
         <button class="x" data-a="quitar" data-k="${k}" aria-label="Quitar ${esc(i.n)}">×</button></div>`).join("") || `<p class="note">Sin productos todavía.</p>`}</div>
-    <details id="agregar"${verAgregar ? " open" : ""}><summary>Agregar producto</summary><div class="chips" style="margin-top:8px">${productos().map((x, k) => `<button data-a="add" data-k="${k}">${esc(x.n)} · ${fmt(x.p)}</button>`).join("")}</div></details>
+    <details id="agregar"${verAgregar ? " open" : ""}><summary>Agregar producto</summary><div class="chips" style="margin-top:8px">${productos().map((x, k) => `<button data-a="add" data-k="${k}">${esc(x.label)} · ${fmt(x.p)}</button>`).join("")}</div></details>
     ${agotados.length ? `<p class="msg bad">Según el inventario no alcanza: ${agotados.map(i => esc(i.n)).join(", ")}. Revisa antes de cobrar.</p>` : ""}
     ${p.entrega === "Delivery" ? `<label style="max-width:180px">Delivery ($)<input id="e-delivery" inputmode="decimal" value="${p.delivery ? String(p.delivery).replace(".", ",") : ""}"></label>` : ""}
     <div class="tot"><span>Total</span><span>${fmt(tot)}${tasaHoy() ? ` · ${fbs(tot * tasaHoy())}` : ""}</span></div>` : `
@@ -892,7 +874,7 @@ $("#main").addEventListener("click", e => {
     const p = borrador.pedido;
     if (a === "menos" || a === "mas") { const it = p.items[+b.dataset.k]; it.q += a === "mas" ? 1 : -1; if (it.q <= 0) p.items.splice(+b.dataset.k, 1); }
     if (a === "quitar") p.items.splice(+b.dataset.k, 1);
-    if (a === "add") { const x = productos()[+b.dataset.k]; const f = p.items.find(i => norm(i.n) === norm(x.n) && !i.d); if (f) f.q++; else p.items.push({ q: 1, n: x.n, d: "", p: x.p }); }
+    if (a === "add") { const x = productos()[+b.dataset.k]; const f = p.items.find(i => norm(i.n) === norm(x.n) && norm(i.d) === norm(x.d || "")); if (f) f.q++; else p.items.push({ q: 1, n: x.n, d: x.d || "", p: x.p }); }
     if (a === "pago") {
       const cub = cubiertoDe(p, borrador.pagos.map(x => ({ usd: usdDe(x) })));
       const falta = Math.max(0, totalDe(p) - cub);
@@ -912,6 +894,7 @@ $("#main").addEventListener("click", e => {
   if (a === "gasto") { const d = diaDe(diaSel); d.gastos.push({ id: "g" + uid(), c: "", m: "", mon: "$", pago: "Efectivo" }); tocarDia(diaSel); pintar(); }
   if (a === "qgasto") { const d = diaDe(diaSel); const g = d.gastos.splice(+b.dataset.k, 1)[0]; if (g && g.id) (d.quitados = d.quitados || {})[g.id] = Date.now(); tocarDia(diaSel); pintar(); }
   if (a === "respaldo") respaldo();
+  if (a === "irMenu") { $("#main").innerHTML = ""; tab = "menu"; LS.set("pa.tab", tab); pintar(); window.scrollTo(0, 0); }
   if (a === "probar") sincronizar(true);
   if (a === "probarImpresion") imprimir([Object.assign(pedidoVacio("mostrador"), { cliente: "Prueba de impresora", items: [{ q: 1, n: "Empanada de queso", d: "", p: 1.5 }], pagos: [{ forma: "Efectivo $", usd: 1.5, cobrado: true }] })]);
 });
@@ -1216,7 +1199,6 @@ function vendibles() {
     (it.sizes || []).forEach(([t]) => t && dets.set(norm(t), t));
     (it.extras || []).forEach(e => dets.set(norm(e.label), e.label.toLowerCase()));
   }));
-  productos().forEach(x => { if (!prods.has(norm(x.n))) prods.set(norm(x.n), { n: x.n, cat: "Otros" }); });
   return { prods: [...prods.values()], dets: [...dets.values()] };
 }
 // Llegó una factura: se anotan todas sus líneas de una vez. Cada ingrediente puede tener su presentación (bulto, caja…)
@@ -1534,25 +1516,40 @@ $("#main").addEventListener("input", e => {
 
 // ---------- Ajustes ----------
 function pAjustes() {
+  const ses = LS.get("pa.admin.ses", null) || {}, pend = new Set(cola).size;
+  let usado = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); usado += k.length + (localStorage.getItem(k) || "").length; } } catch (_) { }
+  const kb = Math.round(usado * 2 / 1024), pct = Math.min(100, Math.round(kb / 5120 * 100));
+  const nPed = Object.keys(pedidos).length;
   return `<h2>Ajustes de este equipo</h2>
-  <section class="card"><div class="fields">
-    <label>Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
-    <label class="chk"><input type="checkbox" data-cfg="imprime"${cfg.imprime ? " checked" : ""}> Este equipo imprime los tickets (solo el de la tienda)</label>
+  <div class="ajustes">
+  <section class="card"><h3>🖥️ Este equipo</h3>
+    <div class="fields"><label class="ancho">Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
+    <p class="hint">Sale en los pedidos y en el cierre como "lo mandó…".</p>
+  </section>
+  <section class="card"><h3>🖨️ Impresora de tickets</h3>
+    <label class="chk"><input type="checkbox" data-cfg="imprime"${cfg.imprime ? " checked" : ""}> Este equipo imprime los tickets</label>
+    <p class="hint">Márcalo solo en el equipo de la tienda que tiene la impresora de 58 mm.</p>
     <div class="acts"><button class="btn ghost" data-a="probarImpresion">Imprimir ticket de prueba</button></div>
   </section>
-  <section class="card"><h3>Conexión entre equipos</h3>
-    <p class="hint">El teléfono y la PC ven los mismos pedidos con solo entrar con un usuario de la tienda. No hay claves que copiar.</p>
+  <section class="card"><h3>🔄 Conexión entre equipos</h3>
+    <p class="hint">El teléfono y la PC ven los mismos pedidos con solo entrar con un usuario de la tienda.</p>
+    <div class="ajdatos"><span>Usuario</span><b>${esc(ses.email || "Sin entrar")}</b>
+      <span>Seguridad</span><b>${modoSync === "v2" ? "✓ Con usuario" : "Con clave de la tienda (falta el SQL de seguridad)"}</b>
+      <span>Por enviar</span><b>${pend ? `${pend} cambio(s)` : "Nada, todo enviado ✓"}</b></div>
     <div class="acts"><button class="btn" data-a="probar">Probar conexión</button></div>
     <p class="note" id="cfgMsg"></p>
   </section>
-  <section class="card"><h3>Productos</h3>
-    <p class="hint">Uno por línea: nombre | precio. El nombre debe ser igual al del enlace. Lo que lleva cada uno se anota en Inventario › Recetas.</p>
-    <textarea data-cfg="productos" rows="12">${esc(cfg.productos)}</textarea>
-  </section>
-  <section class="card"><h3>Respaldo</h3>
-    <p class="hint">Descarga todo lo de este equipo en un archivo, por si acaso.</p>
+  <section class="card"><h3>💾 Datos guardados aquí</h3>
+    <div class="ajdatos"><span>Pedidos</span><b>${nPed}</b><span>Espacio usado</span><b>${kb.toLocaleString("es-VE")} KB de ~5.000 KB</b></div>
+    <div class="barra${pct > 80 ? " llena" : ""}"><i style="width:${pct}%"></i></div>
+    <p class="hint">${pct > 80 ? "Se está llenando. Descarga un respaldo." : "Todo lo de este equipo también queda en la nube."} El respaldo descarga todo en un archivo, por si acaso.</p>
     <div class="acts"><button class="btn ghost" data-a="respaldo">Descargar respaldo</button></div>
-  </section>`;
+  </section>
+  <section class="card"><h3>📋 Productos y precios</h3>
+    <p class="hint">Salen del menú del enlace. Para cambiar un producto o un precio, ve a Administración › Menú del enlace. Lo que lleva cada uno se anota en Inventario › Recetas.</p>
+    <div class="acts"><button class="btn ghost" data-a="irMenu">Abrir Menú del enlace</button></div>
+  </section>
+  </div>`;
 }
 function respaldo() {
   const blob = new Blob([JSON.stringify({ pedidos, dias, inv, movs, cfg: { ...cfg, key: "", clave: "" } }, null, 1)], { type: "application/json" });
