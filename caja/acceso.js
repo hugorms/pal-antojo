@@ -1,9 +1,13 @@
 // Entrada a la app de Pa'l Antojo: nadie la usa sin entrar con su correo y contraseña (Supabase Auth).
 // Pueden entrar los correos de public.administradores y public.personal (función puede_entrar).
+// Otra app puede pedir otro permiso con data-permiso (la de repartidores usa es_repartidor) y otro texto con data-texto.
 // La sesión queda guardada en el equipo: sin internet sigue abierta; con internet se renueva sola.
 // Es la misma sesión del panel del menú (pa.admin.ses), así que se entra una sola vez.
 (function () {
   const BASE = document.currentScript ? document.currentScript.src : location.href;
+  const DS = (document.currentScript && document.currentScript.dataset) || {};
+  const PERMISO = /^[a-z_]+$/.test(DS.permiso || "") ? DS.permiso : "puede_entrar";
+  const TEXTO = DS.texto || "Solo para el equipo de la tienda. Entra con tu correo y contraseña.";
   const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co";
   const CLAVE = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
   const KEY = "pa.admin.ses";
@@ -34,7 +38,7 @@
     guardar(s); return s;
   }
   async function puedeEntrar(s) {
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/puede_entrar`, { method: "POST", headers: { apikey: CLAVE, authorization: "Bearer " + s.access_token, "content-type": "application/json" }, body: "{}" });
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/${PERMISO}`, { method: "POST", headers: { apikey: CLAVE, authorization: "Bearer " + s.access_token, "content-type": "application/json" }, body: "{}" });
     if (!r.ok) throw new Error("No se pudo revisar el permiso (" + r.status + ").");
     return (await r.json()) === true;
   }
@@ -46,7 +50,7 @@
     const correo = (leer() || {}).email || localStorage.getItem("pa.admin.correo")?.replace(/"/g, "") || "";
     el.innerHTML = `<form id="accForm">
       <div class="m"><img src="${new URL("icono-192.png", BASE).href}" alt="" onerror="this.remove()">Pa'l Antojo</div>
-      <p>Solo para el equipo de la tienda. Entra con tu correo y contraseña.</p>
+      <p>${esc(TEXTO)}</p>
       <label>Correo<input type="email" id="accCorreo" autocomplete="username" required value="${esc(correo)}"></label>
       <label>Contraseña<input type="password" id="accClave" autocomplete="current-password" required></label>
       <button id="accBtn">Entrar</button>
