@@ -180,6 +180,11 @@ input[type="file"] { display: none; }
 // El panel vive dentro de la app (Administración › Menú del enlace); abierto suelto, lleva a la app
 if (window.top === window.self && !/[?&]app=1/.test(location.search)) location.replace("../caja/?modulo=menu");
 document.documentElement.classList.add("embebido");
+// Abierto aparte desde la app (cuando el teléfono no lo deja abrir dentro): botón para volver
+if (window.top === window.self) addEventListener("DOMContentLoaded", () => {
+  const v = document.createElement("a"); v.className = "btn peq"; v.href = "../caja/"; v.textContent = "← Volver a la app";
+  document.querySelector("header .wrap").prepend(v);
+});
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co";
 const SB_PUBLICA = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
 const BUCKET = "menu";
