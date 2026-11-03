@@ -33,7 +33,7 @@ p { margin: 0; }
 .top .r { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .85rem; }
 .top label { display: flex; align-items: center; gap: 6px; color: #F3EEE0; font-weight: 700; }
 .top .tinfo { font-size: .78rem; color: #CFC8B4; display: flex; gap: 6px; align-items: center; }
-.top .tinfo button { padding: 2px 8px; font-size: .78rem; background: var(--brand); color: var(--ink); border: 0; font-weight: 700; cursor: pointer; }
+.top .tinfo button { white-space: nowrap; padding: 2px 8px; font-size: .78rem; background: var(--brand); color: var(--ink); border: 0; font-weight: 700; cursor: pointer; }
 .top input { width: 90px; padding: 4px 8px; background: #2A2822; color: #F3EEE0; border: 1px solid #4A463A; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #888; margin-right: 5px; }
 .dot.ok { background: #6FCF8A; } .dot.w { background: var(--brand); } .dot.bad { background: #F08A82; }
@@ -993,7 +993,7 @@ function pedidoCard(p) {
 function pCocina() {
   const lista = pedidosDe(ahoraCaracas().fecha);
   const activos = lista.filter(p => p.estado === "cocina" || p.estado === "listo"), resto = lista.filter(p => !activos.includes(p)).reverse();
-  const html = `<h2>Pedidos de hoy</h2>
+  const html = `
     ${activos.length ? `<div class="pedidos">${activos.map(pedidoCard).join("")}</div>` : `<p class="empty">No hay pedidos por preparar. Los pedidos pagados que se compartan desde WhatsApp aparecen aquí.</p>`}
     ${resto.length ? `<details><summary>Entregados y devueltos (${resto.length})</summary><div class="pedidos" style="margin-top:10px">${resto.map(pedidoCard).join("")}</div></details>` : ""}`;
   recienLlego = "";
@@ -1031,7 +1031,7 @@ function pReportes() {
   const top = Object.values(prods).sort((a, b) => b.usd - a.usd).slice(0, 12);
   const tope = Math.max(META_DIA, ...filas.map(r => r.c.venta));
   const pct = v => (v / tope * 100).toFixed(1) + "%";
-  const cab = `<h2>Reportes</h2><div class="chips seg">${RANGOS.map(([k, n]) => `<button data-rep="${k}"${k === repRango ? ` aria-pressed="true"` : ""}>${n}</button>`).join("")}</div>`;
+  const cab = `<div class="chips seg">${RANGOS.map(([k, n]) => `<button data-rep="${k}"${k === repRango ? ` aria-pressed="true"` : ""}>${n}</button>`).join("")}</div>`;
   if (!nPed) return cab + `<p class="empty">No hay ventas en ${esc(RANGOS.find(r => r[0] === repRango)[1].toLowerCase())}. Las ventas de Vender y los pedidos que llegan por WhatsApp aparecen aquí.</p>`;
   return cab + `<div class="kpis">
       <div class="kpi main"><small>Vendido (cobrado)</small><b>${fmt(venta)}</b></div>
@@ -1064,8 +1064,7 @@ $("#main").addEventListener("click", e => {
 function pBanco() {
   const filas = [];
   pedidosDe(ahoraCaracas().fecha).forEach(p => vivos(p).forEach(x => { if (x.forma === "Pago móvil" || (x.forma === "Devolución" && x.medio === "Pago móvil")) filas.push({ p, x }); }));
-  return `<h2>Pagos móviles de hoy</h2>
-  <p class="hint">Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
+  return `<p class="hint"><b>Pagos móviles de hoy.</b> Quien comparte el pedido ya vio el pago en el banco. Esto es la segunda revisión, para el cierre.</p>
   ${filas.length ? `<div class="tbl apilar"><table><thead><tr><th>Hora</th><th>Pedido</th><th>Ref.</th><th>Banco</th><th class="n">Bs</th><th class="n">$</th><th>Lo vio</th><th></th></tr></thead><tbody>
   ${filas.map(({ p, x }) => `<tr><td data-l="Hora">${esc(x.hora || "")}</td><td class="tpri">${esc(p.id)}<br><span class="meta">${esc(p.cliente)}</span></td><td data-l="Ref.">${esc(x.ref)}</td><td data-l="Banco">${esc(x.banco || "")}</td>
     <td class="n" data-l="Bs">${x.bs ? fbs(x.bs) : ""}</td><td class="n" data-l="$">${fmt(x.usd)}</td><td data-l="Lo vio">${esc(x.quien || "")}</td>
@@ -1104,7 +1103,7 @@ function cuentasDia(f) {
 }
 function pCierre() {
   const f = diaSel, d = diaDe(f);
-  return `<div class="oh"><h2>Cierre</h2><label style="max-width:170px">Día<input type="date" id="diaSel" value="${f}"></label></div>
+  return `<label style="max-width:190px">Día<input type="date" id="diaSel" value="${f}"></label>
   <div id="cierreNum">${cierreNumeros(f)}</div>
   <section class="card"><h3>Gastos del día</h3>
     ${d.gastos.map((g, k) => `<div class="fields">
@@ -1352,7 +1351,7 @@ function compraHTML() {
 }
 function pInventario() {
   const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
-  const cab = `<h2>Inventario</h2><div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
+  const cab = `<div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
   if (!inv.insumos.length && invVista !== "ingredientes")
     return cab + `<section class="card"><p>Primero anota los ingredientes (carne, harina, queso…) con su unidad. Después le pones a cada producto cuánto lleva de cada uno, y la caja descuenta sola con cada venta.</p>
       <div class="acts"><button class="btn brand" data-iv="vista" data-k="ingredientes">Anotar ingredientes</button></div></section>`;
@@ -1520,7 +1519,7 @@ function pAjustes() {
   let usado = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); usado += k.length + (localStorage.getItem(k) || "").length; } } catch (_) { }
   const kb = Math.round(usado * 2 / 1024), pct = Math.min(100, Math.round(kb / 5120 * 100));
   const nPed = Object.keys(pedidos).length;
-  return `<h2>Ajustes de este equipo</h2>
+  return `<p class="hint">Estos ajustes son solo de este equipo.</p>
   <div class="ajustes">
   <section class="card"><h3>🖥️ Este equipo</h3>
     <div class="fields"><label class="ancho">Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
