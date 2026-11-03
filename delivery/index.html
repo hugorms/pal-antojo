@@ -75,11 +75,56 @@ input { font: 700 1.1rem var(--body); padding: 10px 12px; border: 1.5px solid va
 .cuentas div { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; display: grid; }
 .cuentas small { color: var(--muted); font-weight: 700; font-size: .78rem; }
 .cuentas b { font: 700 1.25rem var(--display); }
+.pasos ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.pasos ul { margin: 6px 0 0; padding-left: 18px; }
 .hist { display: grid; gap: 6px; margin-top: 8px; }
 .hist div { display: flex; justify-content: space-between; gap: 8px; font-size: .92rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 details summary { cursor: pointer; font-weight: 800; }
 #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
 </style>
+<script>
+// ---------- primero se descarga (instala) la app ----------
+// En el teléfono, si la página se abre en el navegador, lo primero que sale es "Descarga la app"; el login y los permisos vienen después, ya dentro de la app.
+// Va colgado de <html> (no de <body>) para que la pantalla de entrada no lo esconda.
+(function () {
+  const instalada = () => matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true;
+  const telefono = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const iphone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!telefono || instalada()) return;
+  let pedido = null, lista = false;
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); pedido = e; pintar(); });
+  addEventListener("appinstalled", () => { lista = true; pintar(); });
+  const css = document.createElement("style");
+  css.textContent = `#instalar { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: #1A1A1A; font-family: "Nunito", "Segoe UI", system-ui, sans-serif; overflow: auto; }
+    #instalar > div { width: 100%; max-width: 380px; background: #FBF8EF; color: #1A1A1A; border-radius: 18px; padding: 22px; display: grid; gap: 12px; }
+    #instalar .m { display: flex; align-items: center; gap: 10px; font: 700 1.3rem "Fredoka", system-ui, sans-serif; }
+    #instalar img { width: 44px; height: 44px; border-radius: 50%; }
+    #instalar p, #instalar li { margin: 0; font-size: .95rem; }
+    #instalar ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+    #instalar .h { color: #6B6B6B; font-size: .85rem; }
+    #instalar button { font: 800 1.1rem inherit; padding: 16px; border: 0; border-radius: 12px; background: #F2B705; color: #1A1A1A; cursor: pointer; }
+    #instalar .ok { background: #E5F4E4; color: #1F7A3A; font-weight: 800; border-radius: 10px; padding: 10px 12px; }`;
+  document.head.appendChild(css);
+  const el = document.createElement("div"); el.id = "instalar"; document.documentElement.appendChild(el);
+  function pintar() {
+    const pasos = iphone
+      ? `<ol><li>Abre esta página en <b>Safari</b>.</li><li>Toca <b>Compartir</b> (el cuadrito con la flecha ↑).</li><li>Toca <b>Agregar a inicio</b> y luego <b>Agregar</b>.</li><li>Abre la app <b>Delivery</b> desde tu pantalla de inicio.</li></ol>`
+      : `<ol><li>Toca el menú <b>⋮</b> de Chrome (arriba a la derecha).</li><li>Toca <b>Instalar app</b> (o <b>Agregar a la pantalla principal</b>) y acepta.</li><li>Abre la app <b>Delivery</b> desde tu pantalla de inicio.</li></ol>`;
+    el.innerHTML = `<div>
+      <div class="m"><img src="../caja/icono-192.png" alt="">Delivery Pa'l Antojo</div>
+      ${lista
+        ? `<p class="ok">✓ App descargada.</p><p>Ciérrala aquí y ábrela desde el ícono <b>Delivery</b> en tu pantalla de inicio. Ahí entras con tu cuenta y aceptas los permisos.</p>`
+        : `<p><b>Primero descarga la app.</b> Así te suenan los pedidos aunque tengas el teléfono bloqueado.</p>
+           ${pedido ? `<button id="instBtn">Descargar la app</button><p class="h">Si no sale la ventana, hazlo a mano:</p>` : ""}
+           ${pasos}
+           <p class="h">Si la abriste desde WhatsApp, toca ⋮ › <b>Abrir en Chrome</b> primero. Si ya la tienes descargada, ábrela desde su ícono.</p>`}
+    </div>`;
+    const b = el.querySelector("#instBtn");
+    if (b) b.onclick = async () => { const p = pedido; pedido = null; p.prompt(); const r = await p.userChoice.catch(() => ({})); if (r.outcome === "accepted") lista = true; pintar(); };
+  }
+  pintar();
+})();
+</script>
 <script src="../caja/acceso.js" data-permiso="dlv_puedo_entrar" data-registro="1" data-texto="Para los repartidores de Pa'l Antojo. Entra con tu correo y contraseña, o crea tu cuenta si eres nuevo."></script>
 </head>
 <body>
@@ -257,15 +302,47 @@ async function revisarPermisos() {
   pintar();
 }
 const faltanPermisos = () => !LS.get("dlv.sinPermisos", false) && (permisoGps !== "granted" || (avisoPermiso !== "granted" && avisoPermiso !== "no") || (datos && datos.yo && !datos.yo.avisos && avisoPermiso === "granted"));
+let guiaPermisos = false;
 async function pedirPermisos(b) {
   if (b) b.disabled = true;
+  // Si alguno ya está bloqueado, el teléfono no vuelve a preguntar: se va directo a los pasos para activarlo
+  if (permisoGps === "denied" || avisoPermiso === "denied") { guiaPermisos = true; pintar(); return; }
   // 1. Ubicación
   await new Promise(ok => navigator.geolocation ? navigator.geolocation.getCurrentPosition(p => { gps = { lat: p.coords.latitude, lng: p.coords.longitude, precision: Math.round(p.coords.accuracy), t: Date.now() }; permisoGps = "granted"; ok(); }, e => { if (e.code === 1) permisoGps = "denied"; ok(); }, { enableHighAccuracy: true, timeout: 20000 }) : ok());
   // 2. Notificaciones (y el aviso con la app cerrada)
   await activarAvisos(true);
-  await revisarPermisos(); latido();
+  await revisarPermisos();
+  if (permisoGps === "denied" || avisoPermiso === "denied") guiaPermisos = true;
+  latido(); pintar();
+}
+// Al volver de los ajustes del teléfono se revisa solo; si ya están, sigue sin tocar nada
+async function volvioDeAjustes() {
+  const antes = avisoPermiso;
+  await revisarPermisos();
+  if (datos && avisoPermiso === "granted" && (antes !== "granted" || (datos.yo && !datos.yo.avisos))) await activarAvisos(true);
+  if (permisoGps !== "denied" && avisoPermiso !== "denied") guiaPermisos = false;
+  pintar();
+}
+function irAPermisos() { LS.set("dlv.sinPermisos", false); guiaPermisos = permisoGps === "denied" || avisoPermiso === "denied"; pintar(); scrollTo(0, 0); }
+function pasosPermisos() {
+  const iphone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const app = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const falta = [permisoGps === "denied" ? "📍 Ubicación: <b>Permitir mientras se usa la app</b>" : "", avisoPermiso === "denied" ? "🔔 Notificaciones: <b>activadas</b>" : ""].filter(Boolean).map(x => `<li>${x}</li>`).join("");
+  const pasos = iphone
+    ? `<ol><li>Abre <b>Ajustes</b> del iPhone.</li><li>Busca <b>Delivery</b> (para avisos: Ajustes › Notificaciones › Delivery).</li><li>Activa:<ul>${falta}</ul></li><li>Vuelve a esta app.</li></ol>`
+    : app
+      ? `<ol><li>Sal a la pantalla de inicio y <b>mantén presionado el ícono Delivery</b>.</li><li>Toca <b>ⓘ Información de la app</b> › <b>Permisos</b>.</li><li>Activa:<ul>${falta}</ul></li><li>Vuelve a esta app. Se revisa sola.</li></ol>`
+      : `<ol><li>Toca el candado 🔒 (o ⓘ) al lado de la dirección, arriba.</li><li>Toca <b>Permisos</b>.</li><li>Activa:<ul>${falta}</ul></li><li>Recarga la página.</li></ol>`;
+  return `<section class="card">
+    <h2>Activa los permisos</h2>
+    <p>El teléfono los tiene bloqueados y ya no deja preguntar otra vez. Actívalos así:</p>
+    <div class="pasos">${pasos}</div>
+    <button class="btn brand big" onclick="volvioDeAjustes()">Ya los activé</button>
+    <button class="btn ghost" onclick="guiaPermisos=false; pintar()">Volver</button>
+  </section>`;
 }
 function pantallaPermisos() {
+  if (guiaPermisos) return pasosPermisos();
   const negado = permisoGps === "denied" || avisoPermiso === "denied";
   const est = (ok, no) => ok ? `<span class="pill g">Aceptado</span>` : no ? `<span class="pill" style="background:var(--badbg);color:var(--bad)">Bloqueado</span>` : `<span class="pill w">Falta</span>`;
   return `<section class="card">
@@ -273,9 +350,8 @@ function pantallaPermisos() {
     <p>Para que te lleguen los pedidos, la app necesita dos permisos:</p>
     <div class="oh"><span>📍 <b style="font-size:1rem">Ubicación</b><br><span class="hint">El pedido le llega primero al repartidor más cerca del local.</span></span>${est(permisoGps === "granted", permisoGps === "denied")}</div>
     <div class="oh"><span>🔔 <b style="font-size:1rem">Notificaciones</b><br><span class="hint">Para que suene aunque tengas la app cerrada o el teléfono bloqueado.</span></span>${est(avisoPermiso === "granted" && datos && datos.yo && datos.yo.avisos, avisoPermiso === "denied")}</div>
-    <button class="btn brand big" onclick="pedirPermisos(this)">Aceptar permisos</button>
-    ${negado ? `<p class="msg w">Uno quedó bloqueado. Toca el candado 🔒 al lado de la dirección (o Ajustes del teléfono › Apps › Chrome › Permisos), permite Ubicación y Notificaciones, y vuelve a tocar el botón.</p>` : ""}
-    <p class="hint">Consejo: instala la app (menú ⋮ › Agregar a la pantalla de inicio). En iPhone los avisos solo funcionan así. Los avisos llegan con el teléfono bloqueado, pero no si está apagado o sin internet.</p>
+    <button class="btn brand big" onclick="pedirPermisos(this)">${negado ? "Ir a activar los permisos" : "Aceptar permisos"}</button>
+    <p class="hint">Los avisos llegan con el teléfono bloqueado, pero no si está apagado o sin internet.</p>
     <button class="btn ghost" onclick="LS.set('dlv.sinPermisos', true); pintar()">Seguir sin eso por ahora</button>
   </section>`;
 }
@@ -309,7 +385,7 @@ function pintar() {
     <div class="estado"><span class="punto${disponible ? " on" : ""}"></span><div><b>${disponible ? "Disponible" : "No disponible"}</b>
       <p class="hint">${disponible ? (gps ? `GPS activo${datos.yo && datos.yo.km != null ? ` · estás a ${String(datos.yo.km).replace(".", ",")} km del local` : ""}` : gpsError ? esc(gpsError) + " Igual te llegan pedidos, pero después de los que tienen GPS." : "Buscando tu ubicación…") : "Actívalo cuando puedas llevar pedidos."}</p></div>
       <button class="sw" role="switch" aria-checked="${disponible}" aria-label="Disponible" onclick="cambiarDisponible()"></button></div>
-    ${!datos.yo.avisos || avisoPermiso !== "granted" ? `<div class="msg w">Activa los avisos para que te llegue el pedido aunque tengas la app cerrada.<div style="margin-top:8px"><button class="btn brand" onclick="activarAvisos()">Activar avisos</button></div></div>` : ""}
+    ${!datos.yo.avisos || avisoPermiso !== "granted" || permisoGps !== "granted" ? `<div class="msg w">${permisoGps !== "granted" ? "Falta el permiso de ubicación: sin él los pedidos le llegan primero a los demás." : "Activa los avisos para que te llegue el pedido aunque tengas la app cerrada."}<div style="margin-top:8px"><button class="btn brand" onclick="irAPermisos()">Aceptar permisos</button></div></div>` : ""}
     ${disponible ? `<button class="btn ghost" onclick="mantenerPrendida()">${pantalla ? "✓ Pantalla siempre prendida" : "Mantener la pantalla prendida"}</button>` : ""}
   </section>
   ${datos.mias.map(m => {
@@ -345,7 +421,7 @@ let reloj = null;
 function reprogramar() { clearInterval(reloj); const rapido = disponible || (datos && datos.mias.length); reloj = setInterval(latido, rapido ? 4000 : 20000); }
 setInterval(() => { if (datos && datos.oferta) pintar(); }, 1000);
 document.addEventListener("visibilitychange", async () => {
-  if (document.hidden) return; latido();
+  if (document.hidden) return; latido(); volvioDeAjustes();
   if (LS.get("dlv.pantalla", false) && !pantalla && disponible && "wakeLock" in navigator) try { pantalla = await navigator.wakeLock.request("screen"); } catch (_) { }
 });
 window.addEventListener("online", latido);
