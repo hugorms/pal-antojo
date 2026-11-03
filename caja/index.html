@@ -70,7 +70,7 @@ main.ancho { max-width: 1200px; }
 .vender { display: grid; gap: 14px; align-items: start; }
 @media (min-width: 760px) { .vender { grid-template-columns: minmax(0, 1fr) 340px; } .vfac { position: sticky; top: calc(var(--topH, 48px) + 12px); } .vpie { display: none !important; } }
 .vbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .vcard { display: grid; gap: 0; padding: 0; overflow: hidden; border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--fg); cursor: pointer; text-align: left; }
 .vcard b { font: 600 1.05rem var(--display); padding: 8px 10px 10px; }
 .vph { position: relative; overflow: hidden; display: grid; place-items: center; aspect-ratio: 4 / 3; font-size: 2.6rem; background: radial-gradient(circle at 30% 25%, #FFD54A, var(--brand) 70%); }
@@ -148,7 +148,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 label { display: grid; gap: 3px; font-size: .8rem; font-weight: 700; color: var(--muted); }
 input, select, textarea { font: 700 .95rem var(--body); color: var(--fg); background: var(--surface); border: 1.5px solid var(--line); border-radius: 8px; padding: 7px 9px; min-width: 0; width: 100%; }
 textarea { font-weight: 600; resize: vertical; }
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; align-items: end; }
 /* Inventario: filas que no cortan los nombres. En teléfono el nombre va solo en su línea. */
 .irow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 10px 0; border-top: 1px solid var(--line); }
 .irow:first-of-type { border-top: 0; padding-top: 2px; }
@@ -180,6 +180,7 @@ textarea { font-weight: 600; resize: vertical; }
 .chk { display: flex; gap: 8px; align-items: center; font-size: .9rem; color: var(--fg); font-weight: 700; }
 .chk input { width: 18px; height: 18px; flex: none; }
 .msg { font-size: .88rem; font-weight: 700; border-radius: 8px; padding: 7px 10px; }
+.msg + .msg { margin-top: 6px; }
 .msg.ok { background: var(--okbg); color: var(--ok); } .msg.bad { background: var(--badbg); color: var(--bad); } .msg.w { background: var(--warnbg); }
 .empty { text-align: center; color: var(--muted); padding: 22px 10px; border: 1.5px dashed var(--line); border-radius: 12px; }
 .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; background: var(--surface); }
@@ -190,6 +191,7 @@ textarea { font-weight: 600; resize: vertical; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg button[aria-pressed="true"], .vprod[aria-pressed="true"] { border-color: var(--fg); box-shadow: inset 0 0 0 1.5px var(--fg); }
 .chips button { border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 4px 10px; font: 700 .82rem var(--body); cursor: pointer; }
+.pila { display: grid; gap: 10px; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .kpi { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 2px; background: var(--surface); }
 .kpi small { color: var(--muted); font-weight: 700; font-size: .8rem; }
@@ -236,7 +238,7 @@ td.n { white-space: nowrap; }
 .vprods:has(.vph.mini) { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
 .vpie > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 759px) { body:has(.vpie) .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
-@media (min-width: 760px) and (max-width: 1099px) { .vgrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } .vgrid .vph { font-size: 2.1rem; } .vcard b { font-size: .95rem; padding: 7px 9px 9px; } }
+@media (min-width: 760px) and (max-width: 1099px) { .vgrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } .vgrid .vph { font-size: 2.1rem; } .vcard b { font-size: .88rem; padding: 7px 8px 9px; } }
 .vcard b { overflow-wrap: anywhere; hyphens: auto; }
 @media (max-width: 599px) {
   .top { gap: 6px 10px; padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
@@ -248,7 +250,7 @@ td.n { white-space: nowrap; }
   #syncTxt.calma .stx { display: none; }
   #syncTxt.calma .dot { margin-right: 0; }
   .vph { aspect-ratio: 2 / 1; font-size: 2.1rem; }
-  .vcard b { font-size: .98rem; padding: 7px 10px 9px; }
+  .vgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vcard b { font-size: .98rem; padding: 7px 10px 9px; }
   main { gap: 12px; padding-top: 12px; }
   .card { padding: 12px 11px; }
 }
@@ -1132,7 +1134,7 @@ function cuentasDia(f) {
 function pCierre() {
   const f = diaSel, d = diaDe(f);
   return `<label style="max-width:190px">Día<input type="date" id="diaSel" value="${f}"></label>
-  <div id="cierreNum">${cierreNumeros(f)}</div>
+  <div id="cierreNum" class="pila">${cierreNumeros(f)}</div>
   <section class="card"><h3>Gastos del día</h3>
     ${d.gastos.map((g, k) => `<div class="fields">
       <label>Concepto<input data-g="${k}" data-f="c" value="${esc(g.c)}" placeholder="Ej. hielo"></label>
@@ -1160,7 +1162,7 @@ function cierreNumeros(f) {
     </div>
     <p class="hint">Día ${fmt(c.dia)} · Noche ${fmt(c.noche)} · ${c.enlace} pedidos por WhatsApp · ${c.mostrador} de mostrador · ${c.devueltos} devueltos${c.devol ? ` (${fmt(c.devol)} devueltos)` : ""}. Meta diaria: ${META_DIA} $.</p>
     ${pend.length ? `<p class="msg w">Efectivo por entregar: ${pend.map(([k, v]) => `${esc(k)} debe ${fmt(v.reduce((a, x) => a + x.usd, 0))} (${v.map(x => esc(x.id)).join(", ")})`).join(" · ")}</p>` : ""}
-    ${c.sinRevisar ? `<p class="msg w">Hay ${c.sinRevisar} pagos móviles sin la segunda revisión en Banco.</p>` : ""}
+    ${c.sinRevisar ? `<p class="msg w">Hay ${c.sinRevisar} ${c.sinRevisar === 1 ? "pago móvil" : "pagos móviles"} sin la segunda revisión en Banco.</p>` : ""}
     <section class="card"><h3>Cuadre del efectivo en dólares</h3>
       <div class="fields"><label>Fondo al abrir ($)<input id="fondo" inputmode="decimal" value="${esc(d.fondo)}"></label></div>
       <p>Fondo ${fmt(num(d.fondo))} + efectivo cobrado ${fmt(c.ef)} − gastos en efectivo ${fmt(gEfUsd)} = <b>debería haber ${fmt(deberia)}</b> en la gaveta.</p>

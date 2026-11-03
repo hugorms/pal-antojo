@@ -217,12 +217,14 @@ footer { color: var(--muted); font-size: .85rem; margin-top: 26px; text-align: c
 @media (prefers-reduced-motion: no-preference) { .bump { animation: bump .25s ease; } @keyframes bump { 50% { transform: scale(1.08); } } }
 /* Barras de desplazamiento: ocultas (se sigue bajando con el dedo, la rueda o el touchpad).
    Donde el contenido se corta de lado (tablas) o se escribe (cuadros de texto) quedan delgadas y suaves. */
+.nw { white-space: nowrap; }
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { width: 0; height: 0; display: none; }
-.tbl, textarea { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
-.tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
-.tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
-.tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
+/* El panel "Tu pedido" en PC sí muestra su barra: si no cabe en la pantalla, el botón de WhatsApp queda abajo */
+.tbl, textarea, #pedido { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
+.tbl::-webkit-scrollbar, textarea::-webkit-scrollbar, #pedido::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
+.tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb, #pedido::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
+.tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track, #pedido::-webkit-scrollbar-track { background: transparent; }
 </style>
 </head>
 <body>
@@ -467,7 +469,7 @@ function renderMenu() {
       const desde = Math.min(...g.items.map(minPrice));
       return `<button type="button" class="card${bloqueada(g) ? " off" : ""}" data-cat="${gi}" data-f="cat${gi}">
         ${foto(fotoDe(g), g.icono, "")}
-        <span class="cn"><b>${g.cat}</b><small>${fs.length > 1 ? fs.length + " opciones · " : ""}desde ${fmt(desde)}</small></span>
+        <span class="cn"><b>${g.cat}</b><small>${fs.length > 1 ? fs.length + " opciones · " : ""}<span class="nw">desde ${fmt(desde)}</span></small></span>
         ${n ? `<span class="badge" aria-label="${n} en tu pedido">${n}</span>` : ""}
       </button>`;
     }).join("")}</div>`;
