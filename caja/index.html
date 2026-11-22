@@ -1649,6 +1649,38 @@ $("#main").addEventListener("input", e => {
 });
 
 // ---------- Ajustes ----------
+let actualizandoApp = false;
+async function actualizarApp() {
+  if (actualizandoApp) return;
+  if (!navigator.onLine) return toast("Conéctate a internet para actualizar la app.");
+  actualizandoApp = true;
+  toast("Buscando la versión publicada…");
+  try {
+    if ("serviceWorker" in navigator) {
+      const registro = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+      await registro.update();
+      const worker = registro.installing || registro.waiting;
+      if (worker) await new Promise((resolve, reject) => {
+        const limite = setTimeout(() => terminar(false), 30000);
+        function terminar(ok) {
+          clearTimeout(limite);
+          worker.removeEventListener("statechange", revisar);
+          if (ok) resolve(); else reject(new Error("actualización pendiente"));
+        }
+        function revisar() {
+          if (worker.state === "activated") terminar(true);
+          else if (worker.state === "redundant") terminar(false);
+        }
+        worker.addEventListener("statechange", revisar);
+        revisar();
+      });
+    }
+    location.reload();
+  } catch (_) {
+    actualizandoApp = false;
+    toast("No se pudo actualizar. Revisa la conexión y vuelve a intentar.");
+  }
+}
 function pAjustes() {
   const ses = LS.get("pa.admin.ses", null) || {}, pend = new Set(cola).size;
   let usado = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); usado += k.length + (localStorage.getItem(k) || "").length; } } catch (_) { }
@@ -1659,6 +1691,7 @@ function pAjustes() {
   <section class="card"><h3>🖥️ Este equipo</h3>
     <div class="fields"><label class="ancho">Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
     <p class="hint">Sale en los pedidos y en el cierre como "lo mandó…".</p>
+    <div class="acts"><button type="button" class="btn ghost" onclick="actualizarApp()">Actualizar app</button></div>
   </section>
   <section class="card"><h3>🖨️ Impresora de tickets</h3>
     <label class="chk"><input type="checkbox" data-cfg="imprime"${cfg.imprime ? " checked" : ""}> Este equipo imprime los tickets</label>
