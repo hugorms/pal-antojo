@@ -1,6 +1,6 @@
 // App del repartidor: abre sin internet y muestra los avisos de pedidos aunque la app esté cerrada (Web Push)
-const CACHE = "delivery-v3";
-const ARCHIVOS = ["./", "./index.html", "./manifest.webmanifest", "../caja/acceso.js", "../caja/icono-192.png", "../caja/icono-512.png"];
+const CACHE = "delivery-v4";
+const ARCHIVOS = ["./", "./index.html", "./manifest.webmanifest", "../caja/acceso.js", "./delivery-192.png", "./delivery-512.png", "./delivery-badge.png"];
 
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
@@ -13,7 +13,7 @@ self.addEventListener("push", e => {
   e.waitUntil((async () => {
     await self.registration.showNotification(d.titulo || "Pa'l Antojo", {
       body: d.cuerpo || "", tag: d.tag || "pa-delivery", renotify: true, requireInteraction: /^oferta-/.test(d.tag || ""),
-      vibrate: [300, 150, 300, 150, 300], icon: "../caja/icono-192.png", badge: "../caja/icono-192.png", data: { url: "./" },
+      vibrate: [300, 150, 300, 150, 300], icon: "./delivery-192.png", badge: "./delivery-badge.png", data: { url: "./" },
     });
     // Si la app está abierta, que se actualice ya
     (await self.clients.matchAll({ type: "window" })).forEach(c => c.postMessage("latido"));
