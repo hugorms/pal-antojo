@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pa'l Antojo App</title>
+<title>Sistema administrativo · Pa’l Antojo</title>
+<meta name="apple-mobile-web-app-title" content="Sistema administrativo">
 <meta name="theme-color" content="#1A1A1A">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icono-192.png">
-<link rel="apple-touch-icon" href="icono-192.png">
+<link rel="icon" href="inicio-caja-192.png">
+<link rel="apple-touch-icon" href="inicio-caja-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
 <style>
 /* Caja de la tienda: barra arriba con tasa y estado, pestañas, y un panel por pestaña. Una columna en teléfono. */
@@ -488,7 +489,7 @@ function pintarTabs() {
   const n = { cocina: lista.filter(p => p.estado === "cocina" || p.estado === "listo").length,
     banco: lista.reduce((a, p) => a + vivos(p).filter(x => x.forma === "Pago móvil" && !x.revisado).length, 0), delivery: dlvPendientes() };
   let grupo = "";
-  $("#lado").innerHTML = `<div class="marca"><img src="icono-192.png" alt="">Pa'l Antojo</div>` + TABS.map(([k, t, ico, g]) => {
+  $("#lado").innerHTML = `<div class="marca"><img src="inicio-caja-192.png" alt="">Pa'l Antojo</div>` + TABS.map(([k, t, ico, g]) => {
     const cab = g !== grupo ? `<div class="grupo">${g}</div>` : ""; grupo = g;
     return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}>${icono(ico)}${t}${n[k] ? `<span class="badge${k === "banco" || k === "delivery" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
   }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener">${icono("enlace")}Enlace de pedidos ↗</a><button onclick="salirApp()">${icono("salir")}Cerrar sesión</button></div>`;
