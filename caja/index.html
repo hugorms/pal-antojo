@@ -334,9 +334,41 @@ const num = s => { const t = String(s ?? "").trim(); if (!t) return 0; const n =
 const fmt = n => (Math.round(n * 100) / 100).toFixed(2).replace(".", ",") + " $";
 const fbs = n => Math.round(n).toLocaleString("es-VE") + " Bs";
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+// Estos datos comparten una escritura atómica: un cobro y su envío pendiente
+// deben sobrevivir juntos al cierre de la caja, incluso sin conexión.
+const clavesCaja = new Set(["pa.pedidos", "pa.dias", "pa.cola", "pa.venta", "pa.borrador"]);
+function leerCaja() {
+  const previo = JSON.parse(localStorage.getItem("pa.pedidos") || "{}");
+  if (previo.formatoCaja === 1) return previo;
+  const estado = { formatoCaja: 1, "pa.pedidos": previo };
+  for (const clave of clavesCaja) {
+    if (clave === "pa.pedidos") continue;
+    const valor = localStorage.getItem(clave);
+    if (valor !== null) estado[clave] = JSON.parse(valor);
+  }
+  return estado;
+}
+function escribirCaja(cambios) {
+  try {
+    const estado = Object.assign(leerCaja(), cambios);
+    localStorage.setItem("pa.pedidos", JSON.stringify(estado));
+    return true;
+  } catch (_) {
+    toast("No se pudo guardar en este equipo. Revisa el espacio y vuelve a intentar.");
+    return false;
+  }
+}
 const LS = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { toast("No se pudo guardar en este equipo. Revisa el espacio."); } },
+  get(k, d) {
+    try {
+      if (clavesCaja.has(k)) return leerCaja()[k] ?? d;
+      const v = localStorage.getItem(k); return v ? JSON.parse(v) : d;
+    } catch (_) { return d; }
+  },
+  set(k, v) {
+    if (clavesCaja.has(k)) return escribirCaja({ [k]: v });
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { toast("No se pudo guardar en este equipo. Revisa el espacio."); }
+  },
 };
 // Si el reloj de este equipo está mal, se corrige con la hora del servidor (ver ajustarReloj)
 let desfase = +LS.get("pa.desfase", 0) || 0;
@@ -369,7 +401,15 @@ let dias = LS.get("pa.dias", {});         // fecha → { abrir:{}, contado:{}, g
 let cola = LS.get("pa.cola", []);         // ids por enviar a la nube
 let estadoSync = LS.get("pa.sync", { ultimo: "" });
 let borrador = LS.get("pa.borrador", null);
-const guardarTodo = () => { LS.set("pa.pedidos", pedidos); LS.set("pa.dias", dias); LS.set("pa.cola", cola); };
+const guardarTodo = () => escribirCaja({ "pa.pedidos": pedidos, "pa.dias": dias, "pa.cola": cola });
+function registrarPedido(p, cambios) {
+  const siguientes = { ...pedidos, [p.id]: p };
+  const pendientes = [...new Set([...cola, p.id])];
+  if (!escribirCaja({ "pa.pedidos": siguientes, "pa.cola": pendientes, "pa.dias": dias, ...cambios })) return false;
+  pedidos = siguientes;
+  cola = pendientes;
+  return true;
+}
 // Productos para "Agregar producto" en Recibir: salen del mismo menú del enlace (antes era una lista aparte en Ajustes)
 const productos = () => catsVenta().flatMap(c => filasVenta(c).map(r => { const o = opcionesVenta(r.it, r.f)[0] || { d: "", p: 0 }; return { n: nombreVenta(c, r.it), d: o.d, p: o.p, label: r.f && c.items.length > 1 ? `${r.it.name} ${r.f}` : (r.f || nombreVenta(c, r.it)) }; }));
 
@@ -890,18 +930,21 @@ function confirmarVenta() {
   const c = cuentaVenta(), ah = ahoraCaracas(), quien = cfg.equipo || "Sin nombre", t = tasaHoy();
   let p = pedidoVacio("mostrador"); for (let i = 0; pedidos[p.id] && i < 20; i++) p = pedidoVacio("mostrador");
   if (pedidos[p.id]) p.id += uid().slice(0, 3).toUpperCase();
+  if (venta.idPendiente && !pedidos[venta.idPendiente]) p.id = venta.idPendiente;
+  venta.idPendiente = p.id;
   p.items = venta.items.map(i => ({ q: i.q, n: i.n, d: i.d, p: i.p }));
   // Se guarda lo que queda en la caja: lo recibido menos el vuelto
   p.pagos = c.pagos.filter(y => y.aplica > 0.004).map(({ x, aplica }) => ({ id: uid(), forma: x.forma, ref: x.ref || "", banco: x.banco || "",
     bs: x.forma === "Efectivo $" ? 0 : Math.round(aplica * t * 100) / 100, tasa: t, usd: Math.round(aplica * 100) / 100, cobrado: true, quien, hora: ah.hora, fecha: ah.fecha }));
   Object.assign(p, { creado: Date.now(), fecha: ah.fecha, hora: ah.hora, turno: turnoDe(ah.h), por: quien, estado: "cocina", impreso: false, rev: 1, actualizado: Date.now() });
-  pedidos[p.id] = p; cola.push(p.id); guardarTodo();
+  const enBs = venta.pagos.some(x => x.forma === "Efectivo Bs") && !venta.pagos.some(x => x.forma === "Efectivo $");
+  const completada = { items: [], pagos: [], paso: "listo", cat: null, elegir: null,
+    ultima: { id: p.id, total: c.tot, vuelto: c.vueltoUsd, vueltoTxt: enBs && t ? fbs(c.vueltoUsd * t) : fmt(c.vueltoUsd) } };
+  if (!registrarPedido(p, { "pa.venta": completada })) return;
+  venta = completada;
   if (cfg.imprime) imprimir([p]);
   sincronizar();
-  const enBs = venta.pagos.some(x => x.forma === "Efectivo Bs") && !venta.pagos.some(x => x.forma === "Efectivo $");
-  venta = { items: [], pagos: [], paso: "listo", cat: null, elegir: null,
-    ultima: { id: p.id, total: c.tot, vuelto: c.vueltoUsd, vueltoTxt: enBs && t ? fbs(c.vueltoUsd * t) : fmt(c.vueltoUsd) } };
-  guardarVenta(); pintar(); window.scrollTo(0, 0);
+  pintar(); window.scrollTo(0, 0);
 }
 function agregarVenta(n, d, precio) {
   const f = venta.items.find(i => i.n === n && i.d === d);
@@ -1039,14 +1082,14 @@ function guardarPedido() {
       usd: Math.round(usdDe(x) * 100) / 100, cobrado: x.forma === "Pago móvil" || x.forma === "Devolución" ? true : !!x.cobrado,
       quien, hora: ah.hora, fecha: ah.fecha };
   });
-  p.pagos = [...(anterior ? anterior.pagos : []), ...nuevos];
+  p.pagos = [...(anterior ? anterior.pagos.map(pago => ({ ...pago })) : []), ...nuevos];
   if (b.modo === "devolver") {
     p.pagos.forEach(x => { if (!x.cobrado) x.anulado = true; });
     p.devuelto = true; p.merma = b.merma; p.estado = "devuelto";
   } else if (anterior) { p.cambio = (anterior.cambio || 0) + 1; if (p.estado === "entregado") p.estado = "cocina"; }
   p.impreso = false; p.rev = (anterior ? anterior.rev || 0 : 0) + 1; p.actualizado = Date.now();
-  pedidos[p.id] = p; cola.push(p.id); guardarTodo();
-  borrador = null; capturas = []; guardarBorrador(); limpiarCompartidos();
+  if (!registrarPedido(p, { "pa.borrador": null })) return;
+  borrador = null; capturas = []; limpiarCompartidos();
   toast(b.modo === "devolver" ? `${p.id} devuelto.` : anterior ? `${p.id} cambiado.` : `${p.id} registrado.`);
   if (cfg.imprime && b.modo !== "devolver") imprimir([p]);
   tab = "cocina"; LS.set("pa.tab", tab); recienLlego = p.id; pintar(); sincronizar();
