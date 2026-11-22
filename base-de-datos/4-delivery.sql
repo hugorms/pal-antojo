@@ -364,6 +364,8 @@ begin
     'oferta', oferta,
     'mias', coalesce((select jsonb_agg(jsonb_build_object('id', e.id, 'estado', e.estado, 'cliente', e.cliente, 'telefono', e.telefono,
         'direccion', e.direccion, 'ubicacion', e.ubicacion, 'resumen', e.resumen, 'nota', e.nota, 'envio', e.envio, 'cobrar', e.cobrar,
+        'destino_gps', e.dlat is not null and e.dlng is not null,
+        'cerca', coalesce(r.gps_visto > now() - interval '2 minutes' and r.precision_m <= 100 and public.dlv_km(r.lat,r.lng,e.dlat,e.dlng) <= 0.2, false),
         'km_cliente', round(public.dlv_km_local(e.dlat, e.dlng)::numeric, 1), 'aceptado', e.aceptado) order by e.aceptado)
       from public.entregas e where e.repartidor = yo and e.estado in ('asignado', 'en_camino')), '[]'),
     'hoy', (select jsonb_build_object('pedidos', count(*), 'envios', coalesce(sum(envio), 0), 'efectivo', coalesce(sum(cobrado), 0))
@@ -419,7 +421,10 @@ begin
     update public.entregas set estado = 'en_camino', salio = now(), actualizado = now() where id = eid and repartidor = yo and estado = 'asignado';
   elsif paso = 'entregado' then
     update public.entregas set estado = 'entregado', entregado = now(), cobrado = greatest(coalesce(efectivo, cobrar), 0), actualizado = now()
-    where id = eid and repartidor = yo and estado in ('asignado', 'en_camino');
+    where id = eid and repartidor = yo and estado = 'en_camino'
+      and exists (select 1 from public.repartidores r where r.email = yo
+        and r.gps_visto > now() - interval '2 minutes' and r.precision_m <= 100
+        and public.dlv_km(r.lat, r.lng, entregas.dlat, entregas.dlng) <= 0.2);
   else
     raise exception 'paso invalido' using errcode = '22023';
   end if;

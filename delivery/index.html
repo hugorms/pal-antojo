@@ -283,12 +283,20 @@ async function accion(a, id, b) {
   try {
     if (a === "aceptar") { const ok = await rpc("dlv_aceptar", { eid: id }); clearInterval(pito); toast(ok ? "¡Es tuyo! Pasa por el local a buscarlo." : "Se te pasó el tiempo. Ya se le ofreció a otro."); }
     if (a === "rechazar") { await rpc("dlv_rechazar", { eid: id }); clearInterval(pito); toast("Listo, se le pasa al siguiente."); }
-    if (a === "salio") await rpc("dlv_avance", { eid: id, paso: "en_camino" });
+    if (a === "salio") {
+      const pedido = datos.mias.find(m => m.id === id);
+      if (!pedido || pedido.estado !== "asignado") return;
+      if (!await rpc("dlv_avance", { eid: id, paso: "en_camino" })) throw new Error("El pedido cambió. Revisa su estado.");
+      const enlace = avisoCliente(pedido);
+      if (enlace) window.location.assign(enlace);
+      else toast("Salida registrada. El pedido no tiene teléfono de contacto.");
+    }
     if (a === "entregado") {
       const m = datos.mias.find(x => x.id === id);
+      if (!m || m.estado !== "en_camino" || !m.cerca) throw new Error("Acércate al destino y espera la actualización del GPS.");
       const cobrado = m && +m.cobrar > 0 ? num($("#cob-" + CSS.escape(id))?.value) : 0;
       if (m && +m.cobrar > 0 && !entregando[id]) { entregando[id] = true; pintar(); return; }
-      await rpc("dlv_avance", { eid: id, paso: "entregado", efectivo: cobrado }); delete entregando[id]; toast("Entregado. ¡Bien hecho!");
+      if (!await rpc("dlv_avance", { eid: id, paso: "entregado", efectivo: cobrado })) throw new Error("No se confirmó la entrega. Revisa tu ubicación y el estado del pedido."); delete entregando[id]; toast("Entregado. ¡Bien hecho!");
     }
   } catch (e) { toast(e.message); }
   await latido();
@@ -358,6 +366,12 @@ function pantallaPermisos() {
 
 // ---------- pantalla ----------
 const tel58 = t => { let d = String(t || "").replace(/\D/g, ""); if (d.startsWith("0")) d = "58" + d.slice(1); else if (d.length === 10) d = "58" + d; return d; };
+function avisoCliente(m) {
+  const numero = tel58(m.telefono);
+  if (!numero) return "";
+  const texto = "Hola" + (m.cliente ? ", " + m.cliente : "") + ". Soy tu repartidor de Pa'l Antojo. Ya salí del local y voy en camino con tu pedido.";
+  return "https://wa.me/" + numero + "?text=" + encodeURIComponent(texto);
+}
 function mapa(m) {
   if (/^https:\/\/(maps\.google\.com|www\.google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/.test(m.ubicacion || "")) return m.ubicacion;
   return m.direccion ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(m.direccion + ", Campo de Carabobo, Valencia") : "";
@@ -395,9 +409,11 @@ function pintar() {
     <p>${esc(m.direccion || "")}</p>
     <div class="datos"><div><small>Envío</small><b>${fmt(m.envio)}</b></div><div><small>Cobrar</small><b>${+m.cobrar > 0 ? fmt(m.cobrar) : "Pagado"}</b></div><div><small>Del local</small><b>${m.km_cliente != null ? String(m.km_cliente).replace(".", ",") + " km" : "—"}</b></div></div>
     ${m.resumen ? `<p class="hint">${esc(m.resumen)}</p>` : ""}${m.nota ? `<p class="hint">Nota: ${esc(m.nota)}</p>` : ""}
-    <div class="fila">${mp ? `<a class="btn ghost" href="${esc(mp)}" target="_blank" rel="noopener">📍 Mapa</a>` : ""}${t ? `<a class="btn ghost" href="tel:+${t}">📞 Llamar</a><a class="btn ghost" href="https://wa.me/${t}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ""}</div>
+    <div class="fila">${mp ? `<a class="btn ghost" href="${esc(mp)}" target="_blank" rel="noopener">📍 Ver destino del pedido</a>` : ""}${t ? `<a class="btn ghost" href="tel:+${t}">📞 Llamar</a>` : ""}</div>
     ${entregando[m.id] ? `<label>¿Cuánto efectivo cobraste?<input id="cob-${esc(m.id)}" inputmode="decimal" value="${String(m.cobrar).replace(".", ",")}"></label>` : ""}
-    <div class="fila">${m.estado === "asignado" ? `<button class="btn brand" data-a="salio" data-id="${esc(m.id)}">Salí del local</button>` : ""}<button class="btn ok" data-a="entregado" data-id="${esc(m.id)}">${entregando[m.id] ? "Confirmar entrega" : "Entregado"}</button></div>
+    <div class="fila">${m.estado === "asignado" ? `<button class="btn brand" data-a="salio" data-id="${esc(m.id)}">${t ? "Salí del local · avisar por WhatsApp" : "Salí del local"}</button>` : ""}${m.estado === "en_camino" ? `<button class="btn ok" ${m.cerca ? "" : "disabled"} data-a="entregado" data-id="${esc(m.id)}">${entregando[m.id] ? "Confirmar entrega" : "Entregado"}</button>` : ""}</div>
+    ${m.estado === "en_camino" && !m.cerca ? `<p class="hint">${m.destino_gps === false ? "Falta la ubicación del cliente. Contacta a Caja." : "Para confirmar la entrega, mantén el GPS activo y acércate a 200 m del destino."}</p>` : ""}
+    ${m.estado === "en_camino" && t ? `<a class="btn ghost" href="${esc(avisoCliente(m))}">Abrir mensaje al cliente</a>` : ""}
   </section>`; }).join("")}
   <section class="card">
     <h3>Hoy</h3>
