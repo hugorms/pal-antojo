@@ -314,9 +314,12 @@ td.n { white-space: nowrap; }
 body:has(.dlvPanel) {background:#151410}
 main.ancho:has(.dlvPanel) {max-width:none;padding:0;display:block}
 .dlvPanel {--surface:#201e18;--bg:#151410;--line:#38342a;--fg:#f3eee0;--muted:#b8b2a2;--ok:#6fcf8a;--okbg:#1b3324;--bad:#f08a82;--badbg:#3a1e1c;--warnbg:#3a3115;color-scheme:dark;background:var(--bg);color:var(--fg);font:16px/1.45 var(--body);min-height:85vh}
-.dlvMenu {display:flex;max-width:560px;margin:auto;padding:8px 12px 0;border-bottom:1px solid var(--line)}
-.dlvMenu button {flex:1;min-width:0;min-height:46px;border:0;background:none;color:var(--muted);font:800 .95rem var(--body);cursor:pointer}
-.dlvMenu [aria-current="page"] {color:var(--fg);box-shadow:inset 0 -4px var(--brand)}
+.moduloMenu {display:flex;max-width:560px;margin:auto;padding:8px 12px 0;border-bottom:1px solid var(--line)}
+.moduloMenu button {flex:1;min-width:0;min-height:46px;border:0;background:none;color:var(--muted);font:800 .95rem var(--body);cursor:pointer}
+.moduloMenu [aria-current="page"] {color:var(--fg);box-shadow:inset 0 -4px var(--brand)}
+.invMenu {width:100%;padding-inline:0}
+.invMenu button {flex:1 1 auto;padding-inline:4px}
+@media (max-width:400px) { .invMenu {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))} }
 .dlvContenido {max-width:560px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px}
 .dlvContenido .card {min-width:0;display:grid;gap:12px;padding:16px;border:1.5px solid var(--line);border-radius:16px;background:var(--surface)}
 .dlvContenido h3 {font:700 1.3rem var(--display)}
@@ -1525,18 +1528,33 @@ function compraHTML() {
     <div class="acts"><button class="btn ghost" data-iv="flinea">+ Otra línea</button><button class="btn brand" data-iv="frevisar">Revisar y sumar</button></div></section>`;
 }
 function pInventario() {
-  const vistas = [["hay", "Lo que hay"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
-  const cab = `<div class="chips seg">${vistas.map(([k, t]) => `<button data-iv="vista" data-k="${k}"${k === invVista ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div>`;
+  const vistas = [["hay", "Existencias"], ["movimientos", "Movimientos"], ["recetas", "Recetas"], ["ingredientes", "Ingredientes"]];
+  if (!vistas.some(([k]) => k === invVista)) invVista = "hay";
+  const cab = `<nav class="moduloMenu invMenu" aria-label="Secciones de Inventario">${vistas.map(([k,t]) => `<button data-iv="vista" data-k="${k}" aria-current="${k === invVista ? "page" : "false"}">${t}</button>`).join("")}</nav>`;
   if (!inv.insumos.length && invVista !== "ingredientes")
     return cab + `<section class="card"><p>Primero anota los ingredientes (carne, harina, queso…) con su unidad. Después le pones a cada producto cuánto lleva de cada uno, y la caja descuenta sola con cada venta.</p>
       <div class="acts"><button class="btn brand" data-iv="vista" data-k="ingredientes">Anotar ingredientes</button></div></section>`;
-  return cab + { hay: invHay, recetas: invRecetas, ingredientes: invIngredientes }[invVista]();
+  const borrador = !fac.hecho && (fac.revisar || fac.foto || fac.prov || fac.lineas.some(l => l.ins || l.nombre || l.c));
+  const aviso = invVista === "hay" && borrador ? `<div class="acts"><button class="btn ghost" data-iv="vista" data-k="movimientos">Continuar factura en Movimientos</button></div>` : "";
+  return cab + aviso + { hay: invHay, movimientos: invMovimientos, recetas: invRecetas, ingredientes: invIngredientes }[invVista]();
 }
 function invHay() {
   const hay = existencias(), { prods } = vendibles();
   const alc = prods.map(p => ({ ...p, a: alcanza(p.n, "", hay) })).filter(p => p.a !== null).sort((a, b) => a.a - b.a);
   const sinReceta = new Set();
   pedidosDe(ahoraCaracas().fecha).forEach(p => p.items.forEach(i => { if (!Object.keys(consumoDe(i.n, i.d)).length) sinReceta.add(i.n); }));
+  return `
+  ${sinReceta.size ? `<p class="msg w">Hoy se vendió sin receta (no descuenta nada): ${[...sinReceta].map(esc).join(", ")}.</p>` : ""}
+  <section class="card"><h3>Ingredientes</h3><div class="tbl"><table><thead><tr><th>Ingrediente</th><th class="n">Hay</th><th class="n">Mínimo</th></tr></thead><tbody>
+    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h != null && h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${h == null ? `<span class="meta" style="white-space:nowrap">Sin anotar</span>` : `${cant(h)} ${esc(x.u)}`}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
+  </tbody></table></div></section>
+  <section class="card"><h3>Alcanza para</h3>
+    ${alc.length ? `<div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Quedan</th></tr></thead><tbody>
+      ${alc.map(p => `<tr><td>${esc(p.n)}</td><td class="n${p.a <= 5 ? " low" : ""}">${Math.max(0, p.a)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hint">Sin sabores ni extras. Si dos productos usan el mismo ingrediente, al vender uno bajan los dos.</p>` : `<p class="note">Todavía no hay stock anotado. Haz un conteo real de los ingredientes y aquí aparece para cuántos alcanza cada producto.</p>`}
+  </section>`;
+}
+function invMovimientos() {
   const ult = Object.values(movs).sort((a, b) => b.t - a.t).slice(0, 15);
   const tipos = { entrada: "Llegó compra", conteo: "Conteo real", merma: "Se dañó o se botó" };
   return compraHTML() + `
@@ -1548,15 +1566,6 @@ function invHay() {
       <label>Nota<input id="mv-nota" placeholder="Opcional"></label></div>
     <p class="hint">Conteo real: lo que hay de verdad ahora. Desde ahí se vuelve a descontar lo vendido.</p>
     <div class="acts"><button class="btn brand" data-iv="mov">Guardar</button></div>
-  </section>
-  ${sinReceta.size ? `<p class="msg w">Hoy se vendió sin receta (no descuenta nada): ${[...sinReceta].map(esc).join(", ")}.</p>` : ""}
-  <section class="card"><h3>Ingredientes</h3><div class="tbl"><table><thead><tr><th>Ingrediente</th><th class="n">Hay</th><th class="n">Mínimo</th></tr></thead><tbody>
-    ${inv.insumos.map(x => { const h = hay[x.id], bajo = h != null && h <= num(x.min); return `<tr><td>${esc(x.n)}</td><td class="n${bajo ? " low" : ""}">${h == null ? `<span class="meta" style="white-space:nowrap">Sin anotar</span>` : `${cant(h)} ${esc(x.u)}`}</td><td class="n">${x.min !== "" && x.min != null ? `${cant(num(x.min))} ${esc(x.u)}` : ""}</td></tr>`; }).join("")}
-  </tbody></table></div></section>
-  <section class="card"><h3>Alcanza para</h3>
-    ${alc.length ? `<div class="tbl"><table><thead><tr><th>Producto</th><th class="n">Quedan</th></tr></thead><tbody>
-      ${alc.map(p => `<tr><td>${esc(p.n)}</td><td class="n${p.a <= 5 ? " low" : ""}">${Math.max(0, p.a)}</td></tr>`).join("")}</tbody></table></div>
-      <p class="hint">Sin sabores ni extras. Si dos productos usan el mismo ingrediente, al vender uno bajan los dos.</p>` : `<p class="note">Todavía no hay stock anotado. Haz un conteo real de los ingredientes y aquí aparece para cuántos alcanza cada producto.</p>`}
   </section>
   <section class="card"><h3>Últimos movimientos</h3>
     ${ult.length ? `<div>${ult.map(m => { const x = insumoDe(m.ins); return `<div class="mov"${m.anulado ? ` style="opacity:.45"` : ""}>
@@ -2176,7 +2185,7 @@ function pDelivery() {
   const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
   const enPagos = dlvVista === "retiros" || dlvVista === "cuentas";
   const vistas = [["pedidos","Pedidos"],["retiros","Pagos"],["equipo","Equipo"],["ajustes","Ajustes"]];
-  const menu = `<nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n])=>`<button data-dlvvista="${k}" aria-current="${(enPagos ? k==="retiros" : dlvVista===k)?"page":"false"}">${n}</button>`).join("")}</nav>`;
+  const menu = `<nav class="moduloMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n])=>`<button data-dlvvista="${k}" aria-current="${(enPagos ? k==="retiros" : dlvVista===k)?"page":"false"}">${n}</button>`).join("")}</nav>`;
   const pagos = enPagos ? `<div class="chips dlvPagos" aria-label="Vistas de pagos"><button data-dlvvista="retiros" aria-pressed="${dlvVista==="retiros"}">Retiros pendientes</button><button data-dlvvista="cuentas" aria-pressed="${dlvVista==="cuentas"}">Cuentas de envíos</button></div>` : "";
   let contenido;
   if (dlvVista === "retiros") contenido = `<section class="card"><h3>Retiros pendientes</h3>${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r=>dlvFichaRetiro(d,r)).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>`;
