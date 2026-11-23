@@ -26,7 +26,7 @@ h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.15; }
 p { margin: 0; }
 [hidden] { display: none !important; }
 .top { position: sticky; top: 0; z-index: 3; background: var(--ink); color: #F3EEE0; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; display: flex; align-items: center; gap: 10px; }
-.top img { width: 34px; height: 34px; border-radius: 50%; }
+.top img { width: 48px; height: 48px; object-fit: contain; flex: none; }
 .top h1 { color: var(--brand); font-size: 1.15rem; flex: 1; }
 .top small { display: block; color: #CFC8B4; font: 700 .8rem var(--body); }
 .top button { background: none; border: 0; color: #CFC8B4; font: 700 .85rem var(--body); cursor: pointer; padding: 6px; }
@@ -101,7 +101,7 @@ details summary { cursor: pointer; font-weight: 800; }
   css.textContent = `#instalar { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: #1A1A1A; font-family: "Nunito", "Segoe UI", system-ui, sans-serif; overflow: auto; }
     #instalar > div { width: 100%; max-width: 380px; background: #FBF8EF; color: #1A1A1A; border-radius: 18px; padding: 22px; display: grid; gap: 12px; }
     #instalar .m { display: flex; align-items: center; gap: 10px; font: 700 1.3rem "Fredoka", system-ui, sans-serif; }
-    #instalar img { width: 44px; height: 44px; border-radius: 50%; }
+    #instalar img { width: 48px; height: 48px; object-fit: contain; flex: none; }
     #instalar p, #instalar li { margin: 0; font-size: .95rem; }
     #instalar ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
     #instalar .h { color: #6B6B6B; font-size: .85rem; }
@@ -114,7 +114,7 @@ details summary { cursor: pointer; font-weight: 800; }
       ? `<ol><li>Abre esta página en <b>Safari</b>.</li><li>Toca <b>Compartir</b> (el cuadrito con la flecha ↑).</li><li>Toca <b>Agregar a inicio</b> y luego <b>Agregar</b>.</li><li>Abre la app <b>Delivery</b> desde tu pantalla de inicio.</li></ol>`
       : `<ol><li>Toca el menú <b>⋮</b> de Chrome (arriba a la derecha).</li><li>Toca <b>Instalar app</b> (o <b>Agregar a la pantalla principal</b>) y acepta.</li><li>Abre la app <b>Delivery</b> desde tu pantalla de inicio.</li></ol>`;
     el.innerHTML = `<div>
-      <div class="m"><img src="./delivery-192.png" alt="">Delivery Pa'l Antojo</div>
+      <div class="m"><img src="./logo-interior.png" alt="">Delivery Pa'l Antojo</div>
       ${lista
         ? `<p class="ok">✓ App descargada.</p><p>Ciérrala aquí y ábrela desde el ícono <b>Delivery</b> en tu pantalla de inicio. Ahí entras con tu cuenta y aceptas los permisos.</p>`
         : `<p><b>Primero descarga la app.</b> Así te suenan los pedidos aunque tengas el teléfono bloqueado.</p>
@@ -132,7 +132,7 @@ details summary { cursor: pointer; font-weight: 800; }
 </head>
 <body>
 <header class="top">
-  <img src="./delivery-192.png" alt="">
+  <img src="./logo-interior.png" alt="">
   <h1>Delivery<small id="quien"></small></h1>
   <button onclick="document.getElementById('privacidad').showModal()">Privacidad</button>
   <button onclick="salir()">Salir</button>
