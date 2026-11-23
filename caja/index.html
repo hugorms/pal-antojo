@@ -305,6 +305,9 @@ td.n { white-space: nowrap; }
 .tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
 .tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
 .tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
+#avisoPrivacidad { width: min(420px, 90vw); box-sizing: border-box; border: 0; border-radius: 18px; padding: 24px; color: #1a1a1a; background: #fbf8ef; }
+#avisoPrivacidad::backdrop { background: rgb(0 0 0 / 60%); }
+#avisoPrivacidad p { line-height: 1.5; }
 </style>
 <script src="acceso.js"></script>
 </head>
@@ -1691,7 +1694,7 @@ function pAjustes() {
   <section class="card"><h3>🖥️ Este equipo</h3>
     <div class="fields"><label class="ancho">Nombre de este equipo o persona<input data-cfg="equipo" value="${esc(cfg.equipo)}" placeholder="Ej. Ana (teléfono)"></label></div>
     <p class="hint">Sale en los pedidos y en el cierre como "lo mandó…".</p>
-    <div class="acts"><button type="button" class="btn ghost" onclick="actualizarApp()">Actualizar app</button></div>
+    <div class="acts"><button type="button" class="btn ghost" onclick="document.getElementById('avisoPrivacidad').showModal()">Aviso de privacidad</button><button type="button" class="btn ghost" onclick="actualizarApp()">Actualizar app</button></div>
   </section>
   <section class="card"><h3>🖨️ Impresora de tickets</h3>
     <label class="chk"><input type="checkbox" data-cfg="imprime"${cfg.imprime ? " checked" : ""}> Este equipo imprime los tickets</label>
@@ -2381,6 +2384,32 @@ if (!LS.get("pa.ayudaVista", false)) setTimeout(() => {
   toast(matchMedia("(pointer: coarse)").matches ? "Consejo: deja el dedo presionado sobre un botón para ver qué hace." : "Consejo: pasa el ratón sobre un botón para ver qué hace.");
   LS.set("pa.ayudaVista", true);
 }, 1500);
+</script>
+<dialog id="avisoPrivacidad" aria-labelledby="tituloPrivacidad">
+  <h2 id="tituloPrivacidad">Aviso de privacidad</h2>
+  <p>Pa’l Antojo usa tu correo para identificarte y guarda tu sesión en este equipo. Los pedidos, pagos y demás registros de la tienda se guardan en el dispositivo y se sincronizan con Supabase cuando hay conexión.</p>
+  <p>Tú eliges qué fotos, comprobantes o textos compartes con Caja. La app no revisa tus contactos, tus conversaciones de WhatsApp ni el contenido de tu galería.</p>
+  <form method="dialog"><button class="btn brand" value="leido" autofocus>Entendido</button></form>
+</dialog>
+<script>
+(() => {
+  const aviso = document.getElementById("avisoPrivacidad");
+  const clave = "pa.privacidad.caja.v1";
+  aviso.addEventListener("close", () => {
+    if (aviso.returnValue === "leido") {
+      try { localStorage.setItem(clave, "1"); } catch (_) {}
+    }
+  });
+  try { if (localStorage.getItem(clave) === "1") return; } catch (_) {}
+  function mostrarAlEntrar() {
+    if (document.documentElement.classList.contains("bloqueado")) return;
+    observador.disconnect();
+    aviso.showModal();
+  }
+  const observador = new MutationObserver(mostrarAlEntrar);
+  observador.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  mostrarAlEntrar();
+})();
 </script>
 </body>
 </html>
