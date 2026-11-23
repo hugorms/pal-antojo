@@ -234,8 +234,14 @@ td.n { white-space: nowrap; }
 .kpis.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 400px) { .kpis.k3 .kpi { padding: 8px; } .kpis.k3 .kpi b { font-size: 1.05rem; } }
 @media (max-width: 400px) { .rfila { grid-template-columns: 70px minmax(0, 1fr) 64px; } .rf { font-size: .75rem; } }
-.reclista { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-.reclista .vprod { min-height: 0; padding: 10px; }
+.reclista {display:grid;gap:6px}
+.reclista h3 {margin:14px 0 2px}
+.recProducto {display:grid;gap:3px;text-align:left;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--fg);font:inherit;cursor:pointer}
+.recProducto b {font:650 1.05rem var(--display)}
+.recProducto span {color:var(--muted);overflow-wrap:anywhere}
+#recEd .irow {grid-template-columns:minmax(0,2fr) minmax(90px,1fr) auto}
+#recEd .irow .ancho {grid-column:auto}
+@media(max-width:520px){#recEd .irow {grid-template-columns:minmax(0,1fr) auto} #recEd .irow .ancho {grid-column:1/-1}}
 /* Delivery: filas de pedidos por despachar y el selector para asignar a mano */
 .dlvFila { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
 .dlvFila:first-of-type { border-top: 0; }
@@ -1574,6 +1580,7 @@ function invMovimientos() {
   </section>`;
 }
 function invRecetas() {
+  if (invSel && recetaSel()) return invEditorReceta();
   const { prods, dets } = vendibles();
   const filas = [...prods.map(p => ({ k: norm(p.n), n: p.n, g: p.cat })), ...dets.map(d => ({ k: "+" + norm(d), n: d, g: "Sabores, tamaños y extras (se suman a la receta del producto)" })),
     ...inv.preps.map(p => ({ k: "prep:" + p.id, n: p.n, g: "Preparaciones" }))];
@@ -1581,20 +1588,30 @@ function invRecetas() {
   const lista = filas.map(f => {
     const cab = f.g !== g ? `<h3 style="margin-top:6px;grid-column:1/-1">${esc(f.g)}</h3>` : ""; g = f.g;
     const partes = f.k.startsWith("prep:") ? (prepDe(f.k.slice(5)) || {}).partes : (inv.recetas[f.k] || {}).partes;
-    const n = (partes || []).filter(x => num(x.c)).length;
-    return cab + `<button class="vprod" data-nm="${esc(norm(f.n))}" data-iv="sel" data-k="${esc(f.k)}" style="text-align:left"${f.k === invSel ? ` aria-pressed="true"` : ""}><b>${esc(f.n)}</b><small>${n ? `${n} ingrediente(s)` : "Sin receta"}</small></button>`;
+    const detalle = (partes || []).map(x => {
+      const ins = insumoDe(x.i), prep = prepDe(x.i);
+      const nombre = ins?.n || prep?.n || (x.i ? "Ingrediente eliminado" : "Ingrediente por elegir");
+      const cantidad = num(x.c);
+      const unidad = ins?.u || (prep ? (cantidad === 1 ? "porción" : "porciones") : "");
+      return cantidad ? `${nombre} (${cant(cantidad)} ${unidad})` : `${nombre} (falta cantidad)`;
+    }).join(" · ");
+    return cab + `<button class="recProducto" data-nm="${esc(norm(f.n))}" data-iv="sel" data-k="${esc(f.k)}"><b>${esc(f.n)}</b><span>${esc(detalle || "Sin ingredientes · Armar receta")}</span></button>`;
   }).join("");
-  return `<p class="hint">Toca un producto y anota cuánto lleva de cada ingrediente para una unidad. Las preparaciones (ej. carne mechada) se arman en Ingredientes y se usan aquí como un ingrediente más.</p>
-  ${invSel ? invEditorReceta() : ""}
-  <section class="card"><input type="search" id="recBuscar" placeholder="Buscar producto o sabor…" aria-label="Buscar en recetas"><div class="reclista">${lista}</div></section>`;
+  return `<section class="card"><h2>Recetas</h2><p class="hint">Elige un producto para ver o editar lo que lleva una unidad. Los sabores y extras tienen su propia receta y se suman al producto.</p>
+    <input type="search" id="recBuscar" placeholder="Buscar producto, sabor o preparación…" aria-label="Buscar en recetas"><div class="reclista">${lista}</div></section>`;
 }
 function partesHTML(partes, conPreps) {
-  const ops = [...inv.insumos.map(x => [x.id, x.n]), ...(conPreps ? inv.preps.map(p => [p.id, p.n]) : [])];
-  const unidad = id => { const i = insumoDe(id); return i ? i.u : prepDe(id) ? "porción" : ""; };
-  return (partes || []).map((x, k) => `<div class="irow">
-    <label class="ancho">Ingrediente<select data-ip="i" data-k="${k}">${ops.map(([id, t]) => `<option value="${id}"${id === x.i ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>
-    <label>Cantidad<span class="ucant"><input data-ip="c" data-k="${k}" inputmode="decimal" value="${esc(x.c)}"><span>${esc(unidad(x.i))}</span></span></label>
-    <button class="x" data-iv="qparte" data-k="${k}" aria-label="Quitar ingrediente de la receta">× Quitar</button></div>`).join("");
+  const opciones = (lista, actual) => lista.map(item => `<option value="${esc(item.id)}"${item.id === actual ? " selected" : ""}>${esc(item.n || "Sin nombre")}</option>`).join("");
+  return (partes || []).map((x, k) => {
+    const ins = insumoDe(x.i), prep = conPreps && prepDe(x.i);
+    const unidad = ins?.u || (prep ? "porciones" : "");
+    return `<div class="irow"><label class="ancho">Ingrediente<select data-ip="i" data-k="${k}">
+      <option value="" disabled${!ins && !prep ? " selected" : ""}>${x.i && !ins && !prep ? "Ingrediente eliminado · elige otro" : "Elige un ingrediente"}</option>
+      <optgroup label="Ingredientes">${opciones(inv.insumos,x.i)}</optgroup>
+      ${conPreps && inv.preps.length ? `<optgroup label="Preparaciones">${opciones(inv.preps,x.i)}</optgroup>` : ""}</select></label>
+      <label>Cantidad<span class="ucant"><input data-ip="c" data-k="${k}" inputmode="decimal" value="${esc(x.c)}"><span>${esc(unidad)}</span></span></label>
+      <button class="x" data-iv="qparte" data-k="${k}" aria-label="Quitar ingrediente de la receta">× Quitar</button></div>`;
+  }).join("");
 }
 function recetaSel() {
   if (invSel.startsWith("prep:")) { const p = prepDe(invSel.slice(5)); return p ? { partes: p.partes, n: p.n, prep: p } : null; }
@@ -1606,9 +1623,9 @@ function recetaSel() {
 function invEditorReceta() {
   const r = recetaSel(); if (!r) return "";
   return `<section class="card" id="recEd"><div class="oh"><h3>${esc(r.n)}</h3><button class="btn ghost" data-iv="cerrar">Listo</button></div>
-    ${r.prep ? `<p class="hint">Lo que lleva una tanda completa.</p>` : `<p class="hint">Cuánto lleva una unidad.</p>`}
-    ${partesHTML(r.partes, !r.prep) || `<p class="note">Sin ingredientes todavía.</p>`}
-    <div class="acts"><button class="btn ghost" data-iv="parte">+ Agregar ingrediente</button></div></section>`;
+    <p>${r.prep ? "Ingredientes de una tanda completa" + (num(r.prep.rinde) ? " · rinde " + cant(num(r.prep.rinde)) + " porciones" : "") : "Ingredientes para una unidad"}</p>
+    ${partesHTML(r.partes, !r.prep) || `<p class="note">Agrega el primer ingrediente y escribe cuánto usas.</p>`}
+    <div class="acts"><button class="btn brand" data-iv="parte">+ Agregar ingrediente</button></div></section>`;
 }
 function invIngredientes() {
   return `<section class="card"><h3>Ingredientes</h3>
@@ -1640,7 +1657,7 @@ $("#main").addEventListener("click", e => {
   if (a === "qins") { const x = inv.insumos[+k]; if (x && confirm(`¿Quitar ${x.n || "este ingrediente"}? Sale de todas las recetas.`)) { inv.insumos.splice(+k, 1); (inv.quitados = inv.quitados || {})[x.id] = Date.now(); tocarInv(); } }
   if (a === "prep") { inv.preps.push({ id: "p" + uid(), n: "", rinde: "", partes: [] }); tocarInv(); }
   if (a === "qprep") { const x = inv.preps[+k]; if (x && confirm(`¿Quitar ${x.n || "esta preparación"}?`)) { inv.preps.splice(+k, 1); (inv.quitados = inv.quitados || {})[x.id] = Date.now(); tocarInv(); } }
-  if (a === "parte") { const r = recetaSel(); if (!inv.insumos.length) { toast("Primero anota ingredientes."); return; } r.partes.push({ i: inv.insumos[0].id, c: "" }); tocarInv(); }
+  if (a === "parte") { const r = recetaSel(); if (!inv.insumos.length) { toast("Primero anota ingredientes."); return; } r.partes.push({ i: "", c: "" }); tocarInv(); }
   if (a === "qparte") { recetaSel().partes.splice(+k, 1); tocarInv(); }
   if (a === "mov") {
     const c = num($("#mv-c").value), tipo = $("#mv-tipo").value;
