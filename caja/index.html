@@ -314,11 +314,12 @@ td.n { white-space: nowrap; }
 body:has(.dlvPanel) {background:#151410}
 main.ancho:has(.dlvPanel) {max-width:none;padding:0;display:block}
 .dlvPanel {--surface:#201e18;--bg:#151410;--line:#38342a;--fg:#f3eee0;--muted:#b8b2a2;--ok:#6fcf8a;--okbg:#1b3324;--bad:#f08a82;--badbg:#3a1e1c;--warnbg:#3a3115;color-scheme:dark;background:var(--bg);color:var(--fg);font:16px/1.45 var(--body);min-height:85vh}
-.dlvMarca {background:#1a1a1a}
-.dlvMarca>div {display:flex;align-items:center;gap:10px;max-width:560px;margin:auto;padding:10px 16px}
-.dlvMarca img {width:48px;height:48px;object-fit:contain}
-.dlvMarca h2 {color:var(--brand);font:700 1.2rem var(--display)}
-.dlvMarca small {display:block;color:#cfc8b4;font:700 .85rem var(--body)}
+#logoDlv {width:48px;height:48px;display:block;object-fit:contain}
+#tasaPagos {display:none}
+body:has(.dlvPagos) #tasaPagos {display:block;max-width:560px;margin:0 auto;padding:0 16px 24px;color:#f3eee0}
+#tasaPagos .r {display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#tasaPagos input {width:90px}
+#tasaPagos .reloj,#tasaPagos #syncTxt {display:none}
 .dlvMenu {display:flex;max-width:560px;margin:auto;padding:8px 12px 0;border-bottom:1px solid var(--line)}
 .dlvMenu button {flex:1;min-width:0;min-height:46px;border:0;background:none;color:var(--muted);font:800 .95rem var(--body);cursor:pointer}
 .dlvMenu [aria-current="page"] {color:var(--fg);box-shadow:inset 0 -4px var(--brand)}
@@ -353,8 +354,8 @@ main.ancho:has(.dlvPanel) {max-width:none;padding:0;display:block}
 </head>
 <body>
 <header class="top" id="top">
-  <div class="izq"><button class="menuBtn" id="menuBtn" aria-label="Abrir el menú" aria-controls="lado" aria-expanded="false">☰</button><h1 id="titulo">Caja Pa'l Antojo</h1></div>
-  <div class="r">
+  <div class="izq"><button class="menuBtn" id="menuBtn" aria-label="Abrir el menú" aria-controls="lado" aria-expanded="false">☰</button><h1><span id="titulo">Caja Pa'l Antojo</span><img id="logoDlv" src="../delivery/logo-interior.png" alt="Delivery" hidden></h1></div>
+  <div class="r" id="controlesCaja">
     <label for="tasaTop"><span class="lt">Tasa </span>Bs/$ <input id="tasaTop" inputmode="decimal" placeholder="Ej. 230"></label>
     <span id="tasaInfo" class="tinfo"></span>
     <span id="reloj" class="reloj" aria-label="Hora de Venezuela"></span>
@@ -364,6 +365,7 @@ main.ancho:has(.dlvPanel) {max-width:none;padding:0;display:block}
 <nav class="lado" id="lado" aria-label="Módulos"></nav>
 <div class="velo" id="velo" hidden></div>
 <main id="main"></main>
+<div id="tasaPagos"></div>
 <div id="ticket"></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -537,7 +539,12 @@ function pintarTabs() {
     return cab + `<button data-t="${k}"${k === tab ? ` aria-current="page"` : ""}>${icono(ico)}${t}${n[k] ? `<span class="badge${k === "banco" || k === "delivery" ? " red" : ""}">${n[k]}</span>` : ""}</button>`;
   }).join("") + `<div class="pie"><a href="../" target="_blank" rel="noopener">${icono("enlace")}Enlace de pedidos ↗</a><button onclick="salirApp()">${icono("salir")}Cerrar sesión</button></div>`;
   const actual = TABS.find(t => t[0] === tab);
+  const enDelivery = tab === "delivery";
   $("#titulo").textContent = actual[1];
+  $("#titulo").hidden = enDelivery;
+  $("#logoDlv").hidden = !enDelivery;
+  const controles = $("#controlesCaja"), destino = enDelivery ? $("#tasaPagos") : $("#top");
+  if (controles.parentElement !== destino) destino.append(controles);
   document.title = `${actual[1]} · Pa'l Antojo`;
 }
 function pintar() {
@@ -2160,7 +2167,7 @@ function dlvFichaRetiro(d, r) {
   const pagoMovil = [`Banco: ${f.banco}`, `Teléfono: ${f.telefono}`, `Documento: ${f.cedula}`, `Titular: ${f.titular}`, `Monto: ${bs} Bs`].join("\n");
   return `<article class="dlvRetiro"><h4>${esc(dlvNombreDe(d,r.email))}</h4>
     <p class="note">Retiro de ${fmt(r.monto)}${bs ? " · Tasa de Caja: "+esc(String(tasa).replace(".",","))+" Bs/$" : ""}</p>
-    ${bs ? dlvCampoBanco("Monto a transferir en Bs",bs) : '<p class="msg w">Ingresa la tasa de cambio en Caja para calcular el monto en Bs.</p>'}
+    ${bs ? dlvCampoBanco("Monto a transferir en Bs",bs) : '<p class="msg w">Ingresa la tasa de cambio al pie de Pagos para calcular el monto en Bs.</p>'}
     <div class="dlvCampos">${dlvCampoBanco("Banco",f.banco)}${dlvCampoBanco("Teléfono",f.telefono)}${dlvCampoBanco(documento ? "Documento · tipo "+documento[1] : "Documento",documento ? documento[2] : f.cedula)}${dlvCampoBanco("Titular",f.titular)}</div>
     <button type="button" class="btn ghost" data-copiar-retiro ${bs?"":"disabled"}>Copiar todo</button>
     <textarea hidden readonly rows="5" aria-label="Datos del retiro">${esc(pagoMovil)}</textarea>
@@ -2181,8 +2188,7 @@ function pDelivery() {
   const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
   const enPagos = dlvVista === "retiros" || dlvVista === "cuentas";
   const vistas = [["pedidos","Pedidos"],["retiros","Pagos"],["equipo","Equipo"],["ajustes","Ajustes"]];
-  const menu = `<header><div class="dlvMarca"><div><img src="../delivery/logo-interior.png" alt=""><div><h2>Delivery</h2><small>Pa’l Antojo · Caja</small></div></div></div>
-    <nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n])=>`<button data-dlvvista="${k}" aria-current="${(enPagos ? k==="retiros" : dlvVista===k)?"page":"false"}">${n}</button>`).join("")}</nav></header>`;
+  const menu = `<nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n])=>`<button data-dlvvista="${k}" aria-current="${(enPagos ? k==="retiros" : dlvVista===k)?"page":"false"}">${n}</button>`).join("")}</nav>`;
   const pagos = enPagos ? `<div class="chips dlvPagos" aria-label="Vistas de pagos"><button data-dlvvista="retiros" aria-pressed="${dlvVista==="retiros"}">Retiros pendientes</button><button data-dlvvista="cuentas" aria-pressed="${dlvVista==="cuentas"}">Cuentas de envíos</button></div>` : "";
   let contenido;
   if (dlvVista === "retiros") contenido = `<section class="card"><h3>Retiros pendientes</h3>${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r=>dlvFichaRetiro(d,r)).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>`;
