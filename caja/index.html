@@ -310,6 +310,12 @@ td.n { white-space: nowrap; }
 .tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
 .tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
 .tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
+.dlvMenu {display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.dlvMenu button {min-height:44px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;font:inherit;font-weight:700;cursor:pointer}
+.dlvMenu [aria-current="page"] {background:var(--brand);color:#191919}.dlvMenu b {font-size:.82em}
+.dlvRetiro {padding:12px 0;display:grid;gap:12px}.dlvRetiro+.dlvRetiro {border-top:1px solid var(--line)}.dlvRetiro h4 {margin:0;font-size:1.15rem}
+.dlvCampos {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px}
+.dlvCampo {min-width:0;display:grid;gap:4px}.dlvCampo>span:last-child {display:flex;gap:6px}.dlvCampo input {min-width:0;flex:1;font-variant-numeric:tabular-nums}.dlvCampo .btn {min-height:44px}
 </style>
 <script src="acceso.js"></script>
 </head>
@@ -571,6 +577,7 @@ async function buscarTasa() {
     cfg.tasa = t; cfg.tasaFecha = j.fechaActualizacion || new Date().toISOString(); LS.set("pa.cfg", cfg);
     pintarTasa();
     if (cambio && tab === "nuevo") refrescarRevision();
+    if (cambio && tab === "delivery" && dlvVista === "retiros") pintar();
   } catch (_) {
     // Sin internet o la página de la tasa no responde: se queda la última que se guardó
     if (cfg.tasaAuto && !cfg.tasaFecha) $("#tasaInfo").textContent = cfg.tasa ? "BCV sin actualizar" : "Sin BCV: escríbela";
@@ -578,6 +585,7 @@ async function buscarTasa() {
 }
 $("#tasaTop").addEventListener("input", e => {
   cfg.tasa = num(e.target.value); cfg.tasaAuto = false; LS.set("pa.cfg", cfg); pintarTasa();
+  if (tab === "delivery" && dlvVista === "retiros") pintar();
   if (tab === "nuevo") refrescarRevision();
 });
 $("#tasaInfo").addEventListener("click", e => {
@@ -2109,6 +2117,20 @@ function dlvTarjeta(e) {
     </div>
   </article>`;
 }
+let dlvVista = "pedidos";
+const dlvDecimal = new Intl.NumberFormat("es-VE", {minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:false});
+function dlvCampoBanco(etiqueta, valor) {
+  return `<div class="dlvCampo"><span>${esc(etiqueta)}</span><span><input readonly aria-label="${esc(etiqueta)}" value="${esc(valor)}"><button type="button" class="btn ghost" data-copiar-dlv aria-label="Copiar ${esc(etiqueta)}">Copiar</button></span></div>`;
+}
+function dlvFichaRetiro(d, r) {
+  const tasa = tasaHoy(), bs = Number.isFinite(tasa) && tasa > 0 ? dlvDecimal.format(r.monto * tasa) : "";
+  const f = r.destino, documento = /^([VEJP])-?(\d+)$/i.exec(f.cedula);
+  return `<article class="dlvRetiro"><h4>${esc(dlvNombreDe(d,r.email))}</h4>
+    <p class="note">Retiro de ${fmt(r.monto)}${bs ? " · Tasa de Caja: "+esc(String(tasa).replace(".",","))+" Bs/$" : ""}</p>
+    ${bs ? dlvCampoBanco("Monto a transferir en Bs",bs) : '<p class="msg w">Ingresa la tasa de cambio en Caja para calcular el monto en Bs.</p>'}
+    <div class="dlvCampos">${dlvCampoBanco("Banco",f.banco)}${dlvCampoBanco("Teléfono",f.telefono)}${dlvCampoBanco(documento ? "Documento · tipo "+documento[1] : "Documento",documento ? documento[2] : f.cedula)}${dlvCampoBanco("Titular",f.titular)}</div>
+    <button class="btn brand" data-a="dlvPagarRetiro" data-id="${esc(r.id)}" data-bs="${esc(bs)}" data-titular="${esc(f.titular)}" ${bs?"":"disabled"}>Confirmar pago realizado</button></article>`;
+}
 function pDelivery() {
   if (dlv.sinSQL) return `<section class="card"><h3>Falta un paso</h3><p>Para usar el delivery, corre <b>base-de-datos/4-delivery.sql</b> en Supabase › SQL Editor (una sola vez). Después vuelve aquí.</p><button class="btn" data-a="dlvRecargar">Ya lo corrí</button></section>`;
   if (!dlv.datos) return `<p class="empty">${dlv.error ? esc(dlv.error) : "Cargando el delivery…"}</p>`;
@@ -2119,35 +2141,28 @@ function pDelivery() {
   const hechas = (d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && fechas.has(ahoraCaracas(new Date(e.entregado)).fecha));
   const cuentas = todos.filter(r => r.aprobado).map(r => {
     const mias = hechas.filter(e => e.repartidor === r.email), sinPagar = (d.entregas || []).filter(e => e.repartidor === r.email && e.estado === "entregado" && !e.liquidado);
-    return { r, n: mias.length, envios: mias.reduce((a, e) => a + +e.envio, 0), efectivo: mias.reduce((a, e) => a + +(e.cobrado || 0), 0), debe: sinPagar.reduce((a, e) => a + +e.envio, 0), nDebe: sinPagar.length };
+    return { r, n: mias.length, envios: mias.reduce((a, e) => a + +e.envio, 0), efectivo: mias.reduce((a, e) => a + +(e.cobrado || 0), 0), debe: d.saldos ? +(d.saldos[r.email]?.debe || 0) : sinPagar.reduce((a, e) => a + +e.envio, 0), nDebe: d.saldos ? (d.saldos[r.email]?.cantidad || 0) : sinPagar.length };
   }).filter(c => c.n || c.debe || (c.r.activo && !c.r.borrado));
   const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
-  return `
-  ${dlv.error ? `<p class="msg bad">${esc(dlv.error)}</p>` : ""}
-  <div class="kpis"><div class="kpi main"><small>Disponibles</small><b>${libres}</b></div><div class="kpi"><small>Llevando pedido</small><b>${enCalle}</b></div><div class="kpi"><small>Envíos hoy</small><b>${fmt((d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && ahoraCaracas(new Date(e.entregado)).fecha === ahoraCaracas().fecha).reduce((a, e) => a + +e.envio, 0))}</b></div></div>
-  ${soli.length ? `<section class="card"><h3>Solicitudes nuevas (${soli.length})</h3>
-    ${soli.map(r => `<div class="dlvFila"><div><b>${esc(r.nombre)}</b> <span class="note">${esc(r.telefono || "")} · ${esc(r.email)} · ${esc(dlvHace(r.solicitado))}</span></div>
-      <div class="acts">${d.admin ? `<button class="btn brand" data-a="dlvAprobar" data-email="${esc(r.email)}">Aprobar</button><button class="btn link" data-a="dlvRechazar" data-email="${esc(r.email)}">Rechazar</button>` : `<span class="note">La aprueba el dueño.</span>`}</div></div>`).join("")}
-    <p class="hint">Se registraron solos desde la app del delivery. Hasta que los apruebes no les llegan pedidos.</p>
-  </section>` : ""}
-  <section class="card"><h3>Por despachar</h3>
-    ${por.length ? por.map(p => `<div class="dlvFila"><div><b>${esc(p.cliente || "Cliente")}</b> <span class="note">${esc(h12(p.hora))} · ${p.estado === "listo" ? "listo" : "en cocina"} · envío ${fmt(p.delivery || 0)}</span>${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}</div>
-      <div class="acts"><button class="btn brand" data-a="dlvPedir" data-id="${esc(p.id)}">🛵 Buscar repartidor</button>${dlvSelect(p.id)}</div></div>`).join("")
-      : `<p class="note">No hay pedidos de delivery esperando repartidor.</p>`}
-  </section>
-  ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : ""}
-  <section class="card"><h3>Retiros pendientes</h3>
-    ${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r => `<div class="dlvFicha"><strong>${esc(dlvNombreDe(d,r.email))} · ${fmt(r.monto)}</strong>
-      <p>Pago Móvil · ${esc(r.destino.banco)}<br>${esc(r.destino.titular)} · ${esc(r.destino.cedula)}<br>${esc(r.destino.telefono)}</p>
-      <button class="btn brand" data-a="dlvPagarRetiro" data-id="${esc(r.id)}" data-monto="${r.monto}">Confirmar pago realizado</button></div>`).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>
-  <section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
+  const vistas = [["pedidos","Pedidos",por.length+act.length],["retiros","Retiros",retirosCaja.length],["cuentas","Cuentas de envíos",0],["equipo","Repartidores",soli.length],["ajustes","Ajustes",0]];
+  const menu = `<nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n,total])=>`<button data-dlvvista="${k}" aria-current="${dlvVista===k?"page":"false"}">${n}${total ? ` <b>${total}</b>` : ""}</button>`).join("")}</nav>`;
+  let contenido;
+  if (dlvVista === "retiros") contenido = `<section class="card"><h3>Retiros pendientes</h3>${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r=>dlvFichaRetiro(d,r)).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>`;
+  else if (dlvVista === "cuentas") contenido = `<section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
+    <p><strong>Total por pagar a repartidores · ${fmt(cuentas.reduce((total,c)=>total+c.debe,0))}</strong></p>
+    <p class="note">El saldo pendiente incluye todos los días. El período filtra los pedidos, los envíos y el efectivo cobrado.</p>
     ${cuentas.length ? `<div class="tbl apilar"><table><thead><tr><th>Repartidor</th><th>Pedidos</th><th>Envíos</th><th>Efectivo cobrado</th><th>Sin pagarle</th><th></th></tr></thead><tbody>
       ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}${c.r.borrado ? ` <small class="note">(ya no está)</small>` : ""}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
         <td class="tact">${c.debe > 0 && !retirosCaja.some(r=>r.email===c.r.email) ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</td></tr>`).join("")}
     </tbody></table></div>` : `<p class="note">Todavía no hay entregas.</p>`}
     <p class="hint">Envíos = lo que se le cobró al cliente por el delivery. "Sin pagarle" son los envíos que todavía no se le han pagado al repartidor. El efectivo cobrado lo trae al local.</p>
-  </section>
-  <section class="card"><h3>Repartidores</h3>
+  </section>`;
+  else if (dlvVista === "equipo") contenido = `${soli.length ? `<section class="card"><h3>Solicitudes de registro (${soli.length})</h3>
+    ${soli.map(r => `<div class="dlvFila"><div><b>${esc(r.nombre)}</b> <span class="note">${esc(r.telefono || "")} · ${esc(r.email)} · ${esc(dlvHace(r.solicitado))}</span></div>
+      <div class="acts">${d.admin ? `<button class="btn brand" data-a="dlvAprobar" data-email="${esc(r.email)}">Aprobar</button><button class="btn link" data-a="dlvRechazar" data-email="${esc(r.email)}">Rechazar</button>` : `<span class="note">La aprueba el dueño.</span>`}</div></div>`).join("")}
+    <p class="hint">Se registraron solos desde la app del delivery. Hasta que los apruebes no les llegan pedidos.</p>
+  </section>` : ""}
+<section class="card"><h3>Repartidores</h3>
     ${rs.length ? `<div class="tbl apilar"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Del local</th><th>Avisos</th><th>Última vez</th><th></th></tr></thead><tbody>
       ${rs.map(r => dlv.editando?.email === r.email ? `<tr><td class="tpri dlvFicha" colspan="6"><strong>Editar repartidor</strong><small class="note">${esc(r.email)}</small><div class="fields"><label>Nombre<input id="ed-nombre" value="${esc(dlv.editando.nombre)}" maxlength="60"></label><label>Teléfono<input id="ed-tel" type="tel" value="${esc(dlv.editando.telefono)}"></label>
           <button class="btn brand" data-a="dlvGuardarEd" data-email="${esc(r.email)}">Guardar</button><button class="btn ghost" data-a="dlvCancelarEd">Cancelar</button></div></td></tr>` : `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
@@ -2158,17 +2173,36 @@ function pDelivery() {
       <div class="fields" style="margin-top:10px"><label>Nombre<input id="dr-nombre" autocomplete="off"></label><label>Teléfono<input id="dr-tel" inputmode="tel" autocomplete="off"></label><label class="ancho">Correo<input id="dr-email" type="email" autocomplete="off"></label>
       <button class="btn brand" data-a="dlvRep">Agregar</button></div>
       <p class="hint" style="margin-top:8px">Lo más fácil: que el repartidor abra <b>${esc(location.origin)}/delivery/</b>, toque "Crea tu cuenta" y tú lo apruebes aquí arriba. Para agregarlo tú, primero crea su usuario en Supabase › Authentication › Users › Add user (con Auto Confirm).</p></details>` : ""}
-  </section>
-  <section class="card"><h3>Regla para repartir</h3>
+  </section>`;
+  else if (dlvVista === "ajustes") contenido = `<section class="card"><h3>Regla para repartir</h3>
     <p class="note">El pedido le llega primero al repartidor disponible más cerca del local. Si no acepta a tiempo o dice "No puedo", pasa al siguiente más cerca, y así. Los que ya llevan un pedido van de últimos; los que no tienen GPS, después de los que sí. Si nadie acepta, aquí sale "Sin repartidor".</p>
     <label style="max-width:220px">Segundos para aceptar<input id="dlvSeg" inputmode="numeric" value="${+cfg.dlvSeg || 45}"></label>
   </section>`;
+  else contenido = `<div class="kpis"><div class="kpi main"><small>Disponibles</small><b>${libres}</b></div><div class="kpi"><small>Llevando pedido</small><b>${enCalle}</b></div><div class="kpi"><small>Envíos hoy</small><b>${fmt((d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && ahoraCaracas(new Date(e.entregado)).fecha === ahoraCaracas().fecha).reduce((a, e) => a + +e.envio, 0))}</b></div></div>
+<section class="card"><h3>Por despachar</h3>
+    ${por.length ? por.map(p => `<div class="dlvFila"><div><b>${esc(p.cliente || "Cliente")}</b> <span class="note">${esc(h12(p.hora))} · ${p.estado === "listo" ? "listo" : "en cocina"} · envío ${fmt(p.delivery || 0)}</span>${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}</div>
+      <div class="acts"><button class="btn brand" data-a="dlvPedir" data-id="${esc(p.id)}">🛵 Buscar repartidor</button>${dlvSelect(p.id)}</div></div>`).join("")
+      : `<p class="note">No hay pedidos de delivery esperando repartidor.</p>`}
+  </section>
+  ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : `<section class="card"><h3>En curso</h3><p class="note">No hay entregas en curso.</p></section>`}`;
+  return `
+  ${dlv.error ? `<p class="msg bad">${esc(dlv.error)}</p>` : ""}
+  ${menu}${contenido}`;
 }
 // Cuenta regresiva de las ofertas, sin repintar todo
 setInterval(() => {
   document.querySelectorAll("[data-hasta]").forEach(el => { const s = Math.max(0, Math.round((Date.parse(el.dataset.hasta) - Date.now() - (dlv.desfase || 0)) / 1000)); el.textContent = `(le quedan ${s} s)`; });
 }, 1000);
 $("#main").addEventListener("click", async e => {
+  const vista = e.target.closest("[data-dlvvista]");
+  if (vista) { dlvVista = vista.dataset.dlvvista; pintar(); return; }
+  const copiar = e.target.closest("[data-copiar-dlv]");
+  if (copiar) {
+    const campo = copiar.previousElementSibling;
+    try { await navigator.clipboard.writeText(campo.value); toast("Copiado: " + campo.getAttribute("aria-label")); }
+    catch (_) { campo.focus(); campo.select(); toast(document.execCommand("copy") ? "Dato copiado." : "Dato seleccionado. Toca Copiar en tu teléfono."); }
+    return;
+  }
   const ch = e.target.closest("[data-dlvrango]");
   if (ch) { dlv.rango = ch.dataset.dlvrango; LS.set("pa.dlvRango", dlv.rango); pintar(); return; }
   const b = e.target.closest("button[data-a]"); if (!b || !/^dlv/.test(b.dataset.a)) return;
@@ -2179,7 +2213,7 @@ $("#main").addEventListener("click", async e => {
     if (a === "dlvAsignar") { const sel = document.querySelector(`[data-dlvsel="${CSS.escape(id)}"]`); if (!sel || !sel.value) { toast("Elige a quién se lo asignas."); return; } await dlvPedir(id, sel.value, b); }
     if (a === "dlvCancelar") { if (!confirm("¿Cancelar el delivery de este pedido? Al repartidor le llega el aviso.")) return; await dlvRpc("dlv_cancelar", { eid: id }); toast("Delivery cancelado."); await dlvTraer(true); }
     if (a === "dlvPagarRetiro") {
-      if (!confirm(`¿Ya transferiste el equivalente a ${fmt(+b.dataset.monto)} al titular indicado?`)) return;
+      if (!confirm(`¿Ya transferiste ${b.dataset.bs} Bs a ${b.dataset.titular}?`)) return;
       await dlvRpc("dlv_pagar_retiro", {solicitud:b.dataset.id}); toast("Retiro registrado como pagado."); await dlvTraer(true);
     }
     if (a === "dlvLiquidar") {
