@@ -51,6 +51,7 @@ create table if not exists public.entregas (
 alter table public.repartidores add column if not exists aprobado boolean not null default true;
 alter table public.repartidores add column if not exists borrado boolean not null default false;
 alter table public.repartidores add column if not exists solicitado timestamptz;
+alter table public.repartidores add column if not exists turno_hasta timestamptz;
 
 create index if not exists entregas_estado on public.entregas (estado);
 create index if not exists entregas_repartidor on public.entregas (repartidor, creado);
@@ -136,7 +137,7 @@ begin
   if not found or e.estado <> 'buscando' then return; end if;
   select x.email, x.nombre into r
   from public.repartidores x
-  where x.activo and x.aprobado and not x.borrado and x.disponible and x.visto > now() - interval '10 minutes'
+  where x.activo and x.aprobado and not x.borrado and x.disponible and (x.turno_hasta is null or x.turno_hasta > now()) and (x.visto > now() - interval '10 minutes' or (x.push is not null and x.turno_hasta > now()))
     and not (x.email = any (e.ofrecidos))
   order by
     exists (select 1 from public.entregas o where o.repartidor = x.email and o.estado in ('asignado', 'en_camino')),  -- libres primero
@@ -165,7 +166,7 @@ begin
     select e.id from public.entregas e
     left join public.repartidores x on x.email = e.oferta_a
     where e.estado = 'buscando'
-      and (e.oferta_a is null or e.oferta_hasta < now() - interval '2 seconds' or not coalesce(x.disponible and x.activo, false))
+      and (e.oferta_a is null or e.oferta_hasta < now() - interval '2 seconds' or not coalesce(x.disponible and x.activo and (x.turno_hasta is null or x.turno_hasta > now()), false))
     for update of e skip locked
   loop
     perform public.dlv_siguiente(eid);
@@ -243,7 +244,7 @@ begin
                           where e.creado > now() - make_interval(days => least(greatest(dias, 1), 120)) or e.estado in ('buscando', 'asignado', 'en_camino')), '[]'),
     'repartidores', coalesce((select jsonb_agg(jsonb_build_object(
         'email', x.email, 'nombre', x.nombre, 'telefono', x.telefono, 'activo', x.activo, 'aprobado', x.aprobado, 'borrado', x.borrado, 'solicitado', x.solicitado,
-        'disponible', x.disponible and x.visto > now() - interval '10 minutes',
+        'disponible', x.disponible and (x.turno_hasta is null or x.turno_hasta > now()) and (x.visto > now() - interval '10 minutes' or (x.push is not null and x.turno_hasta > now())),
         'gps', x.lat is not null and x.gps_visto > now() - interval '3 minutes',
         'km', round(public.dlv_km_local(x.lat, x.lng)::numeric, 1),
         'visto', x.visto, 'avisos', x.push is not null,
@@ -347,6 +348,7 @@ begin
       select 1 from public.entregas where repartidor = yo and estado in ('asignado', 'en_camino'));
     update public.repartidores set
       disponible = coalesce((p ->> 'disponible')::boolean, false),
+      turno_hasta = case when (p ->> 'disponible')::boolean and p ? 'turno_hasta' then least((p ->> 'turno_hasta')::timestamptz, now() + interval '12 hours') end,
       lat = case when usar_gps and p ? 'lat' then (p ->> 'lat')::double precision when usar_gps then lat end,
       lng = case when usar_gps and p ? 'lng' then (p ->> 'lng')::double precision when usar_gps then lng end,
       precision_m = case when usar_gps then (p ->> 'precision')::real end,
@@ -366,6 +368,7 @@ begin
     'oferta', oferta,
     'mias', coalesce((select jsonb_agg(jsonb_build_object('id', e.id, 'estado', e.estado, 'cliente', e.cliente, 'telefono', e.telefono,
         'direccion', e.direccion, 'ubicacion', e.ubicacion, 'resumen', e.resumen, 'nota', e.nota, 'envio', e.envio, 'cobrar', e.cobrar,
+        'metros_destino', case when r.gps_visto > now() - interval '2 minutes' and r.precision_m <= 100 then round((1000 * public.dlv_km(r.lat,r.lng,e.dlat,e.dlng))::numeric) end,
         'destino_gps', e.dlat is not null and e.dlng is not null,
         'cerca', coalesce(r.gps_visto > now() - interval '2 minutes' and r.precision_m <= 100 and public.dlv_km(r.lat,r.lng,e.dlat,e.dlng) <= 0.2, false),
         'km_cliente', round(public.dlv_km_local(e.dlat, e.dlng)::numeric, 1), 'aceptado', e.aceptado) order by e.aceptado)

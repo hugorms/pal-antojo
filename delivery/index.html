@@ -182,6 +182,8 @@ async function rpc(f, cuerpo) {
 function salir() { if (disponible) { disponible = false; LS.set("dlv.disponible", false); rpc("dlv_yo", { p: { disponible: false } }).catch(() => { }); } window.salirApp && window.salirApp(); }
 
 // ---------- estado ----------
+let finTurno = Number(LS.get("dlv.finTurno", 0));
+let horasTurno = Number(LS.get("dlv.horasTurno", 8));
 let disponible = LS.get("dlv.disponible", false);
 let datos = null, error = "", gps = null, gpsError = "", vigia = null, ultimaOferta = LS.get("dlv.ultimaOferta", ""), avisoPermiso = typeof Notification !== "undefined" ? Notification.permission : "no";
 let entregando = {}, ocupado = false, pantalla = null;
@@ -239,7 +241,13 @@ async function latido() {
   if (ocupado) return; ocupado = true;
   try {
     if (!cuentaOk()) { await revisarCuenta(); if (!cuentaOk()) return; }
+    if (disponible && finTurno && Date.now() >= finTurno) {
+      disponible = false;
+      LS.set("dlv.disponible", false);
+      actualizarGps();
+    }
     const p = { disponible };
+    if (disponible && finTurno) p.turno_hasta = new Date(finTurno).toISOString();
     if (necesitaGps() && gps && Date.now() - gps.t < 120000) Object.assign(p, { lat: gps.lat, lng: gps.lng, precision: gps.precision });
     datos = await rpc("dlv_yo", { p }); actualizarGps(); error = "";
     if (datos.yo) $("#quien").textContent = datos.yo.nombre || "";
@@ -292,6 +300,10 @@ async function mantenerPrendida() {
 
 // ---------- acciones ----------
 async function cambiarDisponible() {
+  if (!disponible) {
+    finTurno = Date.now() + horasTurno * 3600000;
+    LS.set("dlv.finTurno", finTurno);
+  }
   disponible = !disponible; LS.set("dlv.disponible", disponible);
   actualizarGps();
   if (disponible && avisoPermiso === "default") activarAvisos();
@@ -422,6 +434,7 @@ function pintar() {
     <p class="hint">Si no contestas, pasa al siguiente repartidor más cerca.</p>
   </section>` : ""}
   <section class="card">
+    ${!disponible ? `<label>Duración del turno<select onchange="horasTurno=Number(this.value); LS.set('dlv.horasTurno',horasTurno)">${[2,4,8,12].map(h => `<option value="${h}" ${h===horasTurno?"selected":""}>${h} horas</option>`).join("")}</select></label>` : finTurno ? `<p class="hint">Turno hasta las ${new Date(finTurno).toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit",timeZone:"America/Caracas"})}.</p>` : ""}
     <div class="estado"><span class="punto${disponible ? " on" : ""}"></span><div><b>${disponible ? "Disponible" : "No disponible"}</b>
       <p class="hint">${disponible ? (gps ? `GPS activo${datos.yo && datos.yo.km != null ? ` · estás a ${String(datos.yo.km).replace(".", ",")} km del local` : ""}` : gpsError ? esc(gpsError) + " Igual te llegan pedidos, pero después de los que tienen GPS." : "Buscando tu ubicación…") : (datos.mias.length ? "Ofertas en pausa. El GPS sigue activo para terminar tu entrega." : "Actívalo cuando puedas llevar pedidos.")}</p></div>
       <button class="sw" role="switch" aria-checked="${disponible}" aria-label="Disponible" onclick="cambiarDisponible()"></button></div>
@@ -433,12 +446,12 @@ function pintar() {
     return `<section class="card">
     <div class="oh"><b>${esc(m.cliente || "Cliente")}</b><span class="pill ${m.estado === "en_camino" ? "g" : "w"}">${m.estado === "en_camino" ? "En camino" : "Buscar en el local"}</span></div>
     <p>${esc(m.direccion || "")}</p>
-    <div class="datos"><div><small>Envío</small><b>${fmt(m.envio)}</b></div><div><small>Cobrar</small><b>${+m.cobrar > 0 ? fmt(m.cobrar) : "Pagado"}</b></div><div><small>Del local</small><b>${m.km_cliente != null ? String(m.km_cliente).replace(".", ",") + " km" : "—"}</b></div></div>
+    <div class="datos"><div><small>Envío</small><b>${fmt(m.envio)}</b></div><div><small>Cobrar</small><b>${+m.cobrar > 0 ? fmt(m.cobrar) : "Pagado"}</b></div><div><small>Al cliente · línea recta</small><b>${m.metros_destino == null ? "—" : m.metros_destino < 1000 ? m.metros_destino + " m" : (m.metros_destino / 1000).toLocaleString("es-VE",{maximumFractionDigits:1}) + " km"}</b></div></div>
     ${m.resumen ? `<p class="hint">${esc(m.resumen)}</p>` : ""}${m.nota ? `<p class="hint">Nota: ${esc(m.nota)}</p>` : ""}
     <div class="fila">${mp ? `<a class="btn ghost" href="${esc(mp)}" target="_blank" rel="noopener">📍 Ver destino del pedido</a>` : ""}${t ? `<a class="btn ghost" href="tel:+${t}">📞 Llamar</a>` : ""}</div>
     ${entregando[m.id] ? `<label>¿Cuánto efectivo cobraste?<input id="cob-${esc(m.id)}" inputmode="decimal" value="${esc(entregando[m.id].texto)}"></label>` : ""}
     <div class="fila">${m.estado === "asignado" ? `<button class="btn brand" data-a="salio" data-id="${esc(m.id)}">${t ? "Salí del local · avisar por WhatsApp" : "Salí del local"}</button>` : ""}${m.estado === "en_camino" ? `<button class="btn ok" ${m.cerca ? "" : "disabled"} data-a="entregado" data-id="${esc(m.id)}">${entregando[m.id] ? "Confirmar entrega" : "Entregado"}</button>` : ""}</div>
-    ${m.estado === "en_camino" && !m.cerca ? `<p class="hint">${m.destino_gps === false ? "Falta la ubicación del cliente. Contacta a Caja." : "Para confirmar la entrega, mantén el GPS activo y acércate a 200 m del destino."}</p>` : ""}
+    ${m.estado === "en_camino" && !m.cerca ? `<p class="hint">${m.destino_gps === false ? "Falta la ubicación del cliente. Contacta a Caja." : m.metros_destino == null ? "Esperando una ubicación GPS reciente y precisa. Revisa el permiso de ubicación." : "Acércate a 200 m del destino para confirmar la entrega."}</p>` : ""}
     ${m.estado === "en_camino" && t ? `<a class="btn ghost" href="${esc(avisoCliente(m))}">Abrir mensaje al cliente</a>` : ""}
   </section>`; }).join("")}
   <section class="card">
