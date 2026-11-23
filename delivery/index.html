@@ -241,7 +241,13 @@ async function latido() {
   if (ocupado) return; ocupado = true;
   try {
     if (!cuentaOk()) { await revisarCuenta(); if (!cuentaOk()) return; }
-    if (disponible && finTurno && Date.now() >= finTurno) {
+    const relojLocal = Date.now() + desfase;
+    if (disponible) {
+      const limite = cierreLocal(relojLocal);
+      const fin = Math.min(finTurno || limite, limite);
+      if (fin !== finTurno) { finTurno = fin; LS.set("dlv.finTurno", fin); }
+    }
+    if (disponible && (!finTurno || relojLocal >= finTurno)) {
       disponible = false;
       LS.set("dlv.disponible", false);
       actualizarGps();
@@ -299,9 +305,20 @@ async function mantenerPrendida() {
 }
 
 // ---------- acciones ----------
+// Medianoche en Caracas corresponde a las 04:00 UTC.
+function cierreLocal(ms) {
+  const local = new Date(ms - 4 * 3600000);
+  const dia = local.getUTCDay(), hora = local.getUTCHours();
+  const cierre = dia === 0 || dia >= 4 ? 24 : 15;
+  if (hora < 6 || hora >= cierre) return 0;
+  local.setUTCHours(cierre, 0, 0, 0);
+  return local.getTime() + 4 * 3600000;
+}
 async function cambiarDisponible() {
   if (!disponible) {
-    finTurno = Date.now() + horasTurno * 3600000;
+    const ahora = Date.now() + desfase, cierre = cierreLocal(ahora);
+    if (!cierre) { toast("El local está cerrado. Los turnos empiezan a las 6:00 a. m."); return; }
+    finTurno = Math.min(ahora + horasTurno * 3600000, cierre);
     LS.set("dlv.finTurno", finTurno);
   }
   disponible = !disponible; LS.set("dlv.disponible", disponible);
@@ -434,9 +451,9 @@ function pintar() {
     <p class="hint">Si no contestas, pasa al siguiente repartidor más cerca.</p>
   </section>` : ""}
   <section class="card">
-    ${!disponible ? `<label>Duración del turno<select onchange="horasTurno=Number(this.value); LS.set('dlv.horasTurno',horasTurno)">${[2,4,8,12].map(h => `<option value="${h}" ${h===horasTurno?"selected":""}>${h} horas</option>`).join("")}</select></label>` : finTurno ? `<p class="hint">Turno hasta las ${new Date(finTurno).toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit",timeZone:"America/Caracas"})}.</p>` : ""}
+    ${!disponible ? `<label>Duración del turno<select onchange="horasTurno=Number(this.value); LS.set('dlv.horasTurno',horasTurno)">${[2,4,8,12].map(h => `<option value="${h}" ${h===horasTurno?"selected":""}>${h} horas</option>`).join("")}</select></label>` : finTurno ? `<p class="hint">Turno hasta las ${new Date(finTurno).toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit",timeZone:"America/Caracas"})}. Con avisos activados recibirás un recordatorio antes de terminar.</p>` : ""}
     <div class="estado"><span class="punto${disponible ? " on" : ""}"></span><div><b>${disponible ? "Disponible" : "No disponible"}</b>
-      <p class="hint">${disponible ? (gps ? `GPS activo${datos.yo && datos.yo.km != null ? ` · estás a ${String(datos.yo.km).replace(".", ",")} km del local` : ""}` : gpsError ? esc(gpsError) + " Igual te llegan pedidos, pero después de los que tienen GPS." : "Buscando tu ubicación…") : (datos.mias.length ? "Ofertas en pausa. El GPS sigue activo para terminar tu entrega." : "Actívalo cuando puedas llevar pedidos.")}</p></div>
+      <p class="hint">${disponible ? (gps ? `GPS activo${datos.yo && datos.yo.km != null ? ` · estás a ${String(datos.yo.km).replace(".", ",")} km del local` : ""}` : gpsError ? esc(gpsError) + " Igual te llegan pedidos, pero después de los que tienen GPS." : "Buscando tu ubicación…") : (datos.mias.length ? "Ofertas en pausa. El GPS sigue activo para terminar tu entrega." : "Turnos desde las 6:00 a. m. El local cierra a las 3:00 p. m. de lunes a miércoles y a medianoche de jueves a domingo.")}</p></div>
       <button class="sw" role="switch" aria-checked="${disponible}" aria-label="Disponible" onclick="cambiarDisponible()"></button></div>
     ${!datos.yo.avisos || avisoPermiso !== "granted" || permisoGps !== "granted" ? `<div class="msg w">${permisoGps !== "granted" ? "Falta el permiso de ubicación: sin él los pedidos le llegan primero a los demás." : "Activa los avisos para que te llegue el pedido aunque tengas la app cerrada."}<div style="margin-top:8px"><button class="btn brand" onclick="irAPermisos()">Aceptar permisos</button></div></div>` : ""}
     ${disponible ? `<button class="btn ghost" onclick="mantenerPrendida()">${pantalla ? "✓ Pantalla siempre prendida" : "Mantener la pantalla prendida"}</button>` : ""}
