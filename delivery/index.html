@@ -81,6 +81,9 @@ input { font: 700 1.1rem var(--body); padding: 10px 12px; border: 1.5px solid va
 .hist div { display: flex; justify-content: space-between; gap: 8px; font-size: .92rem; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 details summary { cursor: pointer; font-weight: 800; }
 #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 9; max-width: calc(100% - 32px); }
+#privacidad { width:min(420px,90vw); box-sizing:border-box; padding:24px; border:0; border-radius:18px; background:#fbf8ef; color:#1a1a1a; }
+#privacidad::backdrop { background:rgb(0 0 0 / 60%); }
+#privacidad p { line-height:1.5; }
 </style>
 <script>
 // ---------- primero se descarga (instala) la app ----------
@@ -131,9 +134,17 @@ details summary { cursor: pointer; font-weight: 800; }
 <header class="top">
   <img src="./delivery-192.png" alt="">
   <h1>Delivery<small id="quien"></small></h1>
+  <button onclick="document.getElementById('privacidad').showModal()">Privacidad</button>
   <button onclick="salir()">Salir</button>
 </header>
 <main id="app"><p class="hint">Cargando…</p></main>
+<dialog id="privacidad" aria-labelledby="tituloPrivacidad">
+  <h2 id="tituloPrivacidad">Aviso de privacidad de Delivery</h2>
+  <p>Pa’l Antojo usa los datos de tu cuenta para identificarte como repartidor y registrar los pedidos que aceptas, los cobros y las entregas.</p>
+  <p>Cuando estás disponible y permites el acceso al GPS, la app comparte tu ubicación con el sistema de la tienda para asignarte pedidos y comprobar que estás cerca del destino al confirmar la entrega.</p>
+  <p>Si activas las notificaciones, guardamos en Supabase el registro que permite enviar avisos de pedidos a este teléfono. Delivery no lee tus contactos, fotos ni conversaciones de WhatsApp. Cuando avisas al cliente, tú envías el mensaje desde WhatsApp.</p>
+  <form method="dialog"><button class="btn brand" value="leido" autofocus>Entendido</button></form>
+</dialog>
 <div id="toast" hidden></div>
 <script>
 // ---------- conexión ----------
@@ -443,10 +454,17 @@ document.addEventListener("visibilitychange", async () => {
 window.addEventListener("online", latido);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { });
 navigator.serviceWorker && navigator.serviceWorker.addEventListener("message", e => { if (e.data === "latido") latido(); });
-if (disponible) vigilarGps();
+const avisoPrivacidad = document.getElementById("privacidad");
+avisoPrivacidad.addEventListener("close", () => {
+  if (avisoPrivacidad.returnValue === "leido") LS.set("dlv.privacidad.v1", true);
+});
 revisarPermisos();
 // Espera a que acceso.js confirme la sesión
-(function arrancar() { if (document.documentElement.classList.contains("bloqueado") || !LS.get("pa.admin.ses", null)) return setTimeout(arrancar, 500); latido(); reprogramar(); })();
+(function arrancar() { if (document.documentElement.classList.contains("bloqueado") || !LS.get("pa.admin.ses", null)) return setTimeout(arrancar, 500);
+  if (!LS.get("dlv.privacidad.v1", false)) avisoPrivacidad.showModal();
+  if (disponible) vigilarGps();
+  latido(); reprogramar();
+})();
 </script>
 </body>
 </html>
