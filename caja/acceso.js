@@ -27,6 +27,11 @@
     #acceso label { display: grid; gap: 4px; font-weight: 800; font-size: .85rem; }
     #acceso input { font: 600 1rem inherit; padding: 10px; border: 1.5px solid #E6E0CF; border-radius: 10px; background: #fff; color: #1A1A1A; }
     #acceso button { font: 800 1rem inherit; padding: 12px; border: 0; border-radius: 12px; background: #F2B705; color: #1A1A1A; cursor: pointer; }
+    #acceso .campo-clave { position: relative; }
+    #acceso .campo-clave input { box-sizing: border-box; width: 100%; padding-right: 48px; }
+    #acceso .ojo { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 44px; padding: 0; background: transparent; }
+    #acceso .ojo svg { width: 21px; vertical-align: middle; }
+    html.bloqueado #acceso { overflow-y: auto; align-items: safe center; }
     #acceso button:disabled { opacity: .5; }
     #acceso p { margin: 0; font-size: .88rem; color: #6B6B6B; }
     #acceso .err { color: #B3261E; font-weight: 700; }
@@ -63,6 +68,23 @@
     guardar(s); return s;
   }
 
+  function campoClave(id, etiqueta, nueva) {
+    return `<div><label for="${id}">${etiqueta}</label><div class="campo-clave">
+      <input id="${id}" type="password" autocomplete="${nueva ? "new-password" : "current-password"}" ${nueva ? 'minlength="6"' : ''} required>
+      <button class="ojo" type="button" aria-controls="${id}" aria-label="Mostrar u ocultar: ${etiqueta}" aria-pressed="false">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="raya" d="m3 3 18 18" style="display:none"/></svg>
+      </button></div></div>`;
+  }
+  document.addEventListener("click", e => {
+    const ojo = e.target.closest("#acceso .ojo");
+    if (!ojo) return;
+    const campo = document.getElementById(ojo.getAttribute("aria-controls"));
+    const mostrar = campo.type === "password";
+    campo.type = mostrar ? "text" : "password";
+    ojo.setAttribute("aria-pressed", String(mostrar));
+    ojo.querySelector(".raya").style.display = mostrar ? "" : "none";
+  });
+
   function bloquear(error, modo) {
     if (modo === "crear") return pantallaCrear(error);
     document.documentElement.classList.add("bloqueado");
@@ -73,7 +95,7 @@
       <div class="m"><img src="${new URL("icono-192.png", BASE).href}" alt="" onerror="this.remove()">Pa'l Antojo</div>
       <p>${esc(TEXTO)}</p>
       <label>Correo<input type="email" id="accCorreo" autocomplete="username" required value="${esc(correo)}"></label>
-      <label>Contraseña<input type="password" id="accClave" autocomplete="current-password" required></label>
+      ${REGISTRO ? campoClave("accClave", "Contraseña", false) : '<label>Contraseña<input type="password" id="accClave" autocomplete="current-password" required></label>'}
       <button id="accBtn">Entrar</button>
       <p class="err" id="accErr">${esc(error || "")}</p>
       ${REGISTRO ? `<button type="button" class="otro" id="accCrear">¿Eres nuevo? Crea tu cuenta</button>` : ""}
@@ -99,7 +121,8 @@
       <label>Nombre y apellido<input id="accNombre" autocomplete="name" required maxlength="60"></label>
       <label>Teléfono (WhatsApp)<input id="accTel" type="tel" inputmode="tel" autocomplete="tel" required placeholder="0412-1234567"></label>
       <label>Correo<input type="email" id="accCorreo" autocomplete="username" required></label>
-      <label>Contraseña (mínimo 6)<input type="password" id="accClave" autocomplete="new-password" required minlength="6"></label>
+      ${campoClave("accClave", "Contraseña (mínimo 6 caracteres)", true)}
+      ${campoClave("accConfirmar", "Confirmar contraseña", true)}
       <button id="accBtn">Crear mi cuenta</button>
       <p class="err" id="accErr">${esc(error || "")}</p>
       <button type="button" class="otro" id="accVolver">Ya tengo cuenta</button>
@@ -109,6 +132,12 @@
       e.preventDefault();
       const btn = document.getElementById("accBtn"), err = document.getElementById("accErr");
       const datos = { nombre: document.getElementById("accNombre").value.trim(), telefono: document.getElementById("accTel").value.trim(), email: document.getElementById("accCorreo").value.trim(), clave: document.getElementById("accClave").value };
+      const confirmar = document.getElementById("accConfirmar");
+      if (datos.clave !== confirmar.value) {
+        err.textContent = "Las contraseñas no coinciden. Revisa la confirmación.";
+        confirmar.focus();
+        return;
+      }
       if ((datos.telefono.match(/\d/g) || []).length < 7) { err.textContent = "Pon tu teléfono completo."; return; }
       btn.disabled = true; err.textContent = "";
       try {
