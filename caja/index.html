@@ -274,6 +274,11 @@ td.n { white-space: nowrap; }
 }
 /* Tablas que en el teléfono se vuelven tarjetas (para que el botón de la fila no quede escondido a la derecha) */
 @media (max-width: 639px) {
+  .tbl.apilar td.dlvFicha { min-width: 0; white-space: normal; }
+  .dlvFicha .note { display: block; overflow-wrap: anywhere; margin-bottom: 12px; }
+  .dlvFicha .fields { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .dlvFicha .fields input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
+  .dlvFicha .fields button { min-height: 44px; }
   .tbl.apilar thead { display: none; }
   .tbl.apilar table, .tbl.apilar tbody { display: block; }
   .tbl.apilar tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; padding: 12px; margin-bottom: 10px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); }
@@ -2135,8 +2140,8 @@ function pDelivery() {
   </section>
   <section class="card"><h3>Repartidores</h3>
     ${rs.length ? `<div class="tbl apilar"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Del local</th><th>Avisos</th><th>Última vez</th><th></th></tr></thead><tbody>
-      ${rs.map(r => dlv.editando === r.email ? `<tr><td class="tpri" colspan="6"><div class="fields"><label>Nombre<input id="ed-nombre" value="${esc(r.nombre)}" maxlength="60"></label><label>Teléfono<input id="ed-tel" inputmode="tel" value="${esc(r.telefono || "")}"></label>
-          <button class="btn brand" data-a="dlvGuardarEd" data-email="${esc(r.email)}">Guardar</button><button class="btn ghost" data-a="dlvCancelarEd">Cancelar</button></div><small class="note">${esc(r.email)}</small></td></tr>` : `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
+      ${rs.map(r => dlv.editando?.email === r.email ? `<tr><td class="tpri dlvFicha" colspan="6"><strong>Editar repartidor</strong><small class="note">${esc(r.email)}</small><div class="fields"><label>Nombre<input id="ed-nombre" value="${esc(dlv.editando.nombre)}" maxlength="60"></label><label>Teléfono<input id="ed-tel" type="tel" value="${esc(dlv.editando.telefono)}"></label>
+          <button class="btn brand" data-a="dlvGuardarEd" data-email="${esc(r.email)}">Guardar</button><button class="btn ghost" data-a="dlvCancelarEd">Cancelar</button></div></td></tr>` : `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
         <td data-l="Del local">${r.disponible ? (r.gps ? dlvKm(r.km) : "Sin GPS") : "—"}</td><td data-l="Avisos">${r.avisos ? "Activados" : "Solo con la app abierta"}</td><td data-l="Última vez">${esc(dlvHace(r.visto))}</td>
         <td class="tact">${d.admin ? `<span class="dlvAsig"><button class="btn ghost" data-a="dlvEditar" data-email="${esc(r.email)}">Editar</button><button class="btn ghost" data-a="dlvActivo" data-email="${esc(r.email)}">${r.activo ? "Desactivar" : "Activar"}</button><button class="btn link" data-a="dlvBorrar" data-email="${esc(r.email)}">Borrar</button></span>` : ""}</td></tr>`).join("")}
     </tbody></table></div>` : `<p class="note">Todavía no hay repartidores.</p>`}
@@ -2182,7 +2187,10 @@ $("#main").addEventListener("click", async e => {
       if (!confirm(a === "dlvRechazar" ? `¿Rechazar la solicitud de ${r.nombre}?` : `¿Borrar a ${r.nombre} del delivery? Sus cuentas de envíos se quedan guardadas.`)) return;
       await dlvRpc("dlv_borrar_repartidor", { quien: r.email }); toast(a === "dlvRechazar" ? "Solicitud rechazada." : `${r.nombre} ya no está en el delivery.`); await dlvTraer(true);
     }
-    if (a === "dlvEditar") dlv.editando = b.dataset.email;
+    if (a === "dlvEditar") {
+      const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email);
+      if (r) dlv.editando = { email: r.email, nombre: r.nombre || "", telefono: r.telefono || "" };
+    }
     if (a === "dlvCancelarEd") dlv.editando = "";
     if (a === "dlvGuardarEd") {
       const r = dlv.datos.repartidores.find(x => x.email === b.dataset.email); if (!r) return;
@@ -2198,6 +2206,11 @@ $("#main").addEventListener("click", async e => {
 });
 $("#main").addEventListener("change", e => {
   if (e.target.id === "dlvSeg") { const v = Math.min(300, Math.max(15, Math.round(num(e.target.value)) || 45)); cfg.dlvSeg = v; LS.set("pa.cfg", cfg); e.target.value = v; toast(`Cada repartidor tiene ${v} segundos para aceptar.`); }
+});
+$("#main").addEventListener("input", e => {
+  if (!dlv.editando) return;
+  if (e.target.id === "ed-nombre") dlv.editando.nombre = e.target.value;
+  if (e.target.id === "ed-tel") dlv.editando.telefono = e.target.value;
 });
 setInterval(dlvTraer, 5000);
 setTimeout(() => dlvTraer(true), 1500);
