@@ -2158,10 +2158,13 @@ function dlvCampoBanco(etiqueta, valor) {
 function dlvFichaRetiro(d, r) {
   const tasa = tasaHoy(), bs = Number.isFinite(tasa) && tasa > 0 ? dlvDecimal.format(r.monto * tasa) : "";
   const f = r.destino, documento = /^([VEJP])-?(\d+)$/i.exec(f.cedula);
+  const pagoMovil = [`Banco: ${f.banco}`, `Teléfono: ${f.telefono}`, `Documento: ${f.cedula}`, `Titular: ${f.titular}`, `Monto: ${bs} Bs`].join("\n");
   return `<article class="dlvRetiro"><h4>${esc(dlvNombreDe(d,r.email))}</h4>
     <p class="note">Retiro de ${fmt(r.monto)}${bs ? " · Tasa de Caja: "+esc(String(tasa).replace(".",","))+" Bs/$" : ""}</p>
     ${bs ? dlvCampoBanco("Monto a transferir en Bs",bs) : '<p class="msg w">Ingresa la tasa de cambio en Caja para calcular el monto en Bs.</p>'}
     <div class="dlvCampos">${dlvCampoBanco("Banco",f.banco)}${dlvCampoBanco("Teléfono",f.telefono)}${dlvCampoBanco(documento ? "Documento · tipo "+documento[1] : "Documento",documento ? documento[2] : f.cedula)}${dlvCampoBanco("Titular",f.titular)}</div>
+    <button type="button" class="btn ghost" data-copiar-retiro ${bs?"":"disabled"}>Copiar todo</button>
+    <textarea hidden readonly rows="5" aria-label="Datos del retiro">${esc(pagoMovil)}</textarea>
     <button class="btn brand" data-a="dlvPagarRetiro" data-id="${esc(r.id)}" data-bs="${esc(bs)}" data-titular="${esc(f.titular)}" ${bs?"":"disabled"}>Confirmar pago realizado</button></article>`;
 }
 function pDelivery() {
@@ -2230,11 +2233,17 @@ setInterval(() => {
 $("#main").addEventListener("click", async e => {
   const vista = e.target.closest("[data-dlvvista]");
   if (vista) { dlvVista = vista.dataset.dlvvista; pintar(); return; }
-  const copiar = e.target.closest("[data-copiar-dlv]");
+  const copiar = e.target.closest("[data-copiar-dlv], [data-copiar-retiro]");
   if (copiar) {
-    const campo = copiar.previousElementSibling;
-    try { await navigator.clipboard.writeText(campo.value); toast("Copiado: " + campo.getAttribute("aria-label")); }
-    catch (_) { campo.focus(); campo.select(); toast(document.execCommand("copy") ? "Dato copiado." : "Dato seleccionado. Toca Copiar en tu teléfono."); }
+    const todo = copiar.hasAttribute("data-copiar-retiro");
+    const campo = todo ? copiar.nextElementSibling : copiar.previousElementSibling;
+    try { await navigator.clipboard.writeText(campo.value); }
+    catch (_) {
+      campo.hidden = false; campo.focus(); campo.select();
+      if (!document.execCommand("copy")) { toast("Texto seleccionado. Toca Copiar en tu teléfono."); return; }
+      if (todo) { campo.hidden = true; copiar.focus(); }
+    }
+    toast(todo ? "Datos del retiro copiados." : "Copiado: " + campo.getAttribute("aria-label"));
     return;
   }
   const ch = e.target.closest("[data-dlvrango]");
