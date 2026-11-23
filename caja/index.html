@@ -235,7 +235,9 @@ td.n { white-space: nowrap; }
 @media (max-width: 400px) { .kpis.k3 .kpi { padding: 8px; } .kpis.k3 .kpi b { font-size: 1.05rem; } }
 @media (max-width: 400px) { .rfila { grid-template-columns: 70px minmax(0, 1fr) 64px; } .rf { font-size: .75rem; } }
 .reclista {display:grid;gap:6px}
-.reclista h3 {margin:14px 0 2px}
+.reclista h3 {margin:28px 0 4px;color:var(--brand)}
+.reclista h3:first-child {margin-top:6px}
+@media (prefers-color-scheme: light) { .reclista h3 {color:#896300} }
 .recProducto {display:grid;gap:3px;text-align:left;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--fg);font:inherit;cursor:pointer}
 .recProducto b {font:650 1.05rem var(--display)}
 .recProducto span {color:var(--muted);overflow-wrap:anywhere}
@@ -1586,7 +1588,7 @@ function invRecetas() {
     ...inv.preps.map(p => ({ k: "prep:" + p.id, n: p.n, g: "Preparaciones" }))];
   let g = "";
   const lista = filas.map(f => {
-    const cab = f.g !== g ? `<h3 style="margin-top:6px;grid-column:1/-1">${esc(f.g)}</h3>` : ""; g = f.g;
+    const cab = f.g !== g ? `<h3>${esc(f.g)}</h3>` : ""; g = f.g;
     const partes = f.k.startsWith("prep:") ? (prepDe(f.k.slice(5)) || {}).partes : (inv.recetas[f.k] || {}).partes;
     const detalle = (partes || []).map(x => {
       const ins = insumoDe(x.i), prep = prepDe(x.i);
