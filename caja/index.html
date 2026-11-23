@@ -310,27 +310,31 @@ td.n { white-space: nowrap; }
 .tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
 .tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
 .tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
-/* Delivery comparte el encabezado oscuro, la navegación subrayada y el saldo de la app del repartidor. */
-.dlvPanel {display:grid;gap:16px;min-width:0}
-.dlvCab {overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:20px}
-.dlvMarca {display:flex;align-items:center;gap:14px;background:var(--ink);color:#fff;padding:16px clamp(14px,3vw,28px)}
-.dlvMarca img {width:54px;height:54px;object-fit:contain}
-.dlvMarca h2 {color:var(--brand);font-size:clamp(1.55rem,4vw,2rem)}
-.dlvMarca small {display:block;color:#e2dac6;font:700 .86rem var(--body);margin-top:2px}
-.dlvMenu {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 6px}
-.dlvMenu button {position:relative;display:flex;align-items:center;justify-content:center;gap:7px;min-height:58px;padding:7px 2px;border:none;background:none;color:var(--muted);font:800 .93rem var(--body);cursor:pointer}
-.dlvMenu button[aria-current="page"] {color:var(--fg);box-shadow:inset 0 -4px var(--brand)}
-.dlvMenu button:focus-visible {outline:2px solid var(--fg);outline-offset:-4px}
-.dlvMenu .ico {width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.dlvMenu .ico .a {fill:var(--brand);stroke:none}
-.dlvMenu b {display:inline-grid;place-items:center;background:var(--brand);color:var(--ink);font:800 .7rem var(--body);padding:0 4px;min-width:16px;border-radius:8px}
-.dlvPanel .card {padding:clamp(15px,2vw,24px);gap:12px;border-radius:18px}
-.dlvPanel h3 {font-size:1.25rem}
-.dlvPanel .kpis {grid-template-columns:repeat(3,minmax(0,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 0}
-.dlvPanel .kpi {border:none;border-radius:0;padding:0 clamp(8px,2vw,24px);background:transparent;color:var(--fg);align-content:start;display:flex;flex-direction:column-reverse;justify-content:end}
-.dlvPanel .kpi+.kpi {border-left:1px solid var(--line)}
-.dlvPanel .kpi b {font:650 clamp(1.25rem,3vw,1.85rem) var(--display);overflow-wrap:anywhere}
-.dlvPanel .kpi small {color:var(--muted)}
+/* Vista de Delivery en Caja: misma columna y paleta que la app móvil. */
+body:has(.dlvPanel) {background:#151410}
+main.ancho:has(.dlvPanel) {max-width:none;padding:0;display:block}
+.dlvPanel {--surface:#201e18;--bg:#151410;--line:#38342a;--fg:#f3eee0;--muted:#b8b2a2;--ok:#6fcf8a;--okbg:#1b3324;--bad:#f08a82;--badbg:#3a1e1c;--warnbg:#3a3115;color-scheme:dark;background:var(--bg);color:var(--fg);font:16px/1.45 var(--body);min-height:85vh}
+.dlvMarca {background:#1a1a1a}
+.dlvMarca>div {display:flex;align-items:center;gap:10px;max-width:560px;margin:auto;padding:10px 16px}
+.dlvMarca img {width:48px;height:48px;object-fit:contain}
+.dlvMarca h2 {color:var(--brand);font:700 1.2rem var(--display)}
+.dlvMarca small {display:block;color:#cfc8b4;font:700 .85rem var(--body)}
+.dlvMenu {display:flex;max-width:560px;margin:auto;padding:8px 12px 0;border-bottom:1px solid var(--line)}
+.dlvMenu button {flex:1;min-width:0;min-height:46px;border:0;background:none;color:var(--muted);font:800 .95rem var(--body);cursor:pointer}
+.dlvMenu [aria-current="page"] {color:var(--fg);box-shadow:inset 0 -4px var(--brand)}
+.dlvContenido {max-width:560px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px}
+.dlvContenido .card {min-width:0;display:grid;gap:12px;padding:16px;border:1.5px solid var(--line);border-radius:16px;background:var(--surface)}
+.dlvContenido h3 {font:700 1.3rem var(--display)}
+.dlvContenido .pedidos {grid-template-columns:minmax(0,1fr)}
+.dlvContenido .btn {min-height:44px}
+.dlvContenido .note,.dlvContenido .hint {color:var(--muted)}
+.dlvLinea {display:grid;gap:8px;padding:12px 0;overflow-wrap:anywhere;border-top:1px solid var(--line)}
+.dlvLinea header {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.dlvLinea h4 {font:650 1.08rem var(--display);margin:0}
+.dlvLinea p {margin:0}
+.dlvLinea .btn {justify-self:start}
+.dlvPagos {display:flex;gap:6px}
+.dlvPagos button {flex:1}
 .dlvSaldo,.dlvRetiro>.dlvCampo {border-radius:14px;background:var(--ink);color:#fff;padding:16px 20px;display:grid;gap:4px}
 .dlvSaldo strong,.dlvRetiro>.dlvCampo input {color:var(--brand);font:650 clamp(1.65rem,5vw,2.3rem) var(--display)}
 .dlvRetiro {padding:16px 0;display:grid;gap:12px;min-width:0}
@@ -343,12 +347,7 @@ td.n { white-space: nowrap; }
 .dlvRetiro>.dlvCampo input {border:0;background:none;padding:0}
 .dlvCampo .btn {min-height:44px}.dlvRetiro>.dlvCampo .btn {color:#fff;background:#37352e}
 .dlvRetiro>.btn {justify-self:start}
-@media(max-width:650px) {
-  .dlvMenu button {flex-direction:column;gap:3px;font-size:.78rem}
-  .dlvMenu b {position:absolute;top:3px;left:calc(50% + 7px)}
-  .dlvPanel {gap:12px}.dlvMenu {padding:0 2px}
-  .dlvRetiro>.btn {width:100%}
-}
+.dlvRetiro>.btn {justify-self:stretch}
 </style>
 <script src="acceso.js"></script>
 </head>
@@ -2180,19 +2179,20 @@ function pDelivery() {
     return { r, n: mias.length, envios: mias.reduce((a, e) => a + +e.envio, 0), efectivo: mias.reduce((a, e) => a + +(e.cobrado || 0), 0), debe: d.saldos ? +(d.saldos[r.email]?.debe || 0) : sinPagar.reduce((a, e) => a + +e.envio, 0), nDebe: d.saldos ? (d.saldos[r.email]?.cantidad || 0) : sinPagar.length };
   }).filter(c => c.n || c.debe || (c.r.activo && !c.r.borrado));
   const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
-  const vistas = [["pedidos","Pedidos",por.length+act.length],["retiros","Retiros",retirosCaja.length],["cuentas","Cuentas",0],["equipo","Equipo",soli.length],["ajustes","Ajustes",0]];
-  const iconosVista = {pedidos:"delivery", retiros:"banco", cuentas:"cierre", equipo:"personal", ajustes:"ajustes"};
-  const menu = `<header class="dlvCab"><div class="dlvMarca"><img src="../delivery/logo-interior.png" alt=""><div><h2>Delivery</h2><small>Pa’l Antojo · Caja</small></div></div><nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n,total])=>`<button data-dlvvista="${k}" aria-current="${dlvVista===k?"page":"false"}">${icono(iconosVista[k])}<span>${n}</span>${total ? ` <b>${total}</b>` : ""}</button>`).join("")}</nav></header>`;
+  const enPagos = dlvVista === "retiros" || dlvVista === "cuentas";
+  const vistas = [["pedidos","Pedidos"],["retiros","Pagos"],["equipo","Equipo"],["ajustes","Ajustes"]];
+  const menu = `<header><div class="dlvMarca"><div><img src="../delivery/logo-interior.png" alt=""><div><h2>Delivery</h2><small>Pa’l Antojo · Caja</small></div></div></div>
+    <nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n])=>`<button data-dlvvista="${k}" aria-current="${(enPagos ? k==="retiros" : dlvVista===k)?"page":"false"}">${n}</button>`).join("")}</nav></header>`;
+  const pagos = enPagos ? `<div class="chips dlvPagos" aria-label="Vistas de pagos"><button data-dlvvista="retiros" aria-pressed="${dlvVista==="retiros"}">Retiros pendientes</button><button data-dlvvista="cuentas" aria-pressed="${dlvVista==="cuentas"}">Cuentas de envíos</button></div>` : "";
   let contenido;
   if (dlvVista === "retiros") contenido = `<section class="card"><h3>Retiros pendientes</h3>${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r=>dlvFichaRetiro(d,r)).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>`;
   else if (dlvVista === "cuentas") contenido = `<section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
     <div class="dlvSaldo"><span>Por pagar a repartidores</span><strong>${fmt(cuentas.reduce((total,c)=>total+c.debe,0))}</strong></div>
     <p class="note">El saldo pendiente incluye todos los días. El período filtra los pedidos, los envíos y el efectivo cobrado.</p>
-    ${cuentas.length ? `<div class="tbl apilar"><table><thead><tr><th>Repartidor</th><th>Pedidos</th><th>Envíos</th><th>Efectivo cobrado</th><th>Sin pagarle</th><th></th></tr></thead><tbody>
-      ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}${c.r.borrado ? ` <small class="note">(ya no está)</small>` : ""}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
-        <td class="tact">${c.debe > 0 && !retirosCaja.some(r=>r.email===c.r.email) ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</td></tr>`).join("")}
-    </tbody></table></div>` : `<p class="note">Todavía no hay entregas.</p>`}
-    <p class="hint">Envíos = lo que se le cobró al cliente por el delivery. "Sin pagarle" son los envíos que todavía no se le han pagado al repartidor. El efectivo cobrado lo trae al local.</p>
+    ${cuentas.length ? cuentas.map(c => `<article class="dlvLinea"><header><h4>${esc(c.r.nombre)}</h4><b>${fmt(c.debe)} por pagar</b></header>
+      <p class="note">${c.n} pedidos · Envíos ${fmt(c.envios)} · Efectivo cobrado ${fmt(c.efectivo)}${c.r.borrado?" · Ya no está en el equipo":""}</p>
+      ${c.debe > 0 && !retirosCaja.some(r=>r.email===c.r.email) ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</article>`).join("") : '<p class="note">Todavía no hay entregas.</p>'}
+
   </section>`;
   else if (dlvVista === "equipo") contenido = `${soli.length ? `<section class="card"><h3>Solicitudes de registro (${soli.length})</h3>
     ${soli.map(r => `<div class="dlvFila"><div><b>${esc(r.nombre)}</b> <span class="note">${esc(r.telefono || "")} · ${esc(r.email)} · ${esc(dlvHace(r.solicitado))}</span></div>
@@ -2200,12 +2200,12 @@ function pDelivery() {
     <p class="hint">Se registraron solos desde la app del delivery. Hasta que los apruebes no les llegan pedidos.</p>
   </section>` : ""}
 <section class="card"><h3>Repartidores</h3>
-    ${rs.length ? `<div class="tbl apilar"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Del local</th><th>Avisos</th><th>Última vez</th><th></th></tr></thead><tbody>
-      ${rs.map(r => dlv.editando?.email === r.email ? `<tr><td class="tpri dlvFicha" colspan="6"><strong>Editar repartidor</strong><small class="note">${esc(r.email)}</small><div class="fields"><label>Nombre<input id="ed-nombre" value="${esc(dlv.editando.nombre)}" maxlength="60"></label><label>Teléfono<input id="ed-tel" type="tel" value="${esc(dlv.editando.telefono)}"></label>
-          <button class="btn brand" data-a="dlvGuardarEd" data-email="${esc(r.email)}">Guardar</button><button class="btn ghost" data-a="dlvCancelarEd">Cancelar</button></div></td></tr>` : `<tr><td class="tpri">${esc(r.nombre)}${r.telefono ? `<small class="note" style="display:block;font:600 .85rem var(--body)">${esc(r.telefono)}</small>` : ""}</td><td data-l="Estado">${estadoRep(r)}</td>
-        <td data-l="Del local">${r.disponible ? (r.gps ? dlvKm(r.km) : "Sin GPS") : "—"}</td><td data-l="Avisos">${r.avisos ? "Activados" : "Solo con la app abierta"}</td><td data-l="Última vez">${esc(dlvHace(r.visto))}</td>
-        <td class="tact">${d.admin ? `<span class="dlvAsig"><button class="btn ghost" data-a="dlvEditar" data-email="${esc(r.email)}">Editar</button><button class="btn ghost" data-a="dlvActivo" data-email="${esc(r.email)}">${r.activo ? "Desactivar" : "Activar"}</button><button class="btn link" data-a="dlvBorrar" data-email="${esc(r.email)}">Borrar</button></span>` : ""}</td></tr>`).join("")}
-    </tbody></table></div>` : `<p class="note">Todavía no hay repartidores.</p>`}
+    ${rs.length ? rs.map(r => dlv.editando?.email === r.email ? `<article class="dlvLinea dlvFicha"><strong>Editar repartidor</strong><small class="note">${esc(r.email)}</small><div class="fields"><label>Nombre<input id="ed-nombre" value="${esc(dlv.editando.nombre)}" maxlength="60"></label><label>Teléfono<input id="ed-tel" type="tel" value="${esc(dlv.editando.telefono)}"></label>
+          <button class="btn brand" data-a="dlvGuardarEd" data-email="${esc(r.email)}">Guardar</button><button class="btn ghost" data-a="dlvCancelarEd">Cancelar</button></div></article>` :
+      `<article class="dlvLinea"><header><h4>${esc(r.nombre)}</h4>${estadoRep(r)}</header>
+      <p class="note">${esc(r.telefono || r.email)} · ${esc(dlvHace(r.visto))}</p>
+      <p class="note">Avisos: ${r.avisos?"activados":"solo con la app abierta"}${r.disponible?" · "+(r.gps?dlvKm(r.km)+" del local":"Sin GPS"):""}</p>
+      ${d.admin ? `<span class="dlvAsig"><button class="btn ghost" data-a="dlvEditar" data-email="${esc(r.email)}">Editar</button><button class="btn ghost" data-a="dlvActivo" data-email="${esc(r.email)}">${r.activo ? "Desactivar" : "Activar"}</button><button class="btn link" data-a="dlvBorrar" data-email="${esc(r.email)}">Borrar</button></span>` : ""}</article>`).join("") : '<p class="note">Todavía no hay repartidores.</p>'}
     ${d.admin ? `<details${rs.length ? "" : " open"}><summary>Agregar repartidor</summary>
       <div class="fields" style="margin-top:10px"><label>Nombre<input id="dr-nombre" autocomplete="off"></label><label>Teléfono<input id="dr-tel" inputmode="tel" autocomplete="off"></label><label class="ancho">Correo<input id="dr-email" type="email" autocomplete="off"></label>
       <button class="btn brand" data-a="dlvRep">Agregar</button></div>
@@ -2215,16 +2215,16 @@ function pDelivery() {
     <p class="note">El pedido le llega primero al repartidor disponible más cerca del local. Si no acepta a tiempo o dice "No puedo", pasa al siguiente más cerca, y así. Los que ya llevan un pedido van de últimos; los que no tienen GPS, después de los que sí. Si nadie acepta, aquí sale "Sin repartidor".</p>
     <label style="max-width:220px">Segundos para aceptar<input id="dlvSeg" inputmode="numeric" value="${+cfg.dlvSeg || 45}"></label>
   </section>`;
-  else contenido = `<div class="kpis"><div class="kpi main"><small>Disponibles</small><b>${libres}</b></div><div class="kpi"><small>Llevando pedido</small><b>${enCalle}</b></div><div class="kpi"><small>Envíos hoy</small><b>${fmt((d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && ahoraCaracas(new Date(e.entregado)).fecha === ahoraCaracas().fecha).reduce((a, e) => a + +e.envio, 0))}</b></div></div>
-<section class="card"><h3>Por despachar</h3>
+  else contenido = `<section class="card"><h3>Por despachar</h3>
     ${por.length ? por.map(p => `<div class="dlvFila"><div><b>${esc(p.cliente || "Cliente")}</b> <span class="note">${esc(h12(p.hora))} · ${p.estado === "listo" ? "listo" : "en cocina"} · envío ${fmt(p.delivery || 0)}</span>${p.direccion ? `<p class="note">${esc(p.direccion)}</p>` : ""}</div>
       <div class="acts"><button class="btn brand" data-a="dlvPedir" data-id="${esc(p.id)}">🛵 Buscar repartidor</button>${dlvSelect(p.id)}</div></div>`).join("")
       : `<p class="note">No hay pedidos de delivery esperando repartidor.</p>`}
   </section>
-  ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : `<section class="card"><h3>En curso</h3><p class="note">No hay entregas en curso.</p></section>`}`;
+  ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : `<section class="card"><h3>En curso</h3><p class="note">No hay entregas en curso.</p></section>`}
+  <section class="card"><h3>Hoy</h3><p>${libres} disponibles · ${enCalle} llevando pedidos</p><p class="note">Envíos entregados · ${fmt((d.entregas || []).filter(e => e.estado === "entregado" && e.entregado && ahoraCaracas(new Date(e.entregado)).fecha === ahoraCaracas().fecha).reduce((a, e) => a + +e.envio, 0))}</p></section>`;
   return `
   ${dlv.error ? `<p class="msg bad">${esc(dlv.error)}</p>` : ""}
-  <div class="dlvPanel">${menu}${contenido}</div>`;
+  <div class="dlvPanel">${menu}<div class="dlvContenido">${pagos}${contenido}</div></div>`;
 }
 // Cuenta regresiva de las ofertas, sin repintar todo
 setInterval(() => {
