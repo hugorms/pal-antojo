@@ -339,16 +339,18 @@ grant execute on function public.dlv_quien_soy() to authenticated;
 -- p = { disponible: bool, lat, lng, precision }
 create or replace function public.dlv_yo(p jsonb default '{}') returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare yo text := lower(auth.jwt() ->> 'email'); r public.repartidores; hoy date := (now() at time zone 'America/Caracas')::date; oferta jsonb;
+declare yo text := lower(auth.jwt() ->> 'email'); r public.repartidores; hoy date := (now() at time zone 'America/Caracas')::date; oferta jsonb; usar_gps boolean;
 begin
   if not public.es_repartidor() then raise exception 'sin permiso' using errcode = '42501'; end if;
   if p ? 'disponible' then
+    usar_gps := coalesce((p ->> 'disponible')::boolean, false) or exists (
+      select 1 from public.entregas where repartidor = yo and estado in ('asignado', 'en_camino'));
     update public.repartidores set
       disponible = coalesce((p ->> 'disponible')::boolean, false),
-      lat = case when (p ->> 'disponible')::boolean and p ? 'lat' then (p ->> 'lat')::double precision when (p ->> 'disponible')::boolean then lat end,
-      lng = case when (p ->> 'disponible')::boolean and p ? 'lng' then (p ->> 'lng')::double precision when (p ->> 'disponible')::boolean then lng end,
-      precision_m = case when (p ->> 'disponible')::boolean then (p ->> 'precision')::real end,
-      gps_visto = case when (p ->> 'disponible')::boolean and p ? 'lat' then now() when (p ->> 'disponible')::boolean then gps_visto end,
+      lat = case when usar_gps and p ? 'lat' then (p ->> 'lat')::double precision when usar_gps then lat end,
+      lng = case when usar_gps and p ? 'lng' then (p ->> 'lng')::double precision when usar_gps then lng end,
+      precision_m = case when usar_gps then (p ->> 'precision')::real end,
+      gps_visto = case when usar_gps and p ? 'lat' then now() when usar_gps then gps_visto end,
       visto = now()
     where email = yo;
   end if;
