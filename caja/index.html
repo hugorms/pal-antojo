@@ -310,12 +310,45 @@ td.n { white-space: nowrap; }
 .tbl::-webkit-scrollbar, textarea::-webkit-scrollbar { display: block; width: 5px; height: 5px; }
 .tbl::-webkit-scrollbar-thumb, textarea::-webkit-scrollbar-thumb { background: rgba(128,128,128,.35); border-radius: 9px; }
 .tbl::-webkit-scrollbar-track, textarea::-webkit-scrollbar-track { background: transparent; }
-.dlvMenu {display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.dlvMenu button {min-height:44px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;font:inherit;font-weight:700;cursor:pointer}
-.dlvMenu [aria-current="page"] {background:var(--brand);color:#191919}.dlvMenu b {font-size:.82em}
-.dlvRetiro {padding:12px 0;display:grid;gap:12px}.dlvRetiro+.dlvRetiro {border-top:1px solid var(--line)}.dlvRetiro h4 {margin:0;font-size:1.15rem}
-.dlvCampos {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px}
-.dlvCampo {min-width:0;display:grid;gap:4px}.dlvCampo>span:last-child {display:flex;gap:6px}.dlvCampo input {min-width:0;flex:1;font-variant-numeric:tabular-nums}.dlvCampo .btn {min-height:44px}
+/* Delivery comparte el encabezado oscuro, la navegación subrayada y el saldo de la app del repartidor. */
+.dlvPanel {display:grid;gap:16px;min-width:0}
+.dlvCab {overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:20px}
+.dlvMarca {display:flex;align-items:center;gap:14px;background:var(--ink);color:#fff;padding:16px clamp(14px,3vw,28px)}
+.dlvMarca img {width:54px;height:54px;object-fit:contain}
+.dlvMarca h2 {color:var(--brand);font-size:clamp(1.55rem,4vw,2rem)}
+.dlvMarca small {display:block;color:#e2dac6;font:700 .86rem var(--body);margin-top:2px}
+.dlvMenu {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 6px}
+.dlvMenu button {position:relative;display:flex;align-items:center;justify-content:center;gap:7px;min-height:58px;padding:7px 2px;border:none;background:none;color:var(--muted);font:800 .93rem var(--body);cursor:pointer}
+.dlvMenu button[aria-current="page"] {color:var(--fg);box-shadow:inset 0 -4px var(--brand)}
+.dlvMenu button:focus-visible {outline:2px solid var(--fg);outline-offset:-4px}
+.dlvMenu .ico {width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dlvMenu .ico .a {fill:var(--brand);stroke:none}
+.dlvMenu b {display:inline-grid;place-items:center;background:var(--brand);color:var(--ink);font:800 .7rem var(--body);padding:0 4px;min-width:16px;border-radius:8px}
+.dlvPanel .card {padding:clamp(15px,2vw,24px);gap:12px;border-radius:18px}
+.dlvPanel h3 {font-size:1.25rem}
+.dlvPanel .kpis {grid-template-columns:repeat(3,minmax(0,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 0}
+.dlvPanel .kpi {border:none;border-radius:0;padding:0 clamp(8px,2vw,24px);background:transparent;color:var(--fg);align-content:start;display:flex;flex-direction:column-reverse;justify-content:end}
+.dlvPanel .kpi+.kpi {border-left:1px solid var(--line)}
+.dlvPanel .kpi b {font:650 clamp(1.25rem,3vw,1.85rem) var(--display);overflow-wrap:anywhere}
+.dlvPanel .kpi small {color:var(--muted)}
+.dlvSaldo,.dlvRetiro>.dlvCampo {border-radius:14px;background:var(--ink);color:#fff;padding:16px 20px;display:grid;gap:4px}
+.dlvSaldo strong,.dlvRetiro>.dlvCampo input {color:var(--brand);font:650 clamp(1.65rem,5vw,2.3rem) var(--display)}
+.dlvRetiro {padding:16px 0;display:grid;gap:12px;min-width:0}
+.dlvRetiro+.dlvRetiro {border-top:2px dashed var(--line)}
+.dlvRetiro h4 {margin:0;font:650 1.3rem var(--display)}
+.dlvCampos {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.dlvCampo {min-width:0;display:grid;gap:4px}.dlvCampo>span:first-child {font-weight:800;font-size:.85rem}
+.dlvCampo>span:last-child {display:flex;align-items:center;gap:6px}
+.dlvCampo input {min-width:0;flex:1;font-variant-numeric:tabular-nums}
+.dlvRetiro>.dlvCampo input {border:0;background:none;padding:0}
+.dlvCampo .btn {min-height:44px}.dlvRetiro>.dlvCampo .btn {color:#fff;background:#37352e}
+.dlvRetiro>.btn {justify-self:start}
+@media(max-width:650px) {
+  .dlvMenu button {flex-direction:column;gap:3px;font-size:.78rem}
+  .dlvMenu b {position:absolute;top:3px;left:calc(50% + 7px)}
+  .dlvPanel {gap:12px}.dlvMenu {padding:0 2px}
+  .dlvRetiro>.btn {width:100%}
+}
 </style>
 <script src="acceso.js"></script>
 </head>
@@ -2144,12 +2177,13 @@ function pDelivery() {
     return { r, n: mias.length, envios: mias.reduce((a, e) => a + +e.envio, 0), efectivo: mias.reduce((a, e) => a + +(e.cobrado || 0), 0), debe: d.saldos ? +(d.saldos[r.email]?.debe || 0) : sinPagar.reduce((a, e) => a + +e.envio, 0), nDebe: d.saldos ? (d.saldos[r.email]?.cantidad || 0) : sinPagar.length };
   }).filter(c => c.n || c.debe || (c.r.activo && !c.r.borrado));
   const estadoRep = r => !r.activo ? `<span class="pill">Inactivo</span>` : !r.disponible ? `<span class="pill">Desconectado</span>` : r.ocupado ? `<span class="pill w">Llevando pedido</span>` : `<span class="pill g">Disponible</span>`;
-  const vistas = [["pedidos","Pedidos",por.length+act.length],["retiros","Retiros",retirosCaja.length],["cuentas","Cuentas de envíos",0],["equipo","Repartidores",soli.length],["ajustes","Ajustes",0]];
-  const menu = `<nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n,total])=>`<button data-dlvvista="${k}" aria-current="${dlvVista===k?"page":"false"}">${n}${total ? ` <b>${total}</b>` : ""}</button>`).join("")}</nav>`;
+  const vistas = [["pedidos","Pedidos",por.length+act.length],["retiros","Retiros",retirosCaja.length],["cuentas","Cuentas",0],["equipo","Equipo",soli.length],["ajustes","Ajustes",0]];
+  const iconosVista = {pedidos:"delivery", retiros:"banco", cuentas:"cierre", equipo:"personal", ajustes:"ajustes"};
+  const menu = `<header class="dlvCab"><div class="dlvMarca"><img src="../delivery/logo-interior.png" alt=""><div><h2>Delivery</h2><small>Pa’l Antojo · Caja</small></div></div><nav class="dlvMenu" aria-label="Secciones de Delivery">${vistas.map(([k,n,total])=>`<button data-dlvvista="${k}" aria-current="${dlvVista===k?"page":"false"}">${icono(iconosVista[k])}<span>${n}</span>${total ? ` <b>${total}</b>` : ""}</button>`).join("")}</nav></header>`;
   let contenido;
   if (dlvVista === "retiros") contenido = `<section class="card"><h3>Retiros pendientes</h3>${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r=>dlvFichaRetiro(d,r)).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>`;
   else if (dlvVista === "cuentas") contenido = `<section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
-    <p><strong>Total por pagar a repartidores · ${fmt(cuentas.reduce((total,c)=>total+c.debe,0))}</strong></p>
+    <div class="dlvSaldo"><span>Por pagar a repartidores</span><strong>${fmt(cuentas.reduce((total,c)=>total+c.debe,0))}</strong></div>
     <p class="note">El saldo pendiente incluye todos los días. El período filtra los pedidos, los envíos y el efectivo cobrado.</p>
     ${cuentas.length ? `<div class="tbl apilar"><table><thead><tr><th>Repartidor</th><th>Pedidos</th><th>Envíos</th><th>Efectivo cobrado</th><th>Sin pagarle</th><th></th></tr></thead><tbody>
       ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}${c.r.borrado ? ` <small class="note">(ya no está)</small>` : ""}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
@@ -2187,7 +2221,7 @@ function pDelivery() {
   ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : `<section class="card"><h3>En curso</h3><p class="note">No hay entregas en curso.</p></section>`}`;
   return `
   ${dlv.error ? `<p class="msg bad">${esc(dlv.error)}</p>` : ""}
-  ${menu}${contenido}`;
+  <div class="dlvPanel">${menu}${contenido}</div>`;
 }
 // Cuenta regresiva de las ofertas, sin repintar todo
 setInterval(() => {
