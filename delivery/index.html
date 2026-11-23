@@ -94,7 +94,7 @@ details summary { cursor: pointer; font-weight: 800; }
   const telefono = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const iphone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (!telefono || instalada()) return;
-  let pedido = null, lista = false;
+  let pedido = null, lista = false, mostrarPasos = false;
   addEventListener("beforeinstallprompt", e => { e.preventDefault(); pedido = e; pintar(); });
   addEventListener("appinstalled", () => { lista = true; pintar(); });
   const css = document.createElement("style");
@@ -118,12 +118,24 @@ details summary { cursor: pointer; font-weight: 800; }
       ${lista
         ? `<p class="ok">✓ App descargada.</p><p>Ciérrala aquí y ábrela desde el ícono <b>Delivery</b> en tu pantalla de inicio. Ahí entras con tu cuenta y aceptas los permisos.</p>`
         : `<p><b>Primero descarga la app.</b> Así te suenan los pedidos aunque tengas el teléfono bloqueado.</p>
-           ${pedido ? `<button id="instBtn">Descargar la app</button><p class="h">Si no sale la ventana, hazlo a mano:</p>` : ""}
-           ${pasos}
-           <p class="h">Si la abriste desde WhatsApp, toca ⋮ › <b>Abrir en Chrome</b> primero. Si ya la tienes descargada, ábrela desde su ícono.</p>`}
+           <button id="instBtn" type="button">Descargar Delivery</button>
+           ${mostrarPasos ? `<div role="status"><p><b>Completa la instalación desde el navegador:</b></p>${pasos}</div>` : ""}
+           <p class="h">Si ya la instalaste, abre Delivery desde su ícono.${iphone ? "" : " Si abriste el enlace en WhatsApp, toca ⋮ y elige Abrir en Chrome."}</p>`}
     </div>`;
     const b = el.querySelector("#instBtn");
-    if (b) b.onclick = async () => { const p = pedido; pedido = null; p.prompt(); const r = await p.userChoice.catch(() => ({})); if (r.outcome === "accepted") lista = true; pintar(); };
+    if (b) b.onclick = async () => {
+      if (!pedido) { mostrarPasos = true; pintar(); return; }
+      const solicitud = pedido;
+      pedido = null;
+      b.disabled = true;
+      try {
+        await solicitud.prompt();
+        const opcion = await solicitud.userChoice;
+        if (opcion.outcome === "accepted") lista = true;
+        else mostrarPasos = true;
+      } catch (_) { mostrarPasos = true; }
+      pintar();
+    };
   }
   pintar();
 })();
