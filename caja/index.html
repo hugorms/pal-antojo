@@ -2011,6 +2011,7 @@ const dlvPorDespachar = () => pedidosDe(ahoraCaracas().fecha).filter(p => p.entr
 const dlvSolicitudes = () => ((dlv.datos && dlv.datos.repartidores) || []).filter(r => !r.aprobado && !r.borrado);
 const dlvPendientes = () => dlv.datos ? dlvPorDespachar().length + dlvActivas().filter(e => e.estado === "sin_repartidor").length + (dlv.datos.admin ? dlvSolicitudes().length : 0) : 0;
 let dlvSegCorriendo = false;
+let retirosCaja = [], errorRetiros = "";
 async function dlvTraer(forzar) {
   if (!navigator.onLine || dlvSegCorriendo) return;
   // Rápido (cada 5 s) con el módulo abierto o con entregas en curso; si no, cada 30 s
@@ -2019,6 +2020,10 @@ async function dlvTraer(forzar) {
   dlvSegCorriendo = true;
   try {
     const d = await dlvRpc("dlv_tablero", { dias: 35 });
+    if (tab === "delivery") {
+      try { retirosCaja = await dlvRpc("dlv_retiros_caja", {}); errorRetiros = ""; }
+      catch (e) { retirosCaja = []; errorRetiros = e.message; }
+    }
     dlv.desfase = Date.parse(d.ahora) - Date.now();
     // Avisos en la caja cuando cambia algo
     (d.entregas || []).forEach(e => {
@@ -2131,10 +2136,14 @@ function pDelivery() {
       : `<p class="note">No hay pedidos de delivery esperando repartidor.</p>`}
   </section>
   ${act.length ? `<h3 style="margin-top:4px">En curso</h3><div class="pedidos">${act.map(dlvTarjeta).join("")}</div>` : ""}
+  <section class="card"><h3>Retiros pendientes</h3>
+    ${errorRetiros ? esc(errorRetiros) : retirosCaja.map(r => `<div class="dlvFicha"><strong>${esc(dlvNombreDe(d,r.email))} · ${fmt(r.monto)}</strong>
+      <p>Pago Móvil · ${esc(r.destino.banco)}<br>${esc(r.destino.titular)} · ${esc(r.destino.cedula)}<br>${esc(r.destino.telefono)}</p>
+      <button class="btn brand" data-a="dlvPagarRetiro" data-id="${esc(r.id)}" data-monto="${r.monto}">Confirmar pago realizado</button></div>`).join("") || '<p class="note">Sin solicitudes pendientes.</p>'}</section>
   <section class="card"><div class="oh"><h3>Cuentas de envíos</h3><div class="chips">${[["hoy", "Hoy"], ["semana", "Esta semana"], ["mes", "Este mes"]].map(([k, t]) => `<button data-dlvrango="${k}"${k === dlv.rango ? ` aria-pressed="true"` : ""}>${t}</button>`).join("")}</div></div>
     ${cuentas.length ? `<div class="tbl apilar"><table><thead><tr><th>Repartidor</th><th>Pedidos</th><th>Envíos</th><th>Efectivo cobrado</th><th>Sin pagarle</th><th></th></tr></thead><tbody>
       ${cuentas.map(c => `<tr><td class="tpri">${esc(c.r.nombre)}${c.r.borrado ? ` <small class="note">(ya no está)</small>` : ""}</td><td data-l="Pedidos">${c.n}</td><td data-l="Envíos">${fmt(c.envios)}</td><td data-l="Efectivo cobrado">${fmt(c.efectivo)}</td><td data-l="Sin pagarle">${fmt(c.debe)}</td>
-        <td class="tact">${c.debe > 0 ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</td></tr>`).join("")}
+        <td class="tact">${c.debe > 0 && !retirosCaja.some(r=>r.email===c.r.email) ? `<button class="btn ghost" data-a="dlvLiquidar" data-email="${esc(c.r.email)}" data-monto="${c.debe}" data-n="${c.nDebe}">Pagué sus envíos</button>` : ""}</td></tr>`).join("")}
     </tbody></table></div>` : `<p class="note">Todavía no hay entregas.</p>`}
     <p class="hint">Envíos = lo que se le cobró al cliente por el delivery. "Sin pagarle" son los envíos que todavía no se le han pagado al repartidor. El efectivo cobrado lo trae al local.</p>
   </section>
@@ -2169,6 +2178,10 @@ $("#main").addEventListener("click", async e => {
     if (a === "dlvPedir") await dlvPedir(id, "", b);
     if (a === "dlvAsignar") { const sel = document.querySelector(`[data-dlvsel="${CSS.escape(id)}"]`); if (!sel || !sel.value) { toast("Elige a quién se lo asignas."); return; } await dlvPedir(id, sel.value, b); }
     if (a === "dlvCancelar") { if (!confirm("¿Cancelar el delivery de este pedido? Al repartidor le llega el aviso.")) return; await dlvRpc("dlv_cancelar", { eid: id }); toast("Delivery cancelado."); await dlvTraer(true); }
+    if (a === "dlvPagarRetiro") {
+      if (!confirm(`¿Ya transferiste el equivalente a ${fmt(+b.dataset.monto)} al titular indicado?`)) return;
+      await dlvRpc("dlv_pagar_retiro", {solicitud:b.dataset.id}); toast("Retiro registrado como pagado."); await dlvTraer(true);
+    }
     if (a === "dlvLiquidar") {
       if (!confirm(`¿Ya le pagaste ${fmt(+b.dataset.monto)} de envíos a ${dlvNombre(b.dataset.email)} (${b.dataset.n} entregas)?`)) return;
       await dlvRpc("dlv_liquidar", { quien: b.dataset.email }); toast("Anotado: envíos pagados."); await dlvTraer(true);

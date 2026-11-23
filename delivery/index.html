@@ -84,6 +84,14 @@ details summary { cursor: pointer; font-weight: 800; }
 #privacidad { width:min(420px,90vw); box-sizing:border-box; padding:24px; border:0; border-radius:18px; background:#fbf8ef; color:#1a1a1a; }
 #privacidad::backdrop { background:rgb(0 0 0 / 60%); }
 #privacidad p { line-height:1.5; }
+#secciones {display:flex; max-width:560px; margin:auto; padding:8px 12px 0; border-bottom:1px solid var(--line)}
+#secciones button,.filtros button {flex:1; min-height:46px; background:none; color:var(--muted); border:0; font:800 .93rem var(--body); cursor:pointer}
+#secciones [aria-current="page"] {color:var(--fg); box-shadow:inset 0 -4px var(--brand)}
+#irOferta {display:block;margin:12px auto 0}.saldo {display:grid;gap:2px;padding:22px;border-radius:18px;background:var(--ink);color:#fff}
+.saldo strong {font:700 clamp(2.4rem,10vw,3.5rem) var(--display);color:var(--brand)}.saldo small {color:#ddd}
+.mov {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}.mov+.mov {border-top:1px solid var(--line)}
+.mov div {min-width:0;overflow-wrap:anywhere}.mov div:last-child {text-align:right}.mov small {display:block;color:var(--muted)}
+.ficha {display:grid;gap:12px}.filtros {display:flex;gap:4px}.filtros [aria-pressed="true"] {background:var(--line);border-radius:12px;color:var(--fg)}
 </style>
 <script>
 // ---------- primero se descarga (instala) la app ----------
@@ -149,15 +157,20 @@ details summary { cursor: pointer; font-weight: 800; }
   <button onclick="document.getElementById('privacidad').showModal()">Privacidad</button>
   <button onclick="salir()">Salir</button>
 </header>
+<nav id="secciones" hidden aria-label="Menú del repartidor">
+  <button data-tab="pedidos">Pedidos</button><button data-tab="dinero">Mi dinero</button><button data-tab="historial">Historial</button><button data-tab="ajustes">Ajustes</button>
+</nav><button hidden class="btn brand" id="irOferta" onclick="abrirSeccion('pedidos')">Nuevo pedido · Ver oferta</button>
 <main id="app"><p class="hint">Cargando…</p></main>
 <dialog id="privacidad" aria-labelledby="tituloPrivacidad">
   <h2 id="tituloPrivacidad">Aviso de privacidad de Delivery</h2>
   <p>Pa’l Antojo usa los datos de tu cuenta para identificarte como repartidor y registrar los pedidos que aceptas, los cobros y las entregas.</p>
+  <p>Si solicitas un retiro, la tienda usa los datos de Pago Móvil que guardes para pagarte los envíos.</p>
   <p>Cuando estás disponible o tienes una entrega en curso y permites el acceso al GPS, la app comparte tu ubicación con el sistema de la tienda para asignarte pedidos y comprobar que estás cerca del destino al confirmar la entrega.</p>
   <p>Si activas las notificaciones, guardamos en Supabase el registro que permite enviar avisos de pedidos a este teléfono. Delivery no lee tus contactos, fotos ni conversaciones de WhatsApp. Cuando avisas al cliente, tú envías el mensaje desde WhatsApp.</p>
   <form method="dialog"><button class="btn brand" value="leido" autofocus>Entendido</button></form>
 </dialog>
 <div id="toast" hidden></div>
+<script src="./cuenta.js"></script>
 <script>
 // ---------- conexión ----------
 const SB_URL = "https://ymzwomnzjfxznmpdouad.supabase.co", SB_KEY = "sb_publishable_DMUusZtVlluniqfi0nrVxQ_pljUvIk5";
@@ -268,6 +281,7 @@ async function latido() {
     if (disponible && finTurno) p.turno_hasta = new Date(finTurno).toISOString();
     if (necesitaGps() && gps && Date.now() - gps.t < 120000) Object.assign(p, { lat: gps.lat, lng: gps.lng, precision: gps.precision });
     datos = await rpc("dlv_yo", { p }); actualizarGps(); error = "";
+    if (seccion === "dinero" && !editandoPago && Date.now() - ultimaConsultaPago > 20000) operarBilletera("ver");
     if (datos.yo) $("#quien").textContent = datos.yo.nombre || "";
     const o = datos.oferta;
     if (o && o.id !== ultimaOferta) { ultimaOferta = o.id; LS.set("dlv.ultimaOferta", o.id); avisarOferta(o); }
@@ -444,9 +458,20 @@ function mapa(m) {
   return m.direccion ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(m.direccion + ", Campo de Carabobo, Valencia") : "";
 }
 function pintar() {
+  const menu = $("#secciones"), activo = !!datos && cuentaOk();
+  menu.hidden = !activo;
+  menu.querySelectorAll("button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===seccion?"page":"false"));
+  $("#irOferta").hidden = !(activo && datos.oferta && seccion!=="pedidos");
   if (cuenta && !cuentaOk()) { if (!document.activeElement || !/^pf-/.test(document.activeElement.id || "")) $("#app").innerHTML = (error ? `<p class="msg bad">${esc(error)}</p>` : "") + pantallaCuenta(); return; }
   if (!datos && error) { $("#app").innerHTML = `<p class="msg bad">${esc(error)}</p><button class="btn ghost" onclick="latido()">Intentar de nuevo</button>`; return; }
   if (!datos) return;
+  if (seccion !== "pedidos") {
+    if (seccion === "dinero" && editandoPago && $("#fichaPago")) return;
+    const vista = seccion === "dinero" ? miDinero() : seccion === "ajustes" ? ajustesDelivery() : historialDelivery();
+    if ($("#app")._vista !== vista || $("#app").dataset.vista !== seccion) $("#app").innerHTML = vista;
+    $("#app")._vista = vista; $("#app").dataset.vista = seccion; return;
+  }
+  $("#app").dataset.vista = "pedidos";
   if (faltanPermisos()) { $("#app").innerHTML = pantallaPermisos(); return; }
   const o = datos.oferta, hoy = datos.hoy || {}, ahora = Date.now() + (desfase || 0);
   const resta = o ? Math.max(0, Math.round((Date.parse(o.hasta) - ahora) / 1000)) : 0;
@@ -487,12 +512,13 @@ function pintar() {
     <h3>Hoy</h3>
     <div class="cuentas"><div><small>Pedidos</small><b>${hoy.pedidos || 0}</b></div><div><small>Envíos</small><b>${fmt(hoy.envios)}</b></div><div><small>Efectivo cobrado</small><b>${fmt(hoy.efectivo)}</b></div></div>
     <p class="hint">Envíos que la tienda todavía no te ha pagado: <b>${fmt(datos.por_cobrar)}</b>. El efectivo que cobraste se entrega en el local.</p>
-    ${datos.historial.length ? `<details><summary>Últimas entregas</summary><div class="hist">${datos.historial.map(h => `<div><span>${esc(new Date(h.entregado).toLocaleString("es-VE", { timeZone: "America/Caracas", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))} · ${esc(h.cliente || "")}</span><span>${fmt(h.envio)}${h.pagado ? " ✓" : ""}</span></div>`).join("")}</div><p class="hint" style="margin-top:6px">✓ = envío ya pagado.</p></details>` : ""}
+
   </section>`;
   // No se repinta mientras escribe el efectivo cobrado
   if (document.activeElement && document.activeElement.id && document.activeElement.id.startsWith("cob-")) return;
   $("#app").innerHTML = html; $("#app").dataset.vista = "1";
 }
+$("#secciones").addEventListener("click",e=>{if(e.target.dataset.tab) abrirSeccion(e.target.dataset.tab);});
 $("#app").addEventListener("input", e => {
   if (!e.target.id.startsWith("cob-")) return;
   const borrador = entregando[e.target.id.slice(4)];
