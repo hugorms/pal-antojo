@@ -31,10 +31,12 @@ const MENU_BASE = [
   {"id":"pastelito","name":"Pastelito","flavors":["Carne","Queso"],"price":1}
  ]},
  {"id":"hamburguesas","cat":"Hamburguesas","icono":"🍔","foto":"hamburguesas","prefijo":"Hamburguesa","fotoPorProducto":true,"turnos":["noche"], "items": [
-  {"id":"h-clasica","name":"Clásica","desc":"175 g de carne, pan de batata, queso y salsa especial","price":5.5},
+  {"id":"h-clasica","name":"Clásica","desc":"150 g de carne, pan de batata, queso y salsa especial","price":5.5},
   {"id":"h-antojo","name":"Pa'l Antojo","desc":"La Clásica con 2 tocinetas y cebolla dorada","price":7},
   {"id":"h-doble","name":"Doble","desc":"2 carnes, doble queso y tocineta","price":8.5},
-  {"id":"h-pollo","name":"De pollo","desc":"Pechuga a la plancha, queso y salsa","price":5.5}
+  {"id":"h-pollo","name":"De pollo","desc":"Pechuga a la plancha, queso y salsa","price":5.5},
+  {"id":"h-crispy","name":"Crispy","desc":"Pollo empanizado crujiente, bañado en queso amarillo fundido, con tocineta y salsa de la casa","price":7},
+  {"id":"h-mixta","name":"Mixta","desc":"Carne y pollo a la plancha, jamón, tocineta y queso fundido chorreando","price":9}
  ]},
  {"id":"papas-fritas","cat":"Papas fritas","icono":"🍟","foto":"papas-fritas","turnos":["noche"], "items": [
   {"id":"papas","name":"Papas fritas","desc":"200 g","price":1.5},
